@@ -16,11 +16,11 @@ export async function GET(request: NextRequest) {
   // Get user config for fee
   const { data: config } = await supabase
     .from("users_config")
-    .select("fee_gestion_eur")
+    .select("fee_gestion_pct")
     .eq("id", user.id)
     .single();
 
-  const feeGestionEur = Number(config?.fee_gestion_eur) || 0;
+  const feeGestionEur = Number(config?.fee_gestion_pct) || 0;
 
   if (type === "monthly") {
     const rows = await getMonthlyDashboard(user.id, feeGestionEur);

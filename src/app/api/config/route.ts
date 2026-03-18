@@ -21,7 +21,7 @@ export async function GET() {
 
   return NextResponse.json({
     config: {
-      fee_gestion_eur: data.fee_gestion_eur,
+      fee_gestion_eur: data.fee_gestion_pct ?? data.fee_gestion_eur ?? 0,
       has_api_key: !!data.dropea_api_key_encrypted,
     },
   });
@@ -43,7 +43,8 @@ export async function PUT(request: NextRequest) {
       : null;
   }
   if (body.fee_gestion_eur !== undefined) {
-    updates.fee_gestion_eur = body.fee_gestion_eur;
+    // Column may be fee_gestion_pct (pre-migration) or fee_gestion_eur (post-migration)
+    updates.fee_gestion_pct = body.fee_gestion_eur;
   }
 
   const { error } = await supabase
