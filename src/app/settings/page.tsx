@@ -22,7 +22,7 @@ export default function SettingsPage() {
       const res = await fetch("/api/config");
       const data = await res.json();
       if (data.config) {
-        setFeeGestion(String(data.config.fee_gestion_pct || 0));
+        setFeeGestion(String(data.config.fee_gestion_eur || 0));
         setHasApiKey(data.config.has_api_key);
       }
     }
@@ -34,7 +34,7 @@ export default function SettingsPage() {
     setMessage("");
     try {
       const body: Record<string, unknown> = {
-        fee_gestion_pct: parseFloat(feeGestion) || 0,
+        fee_gestion_eur: parseFloat(feeGestion) || 0,
       };
       if (newApiKey) {
         body.dropea_api_key = newApiKey;
@@ -87,17 +87,16 @@ export default function SettingsPage() {
             />
           </div>
           <div className="space-y-2">
-            <Label>Fee de gestion (%)</Label>
+            <Label>Fee de gestion (EUR por pedido enviado)</Label>
             <Input
               type="number"
               step="0.01"
               min="0"
-              max="100"
               value={feeGestion}
               onChange={(e) => setFeeGestion(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              % sobre ventas cobrado por gestor externo. 0 si no aplica.
+              Monto fijo en EUR cobrado por gestor externo por pedido enviado. 0 si no aplica.
             </p>
           </div>
           {message && (

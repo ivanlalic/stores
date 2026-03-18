@@ -21,7 +21,7 @@ export async function GET() {
 
   return NextResponse.json({
     config: {
-      fee_gestion_pct: data.fee_gestion_pct,
+      fee_gestion_eur: data.fee_gestion_eur,
       has_api_key: !!data.dropea_api_key_encrypted,
     },
   });
@@ -42,8 +42,8 @@ export async function PUT(request: NextRequest) {
       ? encrypt(body.dropea_api_key)
       : null;
   }
-  if (body.fee_gestion_pct !== undefined) {
-    updates.fee_gestion_pct = body.fee_gestion_pct;
+  if (body.fee_gestion_eur !== undefined) {
+    updates.fee_gestion_eur = body.fee_gestion_eur;
   }
 
   const { error } = await supabase

@@ -16,14 +16,14 @@ export async function GET(request: NextRequest) {
   // Get user config for fee
   const { data: config } = await supabase
     .from("users_config")
-    .select("fee_gestion_pct")
+    .select("fee_gestion_eur")
     .eq("id", user.id)
     .single();
 
-  const feeGestionPct = Number(config?.fee_gestion_pct) || 0;
+  const feeGestionEur = Number(config?.fee_gestion_eur) || 0;
 
   if (type === "monthly") {
-    const rows = await getMonthlyDashboard(user.id, feeGestionPct);
+    const rows = await getMonthlyDashboard(user.id, feeGestionEur);
     return NextResponse.json({ rows });
   }
 
@@ -31,6 +31,6 @@ export async function GET(request: NextRequest) {
   const currentMonth =
     month ||
     `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
-  const rows = await getDailyDashboard(user.id, currentMonth, feeGestionPct);
+  const rows = await getDailyDashboard(user.id, currentMonth, feeGestionEur);
   return NextResponse.json({ rows, month: currentMonth });
 }

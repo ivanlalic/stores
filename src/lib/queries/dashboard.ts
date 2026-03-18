@@ -46,7 +46,7 @@ export interface MonthlyRow {
 export async function getDailyDashboard(
   userId: string,
   month: string, // YYYY-MM
-  feeGestionPct: number
+  feeGestionEur: number
 ): Promise<DailyRow[]> {
   const supabase = await createServiceClient();
 
@@ -129,7 +129,7 @@ export async function getDailyDashboard(
     const meta_ads = dayAds.meta_ads;
     const tiktok_ads = dayAds.tiktok_ads;
     const total_ads = meta_ads + tiktok_ads;
-    const gestion = ventas * (feeGestionPct / 100);
+    const gestion = enviados * feeGestionEur;
     const gastos = total_ads + gestion;
     const pnl_real = bruto - gastos;
     const pnl_teorico = brutoTeorico - gastos;
@@ -165,7 +165,7 @@ export async function getDailyDashboard(
 
 export async function getMonthlyDashboard(
   userId: string,
-  feeGestionPct: number
+  feeGestionEur: number
 ): Promise<MonthlyRow[]> {
   const supabase = await createServiceClient();
 
@@ -226,7 +226,7 @@ export async function getMonthlyDashboard(
       .reduce((sum, p) => sum + Number(p.neto), 0);
 
     const total_ads = ma.meta + ma.tiktok;
-    const gestion = ventas * (feeGestionPct / 100);
+    const gestion = enviados * feeGestionEur;
     const gastos = total_ads + gestion;
     const pnl_real = bruto - gastos;
 

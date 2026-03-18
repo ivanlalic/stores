@@ -77,7 +77,7 @@ export default function OnboardingPage() {
       const res = await fetch("/api/config", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fee_gestion_pct: parseFloat(feeGestion) || 0 }),
+        body: JSON.stringify({ fee_gestion_eur: parseFloat(feeGestion) || 0 }),
       });
       if (!res.ok) throw new Error("Error guardando configuracion");
 
@@ -125,18 +125,17 @@ export default function OnboardingPage() {
           {step === 2 && (
             <>
               <div className="space-y-2">
-                <Label htmlFor="fee">Fee de gestion (%)</Label>
+                <Label htmlFor="fee">Fee de gestion (EUR por pedido enviado)</Label>
                 <Input
                   id="fee"
                   type="number"
                   step="0.01"
                   min="0"
-                  max="100"
                   value={feeGestion}
                   onChange={(e) => setFeeGestion(e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Si trabajas con un gestor externo, ingresa el % que cobra sobre ventas. Si no, deja en 0.
+                  Si trabajas con un gestor externo, ingresa el monto fijo en EUR que cobra por pedido enviado. Si no, deja en 0.
                 </p>
               </div>
               {error && <p className="text-sm text-destructive">{error}</p>}
