@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/client";
 
 export default function SettingsPage() {
   const router = useRouter();
+  const [storeName, setStoreName] = useState("Mi Tienda");
   const [newApiKey, setNewApiKey] = useState("");
   const [feeGestion, setFeeGestion] = useState("0");
   const [hasApiKey, setHasApiKey] = useState(false);
@@ -24,6 +25,7 @@ export default function SettingsPage() {
       if (data.config) {
         setFeeGestion(String(data.config.fee_gestion_eur || 0));
         setHasApiKey(data.config.has_api_key);
+        setStoreName(data.config.store_name || "Mi Tienda");
       }
     }
     load();
@@ -35,6 +37,7 @@ export default function SettingsPage() {
     try {
       const body: Record<string, unknown> = {
         fee_gestion_eur: parseFloat(feeGestion) || 0,
+        store_name: storeName.trim() || "Mi Tienda",
       };
       if (newApiKey) {
         body.dropea_api_key = newApiKey;
@@ -66,6 +69,25 @@ export default function SettingsPage() {
   return (
     <div className="max-w-lg mx-auto space-y-6">
       <h2 className="text-lg font-semibold">Configuracion</h2>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Tu tienda</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Nombre de la tienda</Label>
+            <Input
+              placeholder="Ej: IBericaStore"
+              value={storeName}
+              onChange={(e) => setStoreName(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Se muestra en la barra de navegacion.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

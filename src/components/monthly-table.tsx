@@ -42,46 +42,46 @@ const columnGroups = [
 export function MonthlyTable({ rows }: MonthlyTableProps) {
   return (
     <Card className="p-0 overflow-hidden">
-      <div className="overflow-x-auto">
+      <div className="max-h-[70vh] overflow-auto">
         <Table>
-          <TableHeader>
+          <TableHeader className="sticky top-0 z-20">
             {/* Group header */}
-            <TableRow className="border-b-0 bg-muted/30">
+            <TableRow className="border-b-0 bg-muted">
               {columnGroups.map((group) => (
                 <TableHead
                   key={group.label + group.cols.join()}
                   colSpan={group.cols.length}
-                  className="text-center text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold py-1 border-l first:border-l-0 border-border/40"
+                  className="text-center text-xs uppercase tracking-wider text-muted-foreground/70 font-semibold py-1.5 border-l first:border-l-0 border-border/40 bg-muted"
                 >
                   {group.label}
                 </TableHead>
               ))}
             </TableRow>
             {/* Column headers */}
-            <TableRow className="text-xs bg-muted/50 hover:bg-muted/50">
-              <TableHead className="w-24">Mes</TableHead>
-              <TableHead className="text-right">Ventas</TableHead>
-              <TableHead className="text-right">Pedidos</TableHead>
-              <TableHead className="text-right">Entregados</TableHead>
-              <TableHead className="text-right">%</TableHead>
-              <TableHead className="text-right border-r border-border/40">Ticket</TableHead>
-              <TableHead className="text-right">Rech.</TableHead>
-              <TableHead className="text-right border-r border-border/40">Pend.</TableHead>
-              <TableHead className="text-right">Bruto</TableHead>
-              <TableHead className="text-right">Gastos</TableHead>
-              <TableHead className="text-right">%</TableHead>
-              <TableHead className="text-right">P&L Real</TableHead>
-              <TableHead className="text-right">%</TableHead>
-              <TableHead className="text-right">P&L Ajust.</TableHead>
-              <TableHead className="text-right border-r border-border/40">%</TableHead>
-              <TableHead className="text-right">Reserva</TableHead>
+            <TableRow className="text-sm bg-muted/80 hover:bg-muted/80">
+              <TableHead className="w-24 bg-muted/80">Mes</TableHead>
+              <TableHead className="text-right bg-muted/80">Ventas</TableHead>
+              <TableHead className="text-right bg-muted/80">Pedidos</TableHead>
+              <TableHead className="text-right bg-muted/80">Entregados</TableHead>
+              <TableHead className="text-right bg-muted/80">%</TableHead>
+              <TableHead className="text-right border-r border-border/40 bg-muted/80">Ticket</TableHead>
+              <TableHead className="text-right bg-muted/80">Rech.</TableHead>
+              <TableHead className="text-right border-r border-border/40 bg-muted/80">Pend.</TableHead>
+              <TableHead className="text-right bg-muted/80">Bruto</TableHead>
+              <TableHead className="text-right bg-muted/80">Gastos</TableHead>
+              <TableHead className="text-right bg-muted/80">%</TableHead>
+              <TableHead className="text-right bg-muted/80">P&L Real</TableHead>
+              <TableHead className="text-right bg-muted/80">%</TableHead>
+              <TableHead className="text-right bg-muted/80">P&L Ajust.</TableHead>
+              <TableHead className="text-right border-r border-border/40 bg-muted/80">%</TableHead>
+              <TableHead className="text-right bg-muted/80">Reserva</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.map((row, i) => (
               <TableRow
                 key={row.mes}
-                className={`text-xs transition-colors hover:bg-primary/5 ${
+                className={`text-sm transition-colors hover:bg-primary/5 ${
                   i % 2 === 0 ? "bg-background" : "bg-muted/20"
                 }`}
               >

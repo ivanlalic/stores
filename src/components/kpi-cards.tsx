@@ -83,15 +83,15 @@ export function KpiCards({ rows }: KpiCardsProps) {
         >
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-medium text-muted-foreground">
+              <p className="text-sm font-medium text-muted-foreground">
                 {kpi.label}
               </p>
-              <div className={`flex items-center justify-center size-7 rounded-md ${kpi.color}`}>
-                <kpi.icon className="size-3.5" />
+              <div className={`flex items-center justify-center size-8 rounded-md ${kpi.color}`}>
+                <kpi.icon className="size-4" />
               </div>
             </div>
             <p
-              className={`text-xl font-bold tracking-tight ${
+              className={`text-2xl font-bold tracking-tight ${
                 kpi.negative
                   ? "text-red-600"
                   : kpi.alert

@@ -59,7 +59,6 @@ const columnInfo: Record<string, string> = {
   "CPA Real": "CPA Real: Ads / Entregados",
 };
 
-// Column group definitions for visual separation
 const columnGroups = [
   { label: "Pedidos", cols: ["Dia", "Ped.", "Env.", "Ent.", "Pend.", "Rech.", "Canc.", "%Ent"] },
   { label: "Finanzas", cols: ["Ventas", "Bruto", "Ads", "Gest.", "Gastos"] },
@@ -128,30 +127,30 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
   return (
     <TooltipProvider>
       <Card className="p-0 overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="max-h-[70vh] overflow-auto">
           <Table>
-            <TableHeader>
+            <TableHeader className="sticky top-0 z-20">
               {/* Group header row */}
-              <TableRow className="border-b-0 bg-muted/30">
+              <TableRow className="border-b-0 bg-muted">
                 {columnGroups.map((group) => (
                   <TableHead
                     key={group.label}
                     colSpan={group.cols.length}
-                    className="text-center text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold py-1 border-l first:border-l-0 border-border/40"
+                    className="text-center text-xs uppercase tracking-wider text-muted-foreground/70 font-semibold py-1.5 border-l first:border-l-0 border-border/40 bg-muted"
                   >
                     {group.label}
                   </TableHead>
                 ))}
               </TableRow>
               {/* Column header row */}
-              <TableRow className="text-xs bg-muted/50 hover:bg-muted/50">
+              <TableRow className="text-sm bg-muted/80 hover:bg-muted/80">
                 {columnGroups.flatMap((group, gi) =>
                   group.cols.map((h, hi) => (
                     <TableHead
                       key={h}
-                      className={`${h === "Dia" ? "w-20 sticky left-0 bg-muted/50 z-10" : "text-right"} ${
+                      className={`${h === "Dia" ? "w-20 sticky left-0 bg-muted/80 z-30" : "text-right"} ${
                         hi === 0 && gi > 0 ? "border-l border-border/40" : ""
-                      } py-2`}
+                      } py-2.5 bg-muted/80`}
                     >
                       <InfoHeader label={h} />
                     </TableHead>
@@ -166,7 +165,7 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
                 return (
                   <TableRow
                     key={row.fecha}
-                    className={`text-xs cursor-pointer transition-colors hover:bg-primary/5 ${
+                    className={`text-sm cursor-pointer transition-colors hover:bg-primary/5 ${
                       i % 2 === 0 ? "bg-background" : "bg-muted/20"
                     } ${isWeekend ? "bg-muted/30" : ""}`}
                     onClick={() => onRowClick(row.fecha, row.meta_ads, row.tiktok_ads)}
@@ -175,7 +174,7 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
                     <TableCell className="font-medium sticky left-0 bg-inherit z-10">
                       <div className="flex flex-col">
                         <span>{day}</span>
-                        <span className="text-[10px] text-muted-foreground capitalize">{weekday}</span>
+                        <span className="text-xs text-muted-foreground capitalize">{weekday}</span>
                       </div>
                     </TableCell>
                     {/* Orders group */}
@@ -208,7 +207,7 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
               })}
 
               {/* Totals row */}
-              <TableRow className="font-semibold bg-primary/5 text-xs border-t-2 border-primary/20 hover:bg-primary/5">
+              <TableRow className="font-semibold bg-primary/5 text-sm border-t-2 border-primary/20 hover:bg-primary/5">
                 <TableCell className="sticky left-0 bg-primary/5 z-10">
                   <span className="text-primary font-bold">TOTAL</span>
                 </TableCell>

@@ -23,6 +23,7 @@ export async function GET() {
     config: {
       fee_gestion_eur: data.fee_gestion_pct ?? data.fee_gestion_eur ?? 0,
       has_api_key: !!data.dropea_api_key_encrypted,
+      store_name: data.store_name || "Mi Tienda",
     },
   });
 }
@@ -45,6 +46,9 @@ export async function PUT(request: NextRequest) {
   if (body.fee_gestion_eur !== undefined) {
     // Column may be fee_gestion_pct (pre-migration) or fee_gestion_eur (post-migration)
     updates.fee_gestion_pct = body.fee_gestion_eur;
+  }
+  if (body.store_name !== undefined) {
+    updates.store_name = body.store_name;
   }
 
   const { error } = await supabase

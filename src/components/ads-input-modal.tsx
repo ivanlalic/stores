@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,6 +31,12 @@ export function AdsInputModal({
   const [metaAds, setMetaAds] = useState(String(initialMetaAds));
   const [tiktokAds, setTiktokAds] = useState(String(initialTiktokAds));
   const [saving, setSaving] = useState(false);
+
+  // Sync state when props change (e.g. clicking a different row)
+  useEffect(() => {
+    setMetaAds(String(initialMetaAds));
+    setTiktokAds(String(initialTiktokAds));
+  }, [initialMetaAds, initialTiktokAds]);
 
   async function handleSave() {
     setSaving(true);
