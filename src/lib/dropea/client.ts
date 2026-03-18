@@ -109,6 +109,22 @@ export function getDateRange(monthsBack: number = 2) {
   };
 }
 
+export function getDateRange48h() {
+  const now = new Date();
+
+  // Start: 48 hours ago
+  const startDateObj = new Date(now.getTime() - 48 * 60 * 60 * 1000);
+
+  // End: today + 2 days (to cover timezone differences with Spain)
+  const endDateObj = new Date();
+  endDateObj.setDate(now.getDate() + 2);
+
+  return {
+    startDate: formatDateForAPI(startDateObj),
+    endDate: formatDateForAPI(endDateObj),
+  };
+}
+
 async function fetchPage(
   apiKey: string,
   page: number,

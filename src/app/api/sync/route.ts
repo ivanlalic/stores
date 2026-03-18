@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { decrypt } from "@/lib/encryption";
-import { fetchAllOrders, getDateRange, type DropeaOrder } from "@/lib/dropea/client";
+import { fetchAllOrders, getDateRange, getDateRange48h, type DropeaOrder } from "@/lib/dropea/client";
 import {
   isEnviado,
   isEntregado,
@@ -92,9 +92,12 @@ export async function POST(request: NextRequest) {
         }
 
         const apiKey = decrypt(config.dropea_api_key_encrypted);
-        const { startDate, endDate } = getDateRange(2);
 
-        send(`Conectando con Dropea (${startDate} - ${endDate})...`);
+        const mode = request.nextUrl.searchParams.get("mode");
+        const is48h = mode === "48h";
+        const { startDate, endDate } = is48h ? getDateRange48h() : getDateRange(2);
+
+        send(`${is48h ? "Sync rápido (48h)" : "Sync completo"}: ${startDate} - ${endDate}...`);
 
         const orders = await fetchAllOrders(apiKey, startDate, endDate, send);
 
