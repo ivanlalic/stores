@@ -124,12 +124,21 @@ export async function getDailyDashboard(
       .filter((p) => p.es_enviado)
       .reduce((sum, p) => sum + Number(p.neto), 0);
 
+    // Neto solo de pedidos con estado final (entregados + rechazados)
+    const netoEntregados = dayPedidos
+      .filter((p) => p.es_entregado)
+      .reduce((sum, p) => sum + Number(p.neto), 0);
+    const netoRechazados = dayPedidos
+      .filter((p) => p.es_rechazado)
+      .reduce((sum, p) => sum + Number(p.neto), 0);
+
     const meta_ads = dayAds.meta_ads;
     const tiktok_ads = dayAds.tiktok_ads;
     const total_ads = meta_ads + tiktok_ads;
     const gestion = enviados * feeGestionEur;
     const gastos = total_ads + gestion;
-    const pnl_real = bruto - gastos;
+    const pnl_teorico = bruto - gastos;
+    const pnl_real = netoEntregados + netoRechazados - gastos;
     const tasa_entrega = enviados > 0 ? entregados / enviados : 0;
     const pct_margin = ventas > 0 ? pnl_real / ventas : 0;
     const cpa_enviado = enviados > 0 ? total_ads / enviados : 0;
@@ -151,7 +160,7 @@ export async function getDailyDashboard(
       total_ads,
       gestion: Math.round(gestion * 100) / 100,
       gastos: Math.round(gastos * 100) / 100,
-      pnl_teorico: 0,
+      pnl_teorico: Math.round(pnl_teorico * 100) / 100,
       pnl_real: Math.round(pnl_real * 100) / 100,
       pct_margin,
       cpa_enviado: Math.round(cpa_enviado * 100) / 100,
@@ -225,10 +234,18 @@ export async function getMonthlyDashboard(
       .filter((p) => p.es_enviado)
       .reduce((sum, p) => sum + Number(p.neto), 0);
 
+    // Neto solo de pedidos con estado final (entregados + rechazados)
+    const netoEntregados = mp
+      .filter((p) => p.es_entregado)
+      .reduce((sum, p) => sum + Number(p.neto), 0);
+    const netoRechazados = mp
+      .filter((p) => p.es_rechazado)
+      .reduce((sum, p) => sum + Number(p.neto), 0);
+
     const total_ads = ma.meta + ma.tiktok;
     const gestion = enviados * feeGestionEur;
     const gastos = total_ads + gestion;
-    const pnl_real = bruto - gastos;
+    const pnl_real = netoEntregados + netoRechazados - gastos;
 
     // P&L ajustado: subtract estimated loss from pending
     const avgNetoRechazado =
