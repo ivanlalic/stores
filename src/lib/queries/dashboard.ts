@@ -112,17 +112,12 @@ export async function getDailyDashboard(
     const cancelados = dayPedidos.filter((p) => p.es_cancelado).length;
     const pendientes = enviados - entregados - rechazados;
 
+    // Ventas y bruto = sobre todos los enviados (igual que el Excel)
     const ventas = dayPedidos
-      .filter((p) => p.es_entregado)
+      .filter((p) => p.es_enviado)
       .reduce((sum, p) => sum + Number(p.venta), 0);
 
-    // Bruto = neto from delivered + neto from rejected (rejected neto is negative)
     const bruto = dayPedidos
-      .filter((p) => p.es_entregado || p.es_rechazado)
-      .reduce((sum, p) => sum + Number(p.neto), 0);
-
-    // P&L teorico: as if all sent orders would be delivered
-    const brutoTeorico = dayPedidos
       .filter((p) => p.es_enviado)
       .reduce((sum, p) => sum + Number(p.neto), 0);
 
@@ -132,10 +127,9 @@ export async function getDailyDashboard(
     const gestion = enviados * feeGestionEur;
     const gastos = total_ads + gestion;
     const pnl_real = bruto - gastos;
-    const pnl_teorico = brutoTeorico - gastos;
     const tasa_entrega = enviados > 0 ? entregados / enviados : 0;
     const pct_margin = ventas > 0 ? pnl_real / ventas : 0;
-    const cpa_real = entregados > 0 ? total_ads / entregados : 0;
+    const cpa_real = enviados > 0 ? total_ads / enviados : 0;
 
     rows.push({
       fecha,
@@ -153,7 +147,7 @@ export async function getDailyDashboard(
       total_ads,
       gestion: Math.round(gestion * 100) / 100,
       gastos: Math.round(gastos * 100) / 100,
-      pnl_teorico: Math.round(pnl_teorico * 100) / 100,
+      pnl_teorico: 0,
       pnl_real: Math.round(pnl_real * 100) / 100,
       pct_margin,
       cpa_real: Math.round(cpa_real * 100) / 100,
@@ -217,12 +211,13 @@ export async function getMonthlyDashboard(
     const cancelados = mp.filter((p) => p.es_cancelado).length;
     const pendientes = enviados - entregados - rechazados;
 
+    // Ventas y bruto = sobre todos los enviados (igual que el Excel)
     const ventas = mp
-      .filter((p) => p.es_entregado)
+      .filter((p) => p.es_enviado)
       .reduce((sum, p) => sum + Number(p.venta), 0);
 
     const bruto = mp
-      .filter((p) => p.es_entregado || p.es_rechazado)
+      .filter((p) => p.es_enviado)
       .reduce((sum, p) => sum + Number(p.neto), 0);
 
     const total_ads = ma.meta + ma.tiktok;
@@ -242,7 +237,7 @@ export async function getMonthlyDashboard(
     const pnl_ajustado = pnl_real - pendientes * avgNetoRechazado;
 
     const tasa_entrega = enviados > 0 ? entregados / enviados : 0;
-    const ticket_promedio = entregados > 0 ? ventas / entregados : 0;
+    const ticket_promedio = enviados > 0 ? ventas / enviados : 0;
     const pct_gastos = ventas > 0 ? gastos / ventas : 0;
     const pct_pnl = ventas > 0 ? pnl_real / ventas : 0;
 
