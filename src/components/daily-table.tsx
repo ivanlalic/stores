@@ -14,6 +14,8 @@ import {
   TooltipContent,
   TooltipProvider,
 } from "@/components/ui/tooltip";
+import { Card } from "@/components/ui/card";
+import { Info } from "lucide-react";
 import type { DailyRow } from "@/lib/queries/dashboard";
 
 interface DailyTableProps {
@@ -23,7 +25,9 @@ interface DailyTableProps {
 
 function formatDate(fecha: string) {
   const d = new Date(fecha + "T12:00:00");
-  return d.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" });
+  const day = d.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" });
+  const weekday = d.toLocaleDateString("es-ES", { weekday: "short" });
+  return { day, weekday };
 }
 
 function pct(n: number) {
@@ -31,7 +35,7 @@ function pct(n: number) {
 }
 
 function eur(n: number) {
-  return n.toFixed(2);
+  return n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 const columnInfo: Record<string, string> = {
@@ -55,34 +59,44 @@ const columnInfo: Record<string, string> = {
   "CPA Real": "CPA Real: Ads / Entregados",
 };
 
+// Column group definitions for visual separation
+const columnGroups = [
+  { label: "Pedidos", cols: ["Dia", "Ped.", "Env.", "Ent.", "Pend.", "Rech.", "Canc.", "%Ent"] },
+  { label: "Finanzas", cols: ["Ventas", "Bruto", "Ads", "Gest.", "Gastos"] },
+  { label: "Resultado", cols: ["P&L Teo.", "P&L Real", "%Vtas"] },
+  { label: "CPA", cols: ["CPA Env.", "CPA Real"] },
+];
+
 function InfoHeader({ label }: { label: string }) {
   const info = columnInfo[label];
   if (!info) return <span>{label}</span>;
 
   return (
     <Tooltip>
-      <TooltipTrigger className="inline-flex items-center gap-0.5 cursor-help">
+      <TooltipTrigger className="inline-flex items-center gap-0.5 cursor-help whitespace-nowrap">
         {label}
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 16 16"
-          fill="currentColor"
-          className="size-3 opacity-40"
-        >
-          <path
-            fillRule="evenodd"
-            d="M15 8A7 7 0 1 1 1 8a7 7 0 0 1 14 0ZM9 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM6.75 8a.75.75 0 0 0 0 1.5h.75v1.75a.75.75 0 0 0 1.5 0v-2.5A.75.75 0 0 0 8.25 8h-1.5Z"
-            clipRule="evenodd"
-          />
-        </svg>
+        <Info className="size-3 opacity-30" />
       </TooltipTrigger>
-      <TooltipContent side="top">{info}</TooltipContent>
+      <TooltipContent side="top" className="max-w-xs">
+        {info}
+      </TooltipContent>
     </Tooltip>
   );
 }
 
+function ValueCell({ value, negative, positive, bold }: { value: string; negative?: boolean; positive?: boolean; bold?: boolean }) {
+  return (
+    <TableCell
+      className={`text-right tabular-nums ${bold ? "font-semibold" : ""} ${
+        negative ? "text-red-600 font-medium" : positive ? "text-emerald-600 font-medium" : ""
+      }`}
+    >
+      {value}
+    </TableCell>
+  );
+}
+
 export function DailyTable({ rows, onRowClick }: DailyTableProps) {
-  // Totals
   const totals = rows.reduce(
     (t, r) => ({
       pedidos: t.pedidos + r.pedidos,
@@ -100,110 +114,126 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
       pnl_real: t.pnl_real + r.pnl_real,
     }),
     {
-      pedidos: 0,
-      enviados: 0,
-      entregados: 0,
-      rechazados: 0,
-      cancelados: 0,
-      pendientes: 0,
-      ventas: 0,
-      bruto: 0,
-      total_ads: 0,
-      gestion: 0,
-      gastos: 0,
-      pnl_teorico: 0,
-      pnl_real: 0,
+      pedidos: 0, enviados: 0, entregados: 0, rechazados: 0,
+      cancelados: 0, pendientes: 0, ventas: 0, bruto: 0,
+      total_ads: 0, gestion: 0, gastos: 0, pnl_teorico: 0, pnl_real: 0,
     }
   );
 
-  const totalTasaEntrega =
-    totals.enviados > 0 ? totals.entregados / totals.enviados : 0;
+  const totalTasaEntrega = totals.enviados > 0 ? totals.entregados / totals.enviados : 0;
   const totalPctMargin = totals.ventas > 0 ? totals.pnl_real / totals.ventas : 0;
-  const totalCpaEnviado =
-    totals.enviados > 0 ? totals.total_ads / totals.enviados : 0;
-  const totalCpaReal =
-    totals.entregados > 0 ? totals.total_ads / totals.entregados : 0;
-
-  const headers = [
-    "Dia", "Ped.", "Env.", "Ent.", "Pend.", "Rech.", "Canc.",
-    "%Ent", "Ventas", "Bruto", "Ads", "Gest.", "Gastos",
-    "P&L Teo.", "P&L Real", "%Vtas", "CPA Env.", "CPA Real",
-  ];
+  const totalCpaEnviado = totals.enviados > 0 ? totals.total_ads / totals.enviados : 0;
+  const totalCpaReal = totals.entregados > 0 ? totals.total_ads / totals.entregados : 0;
 
   return (
     <TooltipProvider>
-      <div className="overflow-x-auto rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow className="text-xs">
-              {headers.map((h) => (
-                <TableHead
-                  key={h}
-                  className={h === "Dia" ? "w-16" : "text-right"}
-                >
-                  <InfoHeader label={h} />
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((row) => (
-              <TableRow
-                key={row.fecha}
-                className={`text-xs cursor-pointer hover:bg-muted/30 ${
-                  row.pnl_real < 0 ? "text-red-600" : ""
-                }`}
-                onClick={() => onRowClick(row.fecha, row.meta_ads, row.tiktok_ads)}
-              >
-                <TableCell className="font-medium">{formatDate(row.fecha)}</TableCell>
-                <TableCell className="text-right">{row.pedidos}</TableCell>
-                <TableCell className="text-right">{row.enviados}</TableCell>
-                <TableCell className="text-right">{row.entregados}</TableCell>
-                <TableCell className="text-right">{row.pendientes}</TableCell>
-                <TableCell className="text-right">{row.rechazados}</TableCell>
-                <TableCell className="text-right">{row.cancelados}</TableCell>
-                <TableCell className="text-right">{pct(row.tasa_entrega)}</TableCell>
-                <TableCell className="text-right">{eur(row.ventas)}</TableCell>
-                <TableCell className="text-right">{eur(row.bruto)}</TableCell>
-                <TableCell className="text-right">{eur(row.total_ads)}</TableCell>
-                <TableCell className="text-right">{eur(row.gestion)}</TableCell>
-                <TableCell className="text-right">{eur(row.gastos)}</TableCell>
-                <TableCell className="text-right">{eur(row.pnl_teorico)}</TableCell>
-                <TableCell className="text-right">{eur(row.pnl_real)}</TableCell>
-                <TableCell className="text-right">{pct(row.pct_margin)}</TableCell>
-                <TableCell className="text-right">{eur(row.cpa_enviado)}</TableCell>
-                <TableCell className="text-right">{eur(row.cpa_real)}</TableCell>
+      <Card className="p-0 overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              {/* Group header row */}
+              <TableRow className="border-b-0 bg-muted/30">
+                {columnGroups.map((group) => (
+                  <TableHead
+                    key={group.label}
+                    colSpan={group.cols.length}
+                    className="text-center text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold py-1 border-l first:border-l-0 border-border/40"
+                  >
+                    {group.label}
+                  </TableHead>
+                ))}
               </TableRow>
-            ))}
+              {/* Column header row */}
+              <TableRow className="text-xs bg-muted/50 hover:bg-muted/50">
+                {columnGroups.flatMap((group, gi) =>
+                  group.cols.map((h, hi) => (
+                    <TableHead
+                      key={h}
+                      className={`${h === "Dia" ? "w-20 sticky left-0 bg-muted/50 z-10" : "text-right"} ${
+                        hi === 0 && gi > 0 ? "border-l border-border/40" : ""
+                      } py-2`}
+                    >
+                      <InfoHeader label={h} />
+                    </TableHead>
+                  ))
+                )}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((row, i) => {
+                const { day, weekday } = formatDate(row.fecha);
+                const isWeekend = weekday === "sáb" || weekday === "dom" || weekday === "sáb." || weekday === "dom.";
+                return (
+                  <TableRow
+                    key={row.fecha}
+                    className={`text-xs cursor-pointer transition-colors hover:bg-primary/5 ${
+                      i % 2 === 0 ? "bg-background" : "bg-muted/20"
+                    } ${isWeekend ? "bg-muted/30" : ""}`}
+                    onClick={() => onRowClick(row.fecha, row.meta_ads, row.tiktok_ads)}
+                  >
+                    {/* Date */}
+                    <TableCell className="font-medium sticky left-0 bg-inherit z-10">
+                      <div className="flex flex-col">
+                        <span>{day}</span>
+                        <span className="text-[10px] text-muted-foreground capitalize">{weekday}</span>
+                      </div>
+                    </TableCell>
+                    {/* Orders group */}
+                    <TableCell className="text-right tabular-nums">{row.pedidos}</TableCell>
+                    <TableCell className="text-right tabular-nums">{row.enviados}</TableCell>
+                    <TableCell className="text-right tabular-nums font-medium">{row.entregados}</TableCell>
+                    <TableCell className={`text-right tabular-nums ${row.pendientes > 0 ? "text-amber-600" : ""}`}>{row.pendientes}</TableCell>
+                    <TableCell className={`text-right tabular-nums ${row.rechazados > 0 ? "text-red-500" : ""}`}>{row.rechazados}</TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">{row.cancelados}</TableCell>
+                    <TableCell className={`text-right tabular-nums border-r border-border/40 ${
+                      row.tasa_entrega > 0 && row.tasa_entrega < 0.6 ? "text-red-500 font-medium" : row.tasa_entrega >= 0.8 ? "text-emerald-600 font-medium" : ""
+                    }`}>{pct(row.tasa_entrega)}</TableCell>
+                    {/* Finance group */}
+                    <ValueCell value={eur(row.ventas)} />
+                    <ValueCell value={eur(row.bruto)} />
+                    <ValueCell value={eur(row.total_ads)} />
+                    <ValueCell value={eur(row.gestion)} />
+                    <TableCell className="text-right tabular-nums border-r border-border/40">{eur(row.gastos)}</TableCell>
+                    {/* Result group */}
+                    <ValueCell value={eur(row.pnl_teorico)} negative={row.pnl_teorico < 0} positive={row.pnl_teorico > 0} />
+                    <ValueCell value={eur(row.pnl_real)} negative={row.pnl_real < 0} positive={row.pnl_real > 0} bold />
+                    <TableCell className={`text-right tabular-nums border-r border-border/40 ${
+                      row.pct_margin < 0 ? "text-red-500" : row.pct_margin > 0.2 ? "text-emerald-600" : ""
+                    }`}>{pct(row.pct_margin)}</TableCell>
+                    {/* CPA group */}
+                    <TableCell className="text-right tabular-nums">{eur(row.cpa_enviado)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{eur(row.cpa_real)}</TableCell>
+                  </TableRow>
+                );
+              })}
 
-            {/* Totals row at the bottom */}
-            <TableRow className="font-semibold bg-muted/50 text-xs border-t-2">
-              <TableCell>TOTAL</TableCell>
-              <TableCell className="text-right">{totals.pedidos}</TableCell>
-              <TableCell className="text-right">{totals.enviados}</TableCell>
-              <TableCell className="text-right">{totals.entregados}</TableCell>
-              <TableCell className="text-right">{totals.pendientes}</TableCell>
-              <TableCell className="text-right">{totals.rechazados}</TableCell>
-              <TableCell className="text-right">{totals.cancelados}</TableCell>
-              <TableCell className="text-right">{pct(totalTasaEntrega)}</TableCell>
-              <TableCell className="text-right">{eur(totals.ventas)}</TableCell>
-              <TableCell className="text-right">{eur(totals.bruto)}</TableCell>
-              <TableCell className="text-right">{eur(totals.total_ads)}</TableCell>
-              <TableCell className="text-right">{eur(totals.gestion)}</TableCell>
-              <TableCell className="text-right">{eur(totals.gastos)}</TableCell>
-              <TableCell className={`text-right ${totals.pnl_teorico < 0 ? "text-red-600" : ""}`}>
-                {eur(totals.pnl_teorico)}
-              </TableCell>
-              <TableCell className={`text-right ${totals.pnl_real < 0 ? "text-red-600" : ""}`}>
-                {eur(totals.pnl_real)}
-              </TableCell>
-              <TableCell className="text-right">{pct(totalPctMargin)}</TableCell>
-              <TableCell className="text-right">{eur(totalCpaEnviado)}</TableCell>
-              <TableCell className="text-right">{eur(totalCpaReal)}</TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      </div>
+              {/* Totals row */}
+              <TableRow className="font-semibold bg-primary/5 text-xs border-t-2 border-primary/20 hover:bg-primary/5">
+                <TableCell className="sticky left-0 bg-primary/5 z-10">
+                  <span className="text-primary font-bold">TOTAL</span>
+                </TableCell>
+                <TableCell className="text-right tabular-nums">{totals.pedidos}</TableCell>
+                <TableCell className="text-right tabular-nums">{totals.enviados}</TableCell>
+                <TableCell className="text-right tabular-nums">{totals.entregados}</TableCell>
+                <TableCell className="text-right tabular-nums">{totals.pendientes}</TableCell>
+                <TableCell className="text-right tabular-nums">{totals.rechazados}</TableCell>
+                <TableCell className="text-right tabular-nums">{totals.cancelados}</TableCell>
+                <TableCell className="text-right tabular-nums border-r border-border/40">{pct(totalTasaEntrega)}</TableCell>
+                <TableCell className="text-right tabular-nums">{eur(totals.ventas)}</TableCell>
+                <TableCell className="text-right tabular-nums">{eur(totals.bruto)}</TableCell>
+                <TableCell className="text-right tabular-nums">{eur(totals.total_ads)}</TableCell>
+                <TableCell className="text-right tabular-nums">{eur(totals.gestion)}</TableCell>
+                <TableCell className="text-right tabular-nums border-r border-border/40">{eur(totals.gastos)}</TableCell>
+                <ValueCell value={eur(totals.pnl_teorico)} negative={totals.pnl_teorico < 0} positive={totals.pnl_teorico > 0} bold />
+                <ValueCell value={eur(totals.pnl_real)} negative={totals.pnl_real < 0} positive={totals.pnl_real > 0} bold />
+                <TableCell className="text-right tabular-nums border-r border-border/40">{pct(totalPctMargin)}</TableCell>
+                <TableCell className="text-right tabular-nums">{eur(totalCpaEnviado)}</TableCell>
+                <TableCell className="text-right tabular-nums">{eur(totalCpaReal)}</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+      </Card>
     </TooltipProvider>
   );
 }

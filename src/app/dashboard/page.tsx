@@ -6,6 +6,7 @@ import { SyncButton } from "@/components/sync-button";
 import { KpiCards } from "@/components/kpi-cards";
 import { DailyTable } from "@/components/daily-table";
 import { AdsInputModal } from "@/components/ads-input-modal";
+import { ChevronLeft, ChevronRight, MousePointerClick } from "lucide-react";
 import type { DailyRow } from "@/lib/queries/dashboard";
 
 function getCurrentMonth() {
@@ -39,7 +40,6 @@ export default function DashboardPage() {
   const [rows, setRows] = useState<DailyRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Ads modal state
   const [adsModal, setAdsModal] = useState<{
     open: boolean;
     fecha: string;
@@ -70,40 +70,52 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* Header bar */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setMonth(prevMonth(month))}>
-            &lt;
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            onClick={() => setMonth(prevMonth(month))}
+          >
+            <ChevronLeft className="size-4" />
           </Button>
-          <h2 className="text-lg font-semibold min-w-[160px] text-center">
+          <h2 className="text-lg font-bold min-w-[170px] text-center tracking-tight">
             {monthLabel(month)}
           </h2>
           <Button
-            variant="outline"
-            size="sm"
+            variant="ghost"
+            size="icon"
+            className="size-8"
             onClick={() => setMonth(nextMonth(month))}
             disabled={month >= getCurrentMonth()}
           >
-            &gt;
+            <ChevronRight className="size-4" />
           </Button>
         </div>
         <SyncButton onComplete={fetchData} />
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-muted-foreground">
-          Cargando datos...
+        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
+          <div className="size-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+          <p className="text-sm">Cargando datos...</p>
         </div>
       ) : rows.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          No hay datos para este mes. Sincroniza tus pedidos primero.
+        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-2">
+          <p className="text-sm">No hay datos para este mes.</p>
+          <p className="text-xs">Sincroniza tus pedidos primero.</p>
         </div>
       ) : (
         <>
           <KpiCards rows={rows} />
-          <p className="text-xs text-muted-foreground">
-            Click en una fila para editar los Ads de ese dia
-          </p>
+
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <MousePointerClick className="size-3.5" />
+            <span>Click en una fila para editar los Ads de ese día</span>
+          </div>
+
           <DailyTable rows={rows} onRowClick={handleRowClick} />
         </>
       )}
