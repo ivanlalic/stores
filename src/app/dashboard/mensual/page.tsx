@@ -44,7 +44,7 @@ export default function MensualPage() {
       ) : (
         <>
           <p className="text-xs text-muted-foreground">
-            P&L Ajustado = P&L Real - (Pendientes x Costo promedio rechazo del mes)
+            P&L Ajustado = P&L Real - (Pendientes x €13)
           </p>
           <MonthlyTable rows={rows} />
         </>

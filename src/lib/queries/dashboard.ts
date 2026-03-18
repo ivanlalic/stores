@@ -249,16 +249,9 @@ export async function getMonthlyDashboard(
     const gastos = total_ads + gestion;
     const pnl_real = netoEntregados + netoRechazados - gastos;
 
-    // P&L ajustado: subtract estimated loss from pending
-    const avgNetoRechazado =
-      rechazados > 0
-        ? Math.abs(
-            mp
-              .filter((p) => p.es_rechazado)
-              .reduce((sum, p) => sum + Number(p.neto), 0) / rechazados
-          )
-        : 0;
-    const reserva = pendientes * avgNetoRechazado;
+    // P&L ajustado: subtract €13 per pending order
+    const COSTO_PENDIENTE = 13;
+    const reserva = pendientes * COSTO_PENDIENTE;
     const pnl_ajustado = pnl_real - reserva;
 
     const tasa_entrega = enviados > 0 ? entregados / enviados : 0;
@@ -271,7 +264,7 @@ export async function getMonthlyDashboard(
     rows.push({
       mes,
       ventas: Math.round(ventas * 100) / 100,
-      pedidos: total,
+      pedidos: enviados,
       enviados,
       entregados,
       rechazados,
