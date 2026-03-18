@@ -173,24 +173,51 @@ export async function getDailyDashboard(
   return rows;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchAll(
+  supabase: Awaited<ReturnType<typeof createServiceClient>>,
+  table: string,
+  userId: string,
+  orderBy?: string
+): Promise<any[]> {
+  const PAGE_SIZE = 1000;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let allData: any[] = [];
+  let from = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    let query = supabase
+      .from(table)
+      .select("*")
+      .eq("user_id", userId)
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (orderBy) {
+      query = query.order(orderBy, { ascending: true });
+    }
+
+    const { data } = await query;
+    const rows = data || [];
+    allData = allData.concat(rows);
+    hasMore = rows.length === PAGE_SIZE;
+    from += PAGE_SIZE;
+  }
+
+  return allData;
+}
+
 export async function getMonthlyDashboard(
   userId: string,
   feeGestionEur: number
 ): Promise<MonthlyRow[]> {
   const supabase = await createServiceClient();
 
-  // Get all pedidos
-  const { data: pedidos } = await supabase
-    .from("pedidos")
-    .select("*")
-    .eq("user_id", userId)
-    .order("fecha", { ascending: true });
+  // Get all pedidos (paginated to avoid 1000 row limit)
+  const pedidos = await fetchAll(supabase, "pedidos", userId, "fecha");
 
   // Get all ads
-  const { data: ads } = await supabase
-    .from("ads_diario")
-    .select("*")
-    .eq("user_id", userId);
+  const ads = await fetchAll(supabase, "ads_diario", userId);
 
   // Group by month
   const monthPedidos = new Map<string, typeof pedidos>();
