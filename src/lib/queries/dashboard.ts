@@ -44,6 +44,8 @@ export interface MonthlyRow {
   cpa_real: number;
   pct_gastos: number;
   pct_pnl: number;
+  pct_pnl_ajustado: number;
+  reserva: number;
 }
 
 export async function getDailyDashboard(
@@ -256,7 +258,8 @@ export async function getMonthlyDashboard(
               .reduce((sum, p) => sum + Number(p.neto), 0) / rechazados
           )
         : 0;
-    const pnl_ajustado = pnl_real - pendientes * avgNetoRechazado;
+    const reserva = pendientes * avgNetoRechazado;
+    const pnl_ajustado = pnl_real - reserva;
 
     const tasa_entrega = enviados > 0 ? entregados / enviados : 0;
     const ticket_promedio = enviados > 0 ? ventas / enviados : 0;
@@ -286,6 +289,8 @@ export async function getMonthlyDashboard(
       cpa_real: Math.round(cpa_real * 100) / 100,
       pct_gastos,
       pct_pnl,
+      pct_pnl_ajustado: ventas > 0 ? pnl_ajustado / ventas : 0,
+      reserva: Math.round(reserva * 100) / 100,
     });
   }
 

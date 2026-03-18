@@ -13,30 +13,16 @@ interface MonthlyTableProps {
 }
 
 function pct(n: number) {
-  return `${(n * 100).toFixed(1)}%`;
+  return `${(n * 100).toFixed(0)}%`;
 }
 
 function eur(n: number) {
-  return n.toFixed(2);
+  return `€${n.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
 function monthLabel(mes: string) {
   const [y, m] = mes.split("-");
-  const months = [
-    "Ene",
-    "Feb",
-    "Mar",
-    "Abr",
-    "May",
-    "Jun",
-    "Jul",
-    "Ago",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dic",
-  ];
-  return `${months[parseInt(m) - 1]} ${y}`;
+  return `${parseInt(m)}/${y}`;
 }
 
 export function MonthlyTable({ rows }: MonthlyTableProps) {
@@ -47,20 +33,20 @@ export function MonthlyTable({ rows }: MonthlyTableProps) {
           <TableRow className="text-xs">
             <TableHead>Mes</TableHead>
             <TableHead className="text-right">Ventas</TableHead>
-            <TableHead className="text-right">Ped.</TableHead>
-            <TableHead className="text-right">Ent.</TableHead>
-            <TableHead className="text-right">%Ent</TableHead>
-            <TableHead className="text-right">Ticket</TableHead>
-            <TableHead className="text-right">Rech.</TableHead>
-            <TableHead className="text-right">Pend.</TableHead>
+            <TableHead className="text-right">Pedidos</TableHead>
+            <TableHead className="text-right">Entregados</TableHead>
+            <TableHead className="text-right">%</TableHead>
+            <TableHead className="text-right">Ticket Prom.</TableHead>
+            <TableHead className="text-right">Rechazados</TableHead>
+            <TableHead className="text-right">Pendientes</TableHead>
             <TableHead className="text-right">Bruto</TableHead>
             <TableHead className="text-right">Gastos</TableHead>
-            <TableHead className="text-right">%Gastos</TableHead>
+            <TableHead className="text-right">%</TableHead>
             <TableHead className="text-right">P&L Real</TableHead>
-            <TableHead className="text-right">%P&L</TableHead>
-            <TableHead className="text-right">CPA Env.</TableHead>
-            <TableHead className="text-right">CPA Real</TableHead>
-            <TableHead className="text-right">P&L Ajust.</TableHead>
+            <TableHead className="text-right">%</TableHead>
+            <TableHead className="text-right">P&L Ajustado</TableHead>
+            <TableHead className="text-right">%</TableHead>
+            <TableHead className="text-right">Reserva</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -84,10 +70,12 @@ export function MonthlyTable({ rows }: MonthlyTableProps) {
                 {eur(row.pnl_real)}
               </TableCell>
               <TableCell className="text-right">{pct(row.pct_pnl)}</TableCell>
-              <TableCell className="text-right">{eur(row.cpa_enviado)}</TableCell>
-              <TableCell className="text-right">{eur(row.cpa_real)}</TableCell>
               <TableCell className={`text-right ${row.pnl_ajustado < 0 ? "text-red-600" : ""}`}>
                 {eur(row.pnl_ajustado)}
+              </TableCell>
+              <TableCell className="text-right">{pct(row.pct_pnl_ajustado)}</TableCell>
+              <TableCell className="text-right">
+                {row.reserva > 0 ? Math.round(row.reserva) : ""}
               </TableCell>
             </TableRow>
           ))}
