@@ -62,7 +62,7 @@ export function AppSidebar() {
               size="lg"
               render={<Link href="/dashboard" />}
             >
-              <div className="flex items-center justify-center size-8 rounded-lg bg-primary text-primary-foreground">
+              <div className="flex items-center justify-center size-8 rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                 <TrendingUp className="size-4" />
               </div>
               <div className="flex flex-col gap-0.5 leading-none">
