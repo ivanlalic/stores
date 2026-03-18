@@ -13,6 +13,7 @@ export function KpiCards({ rows }: KpiCardsProps) {
   const totalPnl = rows.reduce((s, r) => s + r.pnl_real, 0);
   const totalAds = rows.reduce((s, r) => s + r.total_ads, 0);
   const tasaEntrega = totalEnviados > 0 ? totalEntregados / totalEnviados : 0;
+  const cpaEnviado = totalEnviados > 0 ? totalAds / totalEnviados : 0;
   const cpaReal = totalEntregados > 0 ? totalAds / totalEntregados : 0;
 
   const daysWithAds = rows.filter((r) => r.total_ads > 0).length;
@@ -34,6 +35,7 @@ export function KpiCards({ rows }: KpiCardsProps) {
       value: `${totalPnl.toFixed(2)} EUR`,
       negative: totalPnl < 0,
     },
+    { label: "CPA Enviado", value: `${cpaEnviado.toFixed(2)} EUR` },
     { label: "CPA Real", value: `${cpaReal.toFixed(2)} EUR` },
     { label: "Break-even/dia", value: `${breakeven} EUR` },
   ];

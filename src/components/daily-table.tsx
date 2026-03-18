@@ -66,7 +66,9 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
   const totalTasaEntrega =
     totals.enviados > 0 ? totals.entregados / totals.enviados : 0;
   const totalPctMargin = totals.ventas > 0 ? totals.pnl_real / totals.ventas : 0;
-  const totalCpa =
+  const totalCpaEnviado =
+    totals.enviados > 0 ? totals.total_ads / totals.enviados : 0;
+  const totalCpaReal =
     totals.entregados > 0 ? totals.total_ads / totals.entregados : 0;
 
   return (
@@ -90,7 +92,8 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
             <TableHead className="text-right">P&L Teo.</TableHead>
             <TableHead className="text-right">P&L Real</TableHead>
             <TableHead className="text-right">%Vtas</TableHead>
-            <TableHead className="text-right">CPA</TableHead>
+            <TableHead className="text-right">CPA Env.</TableHead>
+            <TableHead className="text-right">CPA Real</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -116,7 +119,8 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
               {eur(totals.pnl_real)}
             </TableCell>
             <TableCell className="text-right">{pct(totalPctMargin)}</TableCell>
-            <TableCell className="text-right">{eur(totalCpa)}</TableCell>
+            <TableCell className="text-right">{eur(totalCpaEnviado)}</TableCell>
+            <TableCell className="text-right">{eur(totalCpaReal)}</TableCell>
           </TableRow>
 
           {rows.map((row) => (
@@ -143,6 +147,7 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
               <TableCell className="text-right">{eur(row.pnl_teorico)}</TableCell>
               <TableCell className="text-right">{eur(row.pnl_real)}</TableCell>
               <TableCell className="text-right">{pct(row.pct_margin)}</TableCell>
+              <TableCell className="text-right">{eur(row.cpa_enviado)}</TableCell>
               <TableCell className="text-right">{eur(row.cpa_real)}</TableCell>
             </TableRow>
           ))}

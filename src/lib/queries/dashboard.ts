@@ -19,6 +19,7 @@ export interface DailyRow {
   pnl_teorico: number;
   pnl_real: number;
   pct_margin: number;
+  cpa_enviado: number;
   cpa_real: number;
 }
 
@@ -39,6 +40,8 @@ export interface MonthlyRow {
   gastos: number;
   pnl_real: number;
   pnl_ajustado: number;
+  cpa_enviado: number;
+  cpa_real: number;
   pct_gastos: number;
   pct_pnl: number;
 }
@@ -129,7 +132,8 @@ export async function getDailyDashboard(
     const pnl_real = bruto - gastos;
     const tasa_entrega = enviados > 0 ? entregados / enviados : 0;
     const pct_margin = ventas > 0 ? pnl_real / ventas : 0;
-    const cpa_real = enviados > 0 ? total_ads / enviados : 0;
+    const cpa_enviado = enviados > 0 ? total_ads / enviados : 0;
+    const cpa_real = entregados > 0 ? total_ads / entregados : 0;
 
     rows.push({
       fecha,
@@ -150,6 +154,7 @@ export async function getDailyDashboard(
       pnl_teorico: 0,
       pnl_real: Math.round(pnl_real * 100) / 100,
       pct_margin,
+      cpa_enviado: Math.round(cpa_enviado * 100) / 100,
       cpa_real: Math.round(cpa_real * 100) / 100,
     });
   }
@@ -238,6 +243,8 @@ export async function getMonthlyDashboard(
 
     const tasa_entrega = enviados > 0 ? entregados / enviados : 0;
     const ticket_promedio = enviados > 0 ? ventas / enviados : 0;
+    const cpa_enviado = enviados > 0 ? total_ads / enviados : 0;
+    const cpa_real = entregados > 0 ? total_ads / entregados : 0;
     const pct_gastos = ventas > 0 ? gastos / ventas : 0;
     const pct_pnl = ventas > 0 ? pnl_real / ventas : 0;
 
@@ -258,6 +265,8 @@ export async function getMonthlyDashboard(
       gastos: Math.round(gastos * 100) / 100,
       pnl_real: Math.round(pnl_real * 100) / 100,
       pnl_ajustado: Math.round(pnl_ajustado * 100) / 100,
+      cpa_enviado: Math.round(cpa_enviado * 100) / 100,
+      cpa_real: Math.round(cpa_real * 100) / 100,
       pct_gastos,
       pct_pnl,
     });

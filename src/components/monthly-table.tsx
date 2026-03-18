@@ -58,6 +58,8 @@ export function MonthlyTable({ rows }: MonthlyTableProps) {
             <TableHead className="text-right">%Gastos</TableHead>
             <TableHead className="text-right">P&L Real</TableHead>
             <TableHead className="text-right">%P&L</TableHead>
+            <TableHead className="text-right">CPA Env.</TableHead>
+            <TableHead className="text-right">CPA Real</TableHead>
             <TableHead className="text-right">P&L Ajust.</TableHead>
           </TableRow>
         </TableHeader>
@@ -82,6 +84,8 @@ export function MonthlyTable({ rows }: MonthlyTableProps) {
                 {eur(row.pnl_real)}
               </TableCell>
               <TableCell className="text-right">{pct(row.pct_pnl)}</TableCell>
+              <TableCell className="text-right">{eur(row.cpa_enviado)}</TableCell>
+              <TableCell className="text-right">{eur(row.cpa_real)}</TableCell>
               <TableCell className={`text-right ${row.pnl_ajustado < 0 ? "text-red-600" : ""}`}>
                 {eur(row.pnl_ajustado)}
               </TableCell>
