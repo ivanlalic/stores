@@ -24,6 +24,9 @@ export async function GET() {
       fee_gestion_eur: data.fee_gestion_pct ?? data.fee_gestion_eur ?? 0,
       has_api_key: !!data.dropea_api_key_encrypted,
       store_name: data.store_name || "Mi Tienda",
+      costo_rechazo: data.costo_rechazo ?? 13,
+      dias_rolling: data.dias_rolling ?? 30,
+      dias_excluir: data.dias_excluir ?? 4,
     },
   });
 }
@@ -49,6 +52,15 @@ export async function PUT(request: NextRequest) {
   }
   if (body.store_name !== undefined) {
     updates.store_name = body.store_name;
+  }
+  if (body.costo_rechazo !== undefined) {
+    updates.costo_rechazo = body.costo_rechazo;
+  }
+  if (body.dias_rolling !== undefined) {
+    updates.dias_rolling = body.dias_rolling;
+  }
+  if (body.dias_excluir !== undefined) {
+    updates.dias_excluir = body.dias_excluir;
   }
 
   const { error } = await supabase

@@ -15,6 +15,9 @@ export default function SettingsPage() {
   const [newApiKey, setNewApiKey] = useState("");
   const [feeGestion, setFeeGestion] = useState("0");
   const [hasApiKey, setHasApiKey] = useState(false);
+  const [costoRechazo, setCostoRechazo] = useState("13");
+  const [diasRolling, setDiasRolling] = useState("30");
+  const [diasExcluir, setDiasExcluir] = useState("4");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -26,6 +29,9 @@ export default function SettingsPage() {
         setFeeGestion(String(data.config.fee_gestion_eur || 0));
         setHasApiKey(data.config.has_api_key);
         setStoreName(data.config.store_name || "Mi Tienda");
+        setCostoRechazo(String(data.config.costo_rechazo ?? 13));
+        setDiasRolling(String(data.config.dias_rolling ?? 30));
+        setDiasExcluir(String(data.config.dias_excluir ?? 4));
       }
     }
     load();
@@ -38,6 +44,9 @@ export default function SettingsPage() {
       const body: Record<string, unknown> = {
         fee_gestion_eur: parseFloat(feeGestion) || 0,
         store_name: storeName.trim() || "Mi Tienda",
+        costo_rechazo: parseFloat(costoRechazo) || 13,
+        dias_rolling: parseInt(diasRolling) || 30,
+        dias_excluir: parseInt(diasExcluir) || 4,
       };
       if (newApiKey) {
         body.dropea_api_key = newApiKey;
@@ -129,6 +138,55 @@ export default function SettingsPage() {
           <Button onClick={handleSave} disabled={saving} className="w-full">
             {saving ? "Guardando..." : "Guardar"}
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Break-Even</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Costo por rechazo (EUR)</Label>
+            <Input
+              type="number"
+              step="0.5"
+              min="0"
+              value={costoRechazo}
+              onChange={(e) => setCostoRechazo(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Costo fijo por cada pedido rechazado. Por defecto €13.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label>Días rolling para promedios</Label>
+            <Input
+              type="number"
+              step="1"
+              min="7"
+              max="90"
+              value={diasRolling}
+              onChange={(e) => setDiasRolling(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Ventana de días para calcular bruto/enviado y tasa de rechazo. Por defecto 30.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label>Días a excluir (rechazo)</Label>
+            <Input
+              type="number"
+              step="1"
+              min="0"
+              max="14"
+              value={diasExcluir}
+              onChange={(e) => setDiasExcluir(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Últimos N días a excluir del cálculo de tasa de rechazo (pendientes en tránsito). Por defecto 4.
+            </p>
+          </div>
         </CardContent>
       </Card>
 

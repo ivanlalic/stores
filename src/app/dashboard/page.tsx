@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { SyncButton } from "@/components/sync-button";
 import { KpiCards, KpiCardsSecondary } from "@/components/kpi-cards";
+import { BreakevenCards, type BreakevenConfig } from "@/components/breakeven-cards";
 import { SalesChart } from "@/components/sales-chart";
 import { DailyTable } from "@/components/daily-table";
 import { AdsInputModal } from "@/components/ads-input-modal";
@@ -40,6 +41,9 @@ function nextMonth(month: string) {
 export default function DashboardPage() {
   const [month, setMonth] = useState(getCurrentMonth);
   const [rows, setRows] = useState<DailyRow[]>([]);
+  const [beConfig, setBeConfig] = useState<BreakevenConfig>({
+    fee_gestion_eur: 0, costo_rechazo: 13, dias_rolling: 30, dias_excluir: 4,
+  });
   const [loading, setLoading] = useState(true);
 
   const [adsModal, setAdsModal] = useState<{
@@ -55,6 +59,7 @@ export default function DashboardPage() {
       const res = await fetch(`/api/dashboard?type=daily&month=${month}`);
       const data = await res.json();
       setRows(data.rows || []);
+      if (data.breakevenConfig) setBeConfig(data.breakevenConfig);
     } catch {
       // handle error
     } finally {
@@ -113,6 +118,9 @@ export default function DashboardPage() {
         <>
           {/* KPI Cards - primary metrics */}
           <KpiCards rows={rows} />
+
+          {/* Break-even cards */}
+          <BreakevenCards rows={rows} config={beConfig} />
 
           {/* Chart */}
           <SalesChart rows={rows} />
