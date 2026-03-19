@@ -182,16 +182,19 @@ export interface BreakevenMetrics {
   enviados_promedio_diario: number;
   breakeven_enviados_diario: number;
   breakeven_facturacion_diario: number;
-  dias_rolling_usados: number;
+  dias_resueltos: number;
 }
 
 /**
- * Computes break-even metrics using a rolling window.
- * - bruto/enviado and ticket: rolling N days from current month rows
- *   (falls back to previous month if current month has < 20 active days)
- * - tasa_rechazo: rolling N days EXCLUDING the last `diasExcluir` days
- *   (cross-month if needed)
- * - ads promedio: from the current month rows passed in
+ * Computes break-even metrics using "resolved days" from a 60-day rolling window.
+ *
+ * A day is "resolved" when pendientes < 10% of enviados for that day.
+ * This avoids distortion from recent days where shipments haven't been
+ * delivered or rejected yet.
+ *
+ * - tasa_rechazo: rechazados / enviados from resolved days (60d rolling)
+ * - bruto/enviado, ticket: also from resolved days (same window)
+ * - ads promedio, enviados promedio: from current month active days
  */
 export async function getBreakevenMetrics(
   userId: string,
@@ -200,69 +203,67 @@ export async function getBreakevenMetrics(
 ): Promise<BreakevenMetrics | null> {
   const supabase = await createServiceClient();
 
-  // Determine date boundaries for the rolling window
+  // Rolling 60 days from today
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-
-  // End date for rejection calc: today minus dias_excluir
-  const rechazoEnd = new Date(today);
-  rechazoEnd.setDate(rechazoEnd.getDate() - config.dias_excluir);
-
-  // Start date for rolling window: rechazoEnd minus dias_rolling
-  const rollingStart = new Date(rechazoEnd);
-  rollingStart.setDate(rollingStart.getDate() - config.dias_rolling + 1);
-
+  const rollingStart = new Date(today);
+  rollingStart.setDate(rollingStart.getDate() - 60);
   const rollingStartStr = rollingStart.toISOString().split("T")[0];
-  const rechazoEndStr = rechazoEnd.toISOString().split("T")[0];
+  const todayStr = today.toISOString().split("T")[0];
 
-  // Fetch pedidos in the rolling window for rejection rate
+  // Fetch all pedidos from the last 60 days
   const { data: rollingPedidos } = await supabase
     .from("pedidos")
-    .select("fecha, es_enviado, es_rechazado")
+    .select("fecha, es_enviado, es_entregado, es_rechazado, venta, neto")
     .eq("user_id", userId)
     .gte("fecha", rollingStartStr)
-    .lte("fecha", rechazoEndStr);
+    .lte("fecha", todayStr);
 
-  // Compute rejection rate from rolling window
-  const rEnviados = (rollingPedidos || []).filter((p) => p.es_enviado).length;
-  const rRechazados = (rollingPedidos || []).filter((p) => p.es_rechazado).length;
-  const tasaRechazo = rEnviados > 0 ? rRechazados / rEnviados : 0;
+  if (!rollingPedidos || rollingPedidos.length === 0) return null;
 
-  // For bruto/enviado, ticket, etc. use current month active rows
-  // If less than 20 active days, supplement with previous month
-  let activeRows = currentMonthRows.filter((r) => r.enviados > 0 || r.total_ads > 0);
+  // Group by day
+  const dayMap = new Map<string, { enviados: number; entregados: number; rechazados: number; pendientes: number; bruto: number; ventas: number }>();
+  for (const p of rollingPedidos) {
+    const day = p.fecha;
+    if (!dayMap.has(day)) dayMap.set(day, { enviados: 0, entregados: 0, rechazados: 0, pendientes: 0, bruto: 0, ventas: 0 });
+    const d = dayMap.get(day)!;
+    if (p.es_enviado) {
+      d.enviados++;
+      d.bruto += Number(p.neto) || 0;
+      d.ventas += Number(p.venta) || 0;
+    }
+    if (p.es_entregado) d.entregados++;
+    if (p.es_rechazado) d.rechazados++;
+  }
 
-  if (activeRows.length < 20) {
-    // Fetch previous month data
-    const currentMonth = currentMonthRows[0]?.fecha?.substring(0, 7);
-    if (currentMonth) {
-      const [cy, cm] = currentMonth.split("-").map(Number);
-      const prevDate = new Date(cy, cm - 2, 1);
-      const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
-      const prevRows = await getDailyDashboard(userId, prevMonth, config.fee_gestion_eur);
-      const prevActive = prevRows.filter((r) => r.enviados > 0 || r.total_ads > 0);
-      // Take enough days from prev month to reach dias_rolling
-      const needed = config.dias_rolling - activeRows.length;
-      const supplement = prevActive.slice(-needed);
-      activeRows = [...supplement, ...activeRows];
+  // Compute pendientes and filter resolved days
+  // A day is resolved when pendientes < 10% of enviados
+  const resolvedDays: { enviados: number; rechazados: number; bruto: number; ventas: number }[] = [];
+  for (const [, d] of dayMap) {
+    if (d.enviados === 0) continue;
+    d.pendientes = d.enviados - d.entregados - d.rechazados;
+    if ((d.pendientes / d.enviados) < 0.10) {
+      resolvedDays.push(d);
     }
   }
 
-  if (activeRows.length === 0) return null;
+  if (resolvedDays.length === 0) return null;
 
-  const totalBruto = activeRows.reduce((s, r) => s + r.bruto, 0);
-  const totalEnviados = activeRows.reduce((s, r) => s + r.enviados, 0);
-  const totalVentas = activeRows.reduce((s, r) => s + r.ventas, 0);
+  const totalEnviadosResueltos = resolvedDays.reduce((s, d) => s + d.enviados, 0);
+  const totalRechazados = resolvedDays.reduce((s, d) => s + d.rechazados, 0);
+  const totalBruto = resolvedDays.reduce((s, d) => s + d.bruto, 0);
+  const totalVentas = resolvedDays.reduce((s, d) => s + d.ventas, 0);
 
-  if (totalEnviados === 0) return null;
+  if (totalEnviadosResueltos === 0) return null;
 
-  const brutoPorEnviado = totalBruto / totalEnviados;
-  const ticketPromedio = totalVentas / totalEnviados;
+  const tasaRechazo = totalRechazados / totalEnviadosResueltos;
+  const brutoPorEnviado = totalBruto / totalEnviadosResueltos;
+  const ticketPromedio = totalVentas / totalEnviadosResueltos;
 
   // Margen variable
   const margenVariable = brutoPorEnviado - config.fee_gestion_eur - (tasaRechazo * config.costo_rechazo);
 
-  // Promedios diarios del mes en curso (solo días con actividad del mes actual)
+  // Promedios diarios del mes en curso (solo días con actividad)
   const mesRows = currentMonthRows.filter((r) => r.enviados > 0 || r.total_ads > 0);
   const diasActivos = mesRows.length || 1;
   const adsMes = mesRows.reduce((s, r) => s + r.total_ads, 0);
@@ -285,7 +286,7 @@ export async function getBreakevenMetrics(
     enviados_promedio_diario: Math.round(enviadosPromedioDiario * 10) / 10,
     breakeven_enviados_diario: Math.round(breakevenEnviadosDiario * 10) / 10,
     breakeven_facturacion_diario: Math.round(breakevenFacturacionDiario * 100) / 100,
-    dias_rolling_usados: activeRows.length,
+    dias_resueltos: resolvedDays.length,
   };
 }
 

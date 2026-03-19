@@ -52,7 +52,7 @@ export function BreakevenCards({ metrics }: BreakevenCardsProps) {
             Ads prom: {formatEur(m.ads_promedio_diario)}/día
           </p>
           <p className="text-xs text-muted-foreground">
-            Margen/env: {formatEur(m.margen_variable)} · Rechazo: {(m.tasa_rechazo * 100).toFixed(1)}%
+            Margen/env: {formatEur(m.margen_variable)} · Rechazo: {(m.tasa_rechazo * 100).toFixed(1)}% ({m.dias_resueltos}d resueltos)
           </p>
         </CardContent>
       </Card>
@@ -73,7 +73,7 @@ export function BreakevenCards({ metrics }: BreakevenCardsProps) {
             Ticket prom: {formatEur(m.ticket_promedio)}
           </p>
           <p className="text-xs text-muted-foreground">
-            Bruto/env: {formatEur(m.bruto_por_enviado)} · Rolling: {m.dias_rolling_usados}d
+            Bruto/env: {formatEur(m.bruto_por_enviado)}
           </p>
         </CardContent>
       </Card>
