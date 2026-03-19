@@ -192,8 +192,10 @@ export interface BreakevenMetrics {
  * This avoids distortion from recent days where shipments haven't been
  * delivered or rejected yet.
  *
- * - tasa_rechazo: rechazados / enviados from resolved days (60d rolling)
- * - bruto/enviado, ticket: also from resolved days (same window)
+ * Uses DailyRow data (already paginated correctly) instead of raw pedidos
+ * queries to avoid Supabase's 1000-row default limit.
+ *
+ * - tasa_rechazo, bruto/enviado, ticket: from resolved days (60d rolling)
  * - ads promedio, enviados promedio: from current month active days
  */
 export async function getBreakevenMetrics(
@@ -201,58 +203,51 @@ export async function getBreakevenMetrics(
   currentMonthRows: DailyRow[],
   config: { fee_gestion_eur: number; costo_rechazo: number; dias_rolling: number; dias_excluir: number }
 ): Promise<BreakevenMetrics | null> {
-  const supabase = await createServiceClient();
-
-  // Rolling 60 days from today
+  // Build rolling 60 days of DailyRow data
+  // Current month rows are passed in; fetch previous months if needed
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const rollingStart = new Date(today);
-  rollingStart.setDate(rollingStart.getDate() - 60);
-  const rollingStartStr = rollingStart.toISOString().split("T")[0];
-  const todayStr = today.toISOString().split("T")[0];
+  const cutoff = new Date(today);
+  cutoff.setDate(cutoff.getDate() - 60);
+  const cutoffStr = cutoff.toISOString().split("T")[0];
 
-  // Fetch all pedidos from the last 60 days
-  const { data: rollingPedidos } = await supabase
-    .from("pedidos")
-    .select("fecha, es_enviado, es_entregado, es_rechazado, venta, neto")
-    .eq("user_id", userId)
-    .gte("fecha", rollingStartStr)
-    .lte("fecha", todayStr);
+  // Collect all DailyRow data for the rolling window
+  let allRows: DailyRow[] = [...currentMonthRows];
 
-  if (!rollingPedidos || rollingPedidos.length === 0) return null;
+  // Determine which previous months we need
+  const currentMonth = currentMonthRows[0]?.fecha?.substring(0, 7);
+  if (currentMonth) {
+    const [cy, cm] = currentMonth.split("-").map(Number);
 
-  // Group by day
-  const dayMap = new Map<string, { enviados: number; entregados: number; rechazados: number; pendientes: number; bruto: number; ventas: number }>();
-  for (const p of rollingPedidos) {
-    const day = p.fecha;
-    if (!dayMap.has(day)) dayMap.set(day, { enviados: 0, entregados: 0, rechazados: 0, pendientes: 0, bruto: 0, ventas: 0 });
-    const d = dayMap.get(day)!;
-    if (p.es_enviado) {
-      d.enviados++;
-      d.bruto += Number(p.neto) || 0;
-      d.ventas += Number(p.venta) || 0;
-    }
-    if (p.es_entregado) d.entregados++;
-    if (p.es_rechazado) d.rechazados++;
-  }
-
-  // Compute pendientes and filter resolved days
-  // A day is resolved when pendientes < 10% of enviados
-  const resolvedDays: { enviados: number; rechazados: number; bruto: number; ventas: number }[] = [];
-  for (const [, d] of dayMap) {
-    if (d.enviados === 0) continue;
-    d.pendientes = d.enviados - d.entregados - d.rechazados;
-    if ((d.pendientes / d.enviados) < 0.10) {
-      resolvedDays.push(d);
+    // Fetch up to 2 previous months to cover 60 days
+    for (let i = 1; i <= 2; i++) {
+      const prevDate = new Date(cy, cm - 1 - i, 1);
+      const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
+      const prevMonthEnd = new Date(prevDate.getFullYear(), prevDate.getMonth() + 1, 0);
+      // Only fetch if this month overlaps with our 60-day window
+      if (prevMonthEnd.toISOString().split("T")[0] >= cutoffStr) {
+        const prevRows = await getDailyDashboard(userId, prevMonth, config.fee_gestion_eur);
+        allRows = [...prevRows, ...allRows];
+      }
     }
   }
+
+  // Filter to rolling 60-day window and only days with shipments
+  const rollingRows = allRows.filter((r) => r.fecha >= cutoffStr && r.enviados > 0);
+
+  if (rollingRows.length === 0) return null;
+
+  // Filter for resolved days: pendientes < 10% of enviados
+  const resolvedDays = rollingRows.filter(
+    (r) => (r.pendientes / r.enviados) < 0.10
+  );
 
   if (resolvedDays.length === 0) return null;
 
-  const totalEnviadosResueltos = resolvedDays.reduce((s, d) => s + d.enviados, 0);
-  const totalRechazados = resolvedDays.reduce((s, d) => s + d.rechazados, 0);
-  const totalBruto = resolvedDays.reduce((s, d) => s + d.bruto, 0);
-  const totalVentas = resolvedDays.reduce((s, d) => s + d.ventas, 0);
+  const totalEnviadosResueltos = resolvedDays.reduce((s, r) => s + r.enviados, 0);
+  const totalRechazados = resolvedDays.reduce((s, r) => s + r.rechazados, 0);
+  const totalBruto = resolvedDays.reduce((s, r) => s + r.bruto, 0);
+  const totalVentas = resolvedDays.reduce((s, r) => s + r.ventas, 0);
 
   if (totalEnviadosResueltos === 0) return null;
 
