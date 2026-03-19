@@ -35,65 +35,68 @@ export function BreakevenCards({ metrics }: BreakevenCardsProps) {
   const plDiarioEstimado = (m.enviados_promedio_diario * m.margen_variable) - m.ads_promedio_diario;
 
   return (
-    <div className="grid gap-4 sm:grid-cols-3">
+    <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
       {/* Break-even diario en envíos */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">B/E Diario</CardTitle>
-          <Target className="size-4 text-muted-foreground" />
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+          <CardTitle className="text-xs sm:text-sm font-medium">B/E Diario</CardTitle>
+          <Target className="size-4 text-muted-foreground hidden sm:block" />
         </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold tracking-tight">
+        <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+          <div className="text-lg sm:text-2xl font-bold tracking-tight">
             {isFinite(m.breakeven_enviados_diario)
               ? `${Math.ceil(m.breakeven_enviados_diario)} env/día`
               : "—"}
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Ads prom: {formatEur(m.ads_promedio_diario)}/día
+            Ads: {formatEur(m.ads_promedio_diario)}/día
           </p>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground hidden sm:block">
             Margen/env: {formatEur(m.margen_variable)} · Rechazo: {(m.tasa_rechazo * 100).toFixed(1)}% ({m.dias_resueltos}d resueltos)
+          </p>
+          <p className="text-xs text-muted-foreground sm:hidden">
+            Mrg: {formatEur(m.margen_variable)} · Rch: {(m.tasa_rechazo * 100).toFixed(0)}%
           </p>
         </CardContent>
       </Card>
 
       {/* Break-even diario en facturación */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">B/E Facturación</CardTitle>
-          <DollarSign className="size-4 text-muted-foreground" />
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+          <CardTitle className="text-xs sm:text-sm font-medium">B/E Facturación</CardTitle>
+          <DollarSign className="size-4 text-muted-foreground hidden sm:block" />
         </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold tracking-tight">
+        <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+          <div className="text-lg sm:text-2xl font-bold tracking-tight">
             {isFinite(m.breakeven_facturacion_diario)
               ? `${formatEur(m.breakeven_facturacion_diario)}/día`
               : "—"}
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Ticket prom: {formatEur(m.ticket_promedio)}
+            Ticket: {formatEur(m.ticket_promedio)}
           </p>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground hidden sm:block">
             Bruto/env: {formatEur(m.bruto_por_enviado)}
           </p>
         </CardContent>
       </Card>
 
       {/* Estado actual con semáforo */}
-      <Card className={semaforo.bgColor}>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Estado Diario</CardTitle>
+      <Card className={`col-span-2 sm:col-span-1 ${semaforo.bgColor}`}>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+          <CardTitle className="text-xs sm:text-sm font-medium">Estado Diario</CardTitle>
           <Activity className={`size-4 ${semaforo.color}`} />
         </CardHeader>
-        <CardContent>
-          <div className={`text-2xl font-bold tracking-tight ${semaforo.color}`}>
+        <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+          <div className={`text-lg sm:text-2xl font-bold tracking-tight ${semaforo.color}`}>
             {m.enviados_promedio_diario.toFixed(0)} / {isFinite(m.breakeven_enviados_diario) ? Math.ceil(m.breakeven_enviados_diario) : "—"}
           </div>
           <p className={`text-xs font-medium mt-1 ${semaforo.color}`}>
             {semaforo.label}
           </p>
           <p className="text-xs text-muted-foreground">
-            P&L diario est: <span className={plDiarioEstimado >= 0 ? "text-emerald-600" : "text-red-600"}>
-              {formatEur(plDiarioEstimado)}
+            P&L est: <span className={plDiarioEstimado >= 0 ? "text-emerald-600" : "text-red-600"}>
+              {formatEur(plDiarioEstimado)}/día
             </span>
           </p>
         </CardContent>

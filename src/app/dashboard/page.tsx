@@ -74,10 +74,10 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header bar */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
           <Button
             variant="outline"
             size="icon"
@@ -86,7 +86,7 @@ export default function DashboardPage() {
           >
             <ChevronLeft className="size-4" />
           </Button>
-          <h2 className="text-xl font-semibold min-w-[170px] text-center tracking-tight">
+          <h2 className="text-base sm:text-xl font-semibold min-w-0 sm:min-w-[170px] text-center tracking-tight">
             {monthLabel(month)}
           </h2>
           <Button

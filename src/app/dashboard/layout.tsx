@@ -16,7 +16,7 @@ export default function DashboardLayout({
           <Separator orientation="vertical" className="mr-2 !h-4" />
           <h1 className="text-sm font-medium text-muted-foreground">Dropea Dashboard</h1>
         </header>
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 p-3 sm:p-6">{children}</main>
       </SidebarInset>
     </SidebarProvider>
   );

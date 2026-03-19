@@ -60,11 +60,11 @@ export function KpiCards({ rows }: KpiCardsProps) {
   ];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
       {kpis.map((kpi) => (
         <Card key={kpi.label}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+            <CardTitle className="text-xs sm:text-sm font-medium">
               {kpi.label}
             </CardTitle>
             <div className={kpi.isPositive ? "text-emerald-500" : "text-red-500"}>
@@ -75,14 +75,14 @@ export function KpiCards({ rows }: KpiCardsProps) {
               )}
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold tracking-tight">{kpi.value}</div>
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <div className="text-lg sm:text-2xl font-bold tracking-tight">{kpi.value}</div>
             <p className="text-xs text-muted-foreground mt-1">
               <span className={kpi.isPositive ? "text-emerald-600" : "text-red-600"}>
                 {kpi.change}
               </span>
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground hidden sm:block">
               {kpi.description}
             </p>
           </CardContent>
@@ -108,16 +108,16 @@ export function KpiCardsSecondary({ rows }: KpiCardsProps) {
   ];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
       {items.map((item) => (
         <Card key={item.label}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
+          <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+            <CardTitle className="text-xs sm:text-sm font-medium">
               {item.label}
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold tracking-tight">{item.value}</div>
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <div className="text-lg sm:text-2xl font-bold tracking-tight">{item.value}</div>
           </CardContent>
         </Card>
       ))}
