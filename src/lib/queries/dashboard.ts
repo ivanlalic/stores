@@ -173,6 +173,122 @@ export async function getDailyDashboard(
   return rows;
 }
 
+export interface BreakevenMetrics {
+  margen_variable: number;
+  bruto_por_enviado: number;
+  tasa_rechazo: number;
+  ads_promedio_diario: number;
+  ticket_promedio: number;
+  enviados_promedio_diario: number;
+  breakeven_enviados_diario: number;
+  breakeven_facturacion_diario: number;
+  dias_rolling_usados: number;
+}
+
+/**
+ * Computes break-even metrics using a rolling window.
+ * - bruto/enviado and ticket: rolling N days from current month rows
+ *   (falls back to previous month if current month has < 20 active days)
+ * - tasa_rechazo: rolling N days EXCLUDING the last `diasExcluir` days
+ *   (cross-month if needed)
+ * - ads promedio: from the current month rows passed in
+ */
+export async function getBreakevenMetrics(
+  userId: string,
+  currentMonthRows: DailyRow[],
+  config: { fee_gestion_eur: number; costo_rechazo: number; dias_rolling: number; dias_excluir: number }
+): Promise<BreakevenMetrics | null> {
+  const supabase = await createServiceClient();
+
+  // Determine date boundaries for the rolling window
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // End date for rejection calc: today minus dias_excluir
+  const rechazoEnd = new Date(today);
+  rechazoEnd.setDate(rechazoEnd.getDate() - config.dias_excluir);
+
+  // Start date for rolling window: rechazoEnd minus dias_rolling
+  const rollingStart = new Date(rechazoEnd);
+  rollingStart.setDate(rollingStart.getDate() - config.dias_rolling + 1);
+
+  const rollingStartStr = rollingStart.toISOString().split("T")[0];
+  const rechazoEndStr = rechazoEnd.toISOString().split("T")[0];
+
+  // Fetch pedidos in the rolling window for rejection rate
+  const { data: rollingPedidos } = await supabase
+    .from("pedidos")
+    .select("fecha, es_enviado, es_rechazado")
+    .eq("user_id", userId)
+    .gte("fecha", rollingStartStr)
+    .lte("fecha", rechazoEndStr);
+
+  // Compute rejection rate from rolling window
+  const rEnviados = (rollingPedidos || []).filter((p) => p.es_enviado).length;
+  const rRechazados = (rollingPedidos || []).filter((p) => p.es_rechazado).length;
+  const tasaRechazo = rEnviados > 0 ? rRechazados / rEnviados : 0;
+
+  // For bruto/enviado, ticket, etc. use current month active rows
+  // If less than 20 active days, supplement with previous month
+  let activeRows = currentMonthRows.filter((r) => r.enviados > 0 || r.total_ads > 0);
+
+  if (activeRows.length < 20) {
+    // Fetch previous month data
+    const currentMonth = currentMonthRows[0]?.fecha?.substring(0, 7);
+    if (currentMonth) {
+      const [cy, cm] = currentMonth.split("-").map(Number);
+      const prevDate = new Date(cy, cm - 2, 1);
+      const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
+      const prevRows = await getDailyDashboard(userId, prevMonth, config.fee_gestion_eur);
+      const prevActive = prevRows.filter((r) => r.enviados > 0 || r.total_ads > 0);
+      // Take enough days from prev month to reach dias_rolling
+      const needed = config.dias_rolling - activeRows.length;
+      const supplement = prevActive.slice(-needed);
+      activeRows = [...supplement, ...activeRows];
+    }
+  }
+
+  if (activeRows.length === 0) return null;
+
+  const totalBruto = activeRows.reduce((s, r) => s + r.bruto, 0);
+  const totalEnviados = activeRows.reduce((s, r) => s + r.enviados, 0);
+  const totalVentas = activeRows.reduce((s, r) => s + r.ventas, 0);
+
+  if (totalEnviados === 0) return null;
+
+  const brutoPorEnviado = totalBruto / totalEnviados;
+  const ticketPromedio = totalVentas / totalEnviados;
+
+  // Margen variable
+  const margenVariable = brutoPorEnviado - config.fee_gestion_eur - (tasaRechazo * config.costo_rechazo);
+
+  // Promedios diarios del mes en curso (solo días con actividad del mes actual)
+  const mesRows = currentMonthRows.filter((r) => r.enviados > 0 || r.total_ads > 0);
+  const diasActivos = mesRows.length || 1;
+  const adsMes = mesRows.reduce((s, r) => s + r.total_ads, 0);
+  const enviadosMes = mesRows.reduce((s, r) => s + r.enviados, 0);
+  const adsPromedioDiario = adsMes / diasActivos;
+  const enviadosPromedioDiario = enviadosMes / diasActivos;
+
+  // Break-even diario
+  const breakevenEnviadosDiario = margenVariable > 0 ? adsPromedioDiario / margenVariable : Infinity;
+  const breakevenFacturacionDiario = isFinite(breakevenEnviadosDiario)
+    ? breakevenEnviadosDiario * ticketPromedio
+    : Infinity;
+
+  return {
+    margen_variable: Math.round(margenVariable * 100) / 100,
+    bruto_por_enviado: Math.round(brutoPorEnviado * 100) / 100,
+    tasa_rechazo: Math.round(tasaRechazo * 1000) / 1000,
+    ads_promedio_diario: Math.round(adsPromedioDiario * 100) / 100,
+    ticket_promedio: Math.round(ticketPromedio * 100) / 100,
+    enviados_promedio_diario: Math.round(enviadosPromedioDiario * 10) / 10,
+    breakeven_enviados_diario: Math.round(breakevenEnviadosDiario * 10) / 10,
+    breakeven_facturacion_diario: Math.round(breakevenFacturacionDiario * 100) / 100,
+    dias_rolling_usados: activeRows.length,
+  };
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function fetchAll(
   supabase: Awaited<ReturnType<typeof createServiceClient>>,

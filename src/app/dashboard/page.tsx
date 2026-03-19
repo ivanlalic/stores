@@ -4,13 +4,13 @@ import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { SyncButton } from "@/components/sync-button";
 import { KpiCards, KpiCardsSecondary } from "@/components/kpi-cards";
-import { BreakevenCards, type BreakevenConfig } from "@/components/breakeven-cards";
+import { BreakevenCards } from "@/components/breakeven-cards";
 import { SalesChart } from "@/components/sales-chart";
 import { DailyTable } from "@/components/daily-table";
 import { AdsInputModal } from "@/components/ads-input-modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChevronLeft, ChevronRight, MousePointerClick } from "lucide-react";
-import type { DailyRow } from "@/lib/queries/dashboard";
+import type { DailyRow, BreakevenMetrics } from "@/lib/queries/dashboard";
 
 function getCurrentMonth() {
   const now = new Date();
@@ -41,9 +41,7 @@ function nextMonth(month: string) {
 export default function DashboardPage() {
   const [month, setMonth] = useState(getCurrentMonth);
   const [rows, setRows] = useState<DailyRow[]>([]);
-  const [beConfig, setBeConfig] = useState<BreakevenConfig>({
-    fee_gestion_eur: 0, costo_rechazo: 13, dias_rolling: 30, dias_excluir: 4,
-  });
+  const [beMetrics, setBeMetrics] = useState<BreakevenMetrics | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [adsModal, setAdsModal] = useState<{
@@ -59,7 +57,7 @@ export default function DashboardPage() {
       const res = await fetch(`/api/dashboard?type=daily&month=${month}`);
       const data = await res.json();
       setRows(data.rows || []);
-      if (data.breakevenConfig) setBeConfig(data.breakevenConfig);
+      setBeMetrics(data.breakevenMetrics || null);
     } catch {
       // handle error
     } finally {
@@ -120,7 +118,7 @@ export default function DashboardPage() {
           <KpiCards rows={rows} />
 
           {/* Break-even cards */}
-          <BreakevenCards rows={rows} config={beConfig} />
+          <BreakevenCards metrics={beMetrics} />
 
           {/* Chart */}
           <SalesChart rows={rows} />

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getDailyDashboard, getMonthlyDashboard } from "@/lib/queries/dashboard";
+import { getDailyDashboard, getMonthlyDashboard, getBreakevenMetrics } from "@/lib/queries/dashboard";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -38,5 +38,6 @@ export async function GET(request: NextRequest) {
     month ||
     `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
   const rows = await getDailyDashboard(user.id, currentMonth, feeGestionEur);
-  return NextResponse.json({ rows, month: currentMonth, breakevenConfig });
+  const breakevenMetrics = await getBreakevenMetrics(user.id, rows, breakevenConfig);
+  return NextResponse.json({ rows, month: currentMonth, breakevenConfig, breakevenMetrics });
 }
