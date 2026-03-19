@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   BarChart3,
   CalendarDays,
@@ -10,6 +10,7 @@ import {
   TrendingUp,
   LogOut,
 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 import {
   Sidebar,
@@ -35,7 +36,14 @@ const settingsItems = [
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [storeName, setStoreName] = useState("Mi Tienda");
+
+  async function handleLogout() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+  }
 
   useEffect(() => {
     fetch("/api/config")
@@ -117,9 +125,7 @@ export function AppSidebar() {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              render={<Link href="/api/auth/signout" />}
-            >
+            <SidebarMenuButton onClick={handleLogout}>
               <LogOut className="size-4" />
               <span>Cerrar sesión</span>
             </SidebarMenuButton>
