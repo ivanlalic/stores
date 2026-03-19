@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { ChevronRight } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -32,6 +34,8 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export function SalesChart({ rows }: SalesChartProps) {
+  const [open, setOpen] = useState(false);
+
   const chartData = rows
     .filter((r) => r.pedidos > 0 || r.total_ads > 0)
     .map((r) => ({
@@ -43,54 +47,66 @@ export function SalesChart({ rows }: SalesChartProps) {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Evolución de Ventas</CardTitle>
-        <CardDescription>
-          Ventas vs Gastos diarios del mes
-        </CardDescription>
+      <CardHeader
+        className="cursor-pointer select-none"
+        onClick={() => setOpen(!open)}
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Evolución de Ventas</CardTitle>
+            <CardDescription>
+              Ventas vs Gastos diarios del mes
+            </CardDescription>
+          </div>
+          <ChevronRight
+            className={`size-5 text-muted-foreground transition-transform duration-200 ${open ? "rotate-90" : ""}`}
+          />
+        </div>
       </CardHeader>
-      <CardContent>
-        <ChartContainer config={chartConfig} className="h-[300px] w-full">
-          <AreaChart data={chartData}>
-            <CartesianGrid vertical={false} />
-            <XAxis
-              dataKey="fecha"
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              tickFormatter={(value) => {
-                const [m, d] = value.split("-");
-                return `${d}/${m}`;
-              }}
-            />
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              tickFormatter={(value) => `€${value}`}
-            />
-            <ChartTooltip
-              content={<ChartTooltipContent indicator="dot" />}
-            />
-            <Area
-              dataKey="ventas"
-              type="monotone"
-              fill="var(--color-ventas)"
-              fillOpacity={0.2}
-              stroke="var(--color-ventas)"
-              strokeWidth={2}
-            />
-            <Area
-              dataKey="gastos"
-              type="monotone"
-              fill="var(--color-gastos)"
-              fillOpacity={0.1}
-              stroke="var(--color-gastos)"
-              strokeWidth={2}
-            />
-          </AreaChart>
-        </ChartContainer>
-      </CardContent>
+      {open && (
+        <CardContent>
+          <ChartContainer config={chartConfig} className="h-[300px] w-full">
+            <AreaChart data={chartData}>
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="fecha"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                tickFormatter={(value) => {
+                  const [m, d] = value.split("-");
+                  return `${d}/${m}`;
+                }}
+              />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                tickFormatter={(value) => `€${value}`}
+              />
+              <ChartTooltip
+                content={<ChartTooltipContent indicator="dot" />}
+              />
+              <Area
+                dataKey="ventas"
+                type="monotone"
+                fill="var(--color-ventas)"
+                fillOpacity={0.2}
+                stroke="var(--color-ventas)"
+                strokeWidth={2}
+              />
+              <Area
+                dataKey="gastos"
+                type="monotone"
+                fill="var(--color-gastos)"
+                fillOpacity={0.1}
+                stroke="var(--color-gastos)"
+                strokeWidth={2}
+              />
+            </AreaChart>
+          </ChartContainer>
+        </CardContent>
+      )}
     </Card>
   );
 }
