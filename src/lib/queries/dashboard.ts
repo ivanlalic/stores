@@ -59,14 +59,26 @@ export async function getDailyDashboard(
   const [year, m] = month.split("-").map(Number);
   const endDate = new Date(year, m, 0).toISOString().split("T")[0];
 
-  // Get pedidos grouped by day
-  const { data: pedidos } = await supabase
-    .from("pedidos")
-    .select("*")
-    .eq("user_id", userId)
-    .gte("fecha", startDate)
-    .lte("fecha", endDate)
-    .order("fecha", { ascending: true });
+  // Get pedidos grouped by day (paginated to avoid 1000-row limit)
+  const PAGE_SIZE = 1000;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let pedidos: any[] = [];
+  let from = 0;
+  let hasMore = true;
+  while (hasMore) {
+    const { data } = await supabase
+      .from("pedidos")
+      .select("*")
+      .eq("user_id", userId)
+      .gte("fecha", startDate)
+      .lte("fecha", endDate)
+      .order("fecha", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    const rows = data || [];
+    pedidos = pedidos.concat(rows);
+    hasMore = rows.length === PAGE_SIZE;
+    from += PAGE_SIZE;
+  }
 
   // Get ads for this month
   const { data: ads } = await supabase
