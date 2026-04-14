@@ -37,7 +37,7 @@ export function BreakevenCards({ metrics }: BreakevenCardsProps) {
   return (
     <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
       {/* Break-even diario en envíos */}
-      <Card>
+      <Card className="transition-shadow duration-200 hover:shadow-md">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
           <CardTitle className="text-xs sm:text-sm font-medium">B/E Diario</CardTitle>
           <Target className="size-4 text-muted-foreground hidden sm:block" />
@@ -61,7 +61,7 @@ export function BreakevenCards({ metrics }: BreakevenCardsProps) {
       </Card>
 
       {/* Break-even diario en facturación */}
-      <Card>
+      <Card className="transition-shadow duration-200 hover:shadow-md">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
           <CardTitle className="text-xs sm:text-sm font-medium">B/E Facturación</CardTitle>
           <DollarSign className="size-4 text-muted-foreground hidden sm:block" />
@@ -82,7 +82,7 @@ export function BreakevenCards({ metrics }: BreakevenCardsProps) {
       </Card>
 
       {/* Estado actual con semáforo */}
-      <Card className={`col-span-2 sm:col-span-1 ${semaforo.bgColor}`}>
+      <Card className={`col-span-2 sm:col-span-1 transition-shadow duration-200 hover:shadow-md ${semaforo.bgColor}`}>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
           <CardTitle className="text-xs sm:text-sm font-medium">Estado Diario</CardTitle>
           <Activity className={`size-4 ${semaforo.color}`} />

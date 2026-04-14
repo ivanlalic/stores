@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Zap, X, CheckCircle2, AlertCircle } from "lucide-react";
+import { gooeyToast } from "goey-toast";
 
 interface SyncButtonProps {
   onComplete?: () => void;
@@ -24,12 +25,15 @@ export function SyncButton({ onComplete, className, showQuickSync = true }: Sync
     setMessages([]);
     setShowLog(true);
 
+    let encounteredError = false;
+
     try {
       const url = mode === "48h" ? "/api/sync?mode=48h" : "/api/sync";
       const response = await fetch(url, { method: "POST" });
 
       if (!response.body) {
         setMessages((m) => [...m, "Error: No se pudo conectar"]);
+        encounteredError = true;
         return;
       }
 
@@ -50,10 +54,16 @@ export function SyncButton({ onComplete, className, showQuickSync = true }: Sync
             try {
               const data = JSON.parse(line.slice(6));
               if (data.message) {
+                if (data.message.startsWith("Error")) encounteredError = true;
                 setMessages((m) => [...m, data.message]);
               }
               if (data.done) {
                 onComplete?.();
+                if (encounteredError) {
+                  gooeyToast.error("Sync completado con errores");
+                } else {
+                  gooeyToast.success("Sincronización completa");
+                }
               }
             } catch {
               // skip malformed JSON
@@ -66,10 +76,9 @@ export function SyncButton({ onComplete, className, showQuickSync = true }: Sync
         }
       }
     } catch (err) {
-      setMessages((m) => [
-        ...m,
-        `Error: ${err instanceof Error ? err.message : "Error desconocido"}`,
-      ]);
+      const msg = `Error: ${err instanceof Error ? err.message : "Error desconocido"}`;
+      setMessages((m) => [...m, msg]);
+      gooeyToast.error("Error de conexión al sincronizar");
     } finally {
       setSyncing(false);
       setSyncMode(null);

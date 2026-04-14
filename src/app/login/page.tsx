@@ -6,18 +6,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2 } from "lucide-react";
+import { gooeyToast } from "goey-toast";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isRegister, setIsRegister] = useState(false);
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const supabase = useMemo(() => createClient(), []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
     setLoading(true);
 
     try {
@@ -39,7 +39,7 @@ export default function LoginPage() {
       }
       window.location.href = "/dashboard";
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error desconocido");
+      gooeyToast.error(err instanceof Error ? err.message : "Error desconocido");
     } finally {
       setLoading(false);
     }
@@ -81,10 +81,8 @@ export default function LoginPage() {
                 minLength={6}
               />
             </div>
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
             <Button type="submit" className="w-full" disabled={loading}>
+              {loading && <Loader2 className="animate-spin size-4" />}
               {loading
                 ? "Cargando..."
                 : isRegister
@@ -97,7 +95,6 @@ export default function LoginPage() {
               type="button"
               onClick={() => {
                 setIsRegister(!isRegister);
-                setError("");
               }}
               className="text-sm text-muted-foreground hover:underline"
             >

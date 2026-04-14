@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SyncButton } from "@/components/sync-button";
 import { createClient } from "@/lib/supabase/client";
+import { Loader2 } from "lucide-react";
+import { gooeyToast } from "goey-toast";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -19,7 +21,6 @@ export default function SettingsPage() {
   const [diasRolling, setDiasRolling] = useState("30");
   const [diasExcluir, setDiasExcluir] = useState("4");
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -39,7 +40,6 @@ export default function SettingsPage() {
 
   async function handleSave() {
     setSaving(true);
-    setMessage("");
     try {
       const body: Record<string, unknown> = {
         fee_gestion_eur: parseFloat(feeGestion) || 0,
@@ -57,13 +57,13 @@ export default function SettingsPage() {
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error("Error guardando");
-      setMessage("Configuracion guardada");
+      gooeyToast.success("Configuración guardada");
       if (newApiKey) {
         setHasApiKey(true);
         setNewApiKey("");
       }
     } catch {
-      setMessage("Error al guardar");
+      gooeyToast.error("Error al guardar");
     } finally {
       setSaving(false);
     }
@@ -130,12 +130,8 @@ export default function SettingsPage() {
               Monto fijo en EUR cobrado por gestor externo por pedido enviado. 0 si no aplica.
             </p>
           </div>
-          {message && (
-            <p className={`text-sm ${message.includes("Error") ? "text-destructive" : "text-green-600"}`}>
-              {message}
-            </p>
-          )}
           <Button onClick={handleSave} disabled={saving} className="w-full">
+            {saving && <Loader2 className="animate-spin size-4" />}
             {saving ? "Guardando..." : "Guardar"}
           </Button>
         </CardContent>

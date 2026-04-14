@@ -10,6 +10,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Loader2 } from "lucide-react";
+import { gooeyToast } from "goey-toast";
 
 interface AdsInputModalProps {
   open: boolean;
@@ -51,10 +53,11 @@ export function AdsInputModal({
         }),
       });
       if (!res.ok) throw new Error("Error guardando");
+      gooeyToast.success("Ads guardados");
       onSave();
       onOpenChange(false);
     } catch {
-      // Error handled silently
+      gooeyToast.error("Error guardando los ads");
     } finally {
       setSaving(false);
     }
@@ -103,6 +106,7 @@ export function AdsInputModal({
               Cancelar
             </Button>
             <Button onClick={handleSave} disabled={saving}>
+              {saving && <Loader2 className="animate-spin size-4" />}
               {saving ? "Guardando..." : "Guardar"}
             </Button>
           </div>

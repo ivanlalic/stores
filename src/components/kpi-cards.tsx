@@ -62,7 +62,7 @@ export function KpiCards({ rows }: KpiCardsProps) {
   return (
     <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
       {kpis.map((kpi) => (
-        <Card key={kpi.label}>
+        <Card key={kpi.label} className="transition-shadow duration-200 hover:shadow-md">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
             <CardTitle className="text-xs sm:text-sm font-medium">
               {kpi.label}
@@ -110,7 +110,7 @@ export function KpiCardsSecondary({ rows }: KpiCardsProps) {
   return (
     <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
       {items.map((item) => (
-        <Card key={item.label}>
+        <Card key={item.label} className="transition-shadow duration-200 hover:shadow-md">
           <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
             <CardTitle className="text-xs sm:text-sm font-medium">
               {item.label}

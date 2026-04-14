@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
+import { GooeyToaster } from "goey-toast";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -17,6 +18,7 @@ export default function RootLayout({
     <html lang="es" className={`${GeistSans.variable} ${GeistMono.variable}`}>
       <body className="antialiased font-sans">
         {children}
+        <GooeyToaster position="bottom-right" preset="bouncy" swipeToDismiss closeOnEscape />
       </body>
     </html>
   );
