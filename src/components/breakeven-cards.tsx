@@ -1,11 +1,34 @@
+"use client";
+
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Target, DollarSign, Activity } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Target, DollarSign, Activity, Info } from "lucide-react";
 import type { BreakevenMetrics } from "@/lib/queries/dashboard";
+
+function InfoTip({ text }: { text: string }) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Info className="size-3.5 text-muted-foreground cursor-help shrink-0" />
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-[220px] text-center leading-snug">
+          {text}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
 
 interface BreakevenCardsProps {
   metrics: BreakevenMetrics | null;
@@ -39,7 +62,10 @@ export function BreakevenCards({ metrics }: BreakevenCardsProps) {
       {/* Break-even diario en envíos */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
-          <CardTitle className="text-xs sm:text-sm font-medium">B/E Diario</CardTitle>
+          <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-1">
+              B/E Diario
+              <InfoTip text="Envíos mínimos por día para cubrir el gasto en ads. Fórmula: Ads promedio diario ÷ Margen por envío. Calculado con días resueltos de los últimos 60 días." />
+            </CardTitle>
           <Target className="size-4 text-muted-foreground hidden sm:block" />
         </CardHeader>
         <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
@@ -63,7 +89,10 @@ export function BreakevenCards({ metrics }: BreakevenCardsProps) {
       {/* Break-even diario en facturación */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
-          <CardTitle className="text-xs sm:text-sm font-medium">B/E Facturación</CardTitle>
+          <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-1">
+              B/E Facturación
+              <InfoTip text="Facturación diaria mínima para cubrir costos. Fórmula: B/E envíos × ticket promedio del período." />
+            </CardTitle>
           <DollarSign className="size-4 text-muted-foreground hidden sm:block" />
         </CardHeader>
         <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
@@ -84,7 +113,10 @@ export function BreakevenCards({ metrics }: BreakevenCardsProps) {
       {/* Estado actual con semáforo */}
       <Card className={`col-span-2 sm:col-span-1 ${semaforo.bgColor}`}>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
-          <CardTitle className="text-xs sm:text-sm font-medium">Estado Diario</CardTitle>
+          <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-1">
+              Estado Diario
+              <InfoTip text="Ritmo actual del mes vs break-even. Izquierda: enviados promedio/día del mes. Derecha: B/E diario. P&L est = ganancia diaria estimada al ritmo actual." />
+            </CardTitle>
           <Activity className={`size-4 ${semaforo.color}`} />
         </CardHeader>
         <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
