@@ -29,11 +29,11 @@ export function MiniSalesChart({ rows }: SalesChartProps) {
     }));
 
   return (
-    <Card className="h-full flex flex-col p-2 gap-1 min-h-[90px]">
+    <Card className="flex flex-col p-2 gap-1 h-[100px]">
       <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide px-1">
         Tendencia del mes
       </p>
-      <ChartContainer config={chartConfig} className="flex-1 w-full min-h-[60px]">
+      <ChartContainer config={chartConfig} className="w-full h-[68px]">
         <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
           <XAxis
             dataKey="dia"

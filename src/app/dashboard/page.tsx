@@ -124,7 +124,7 @@ export default function DashboardPage() {
           </div>
 
           {/* KPI Row 2 — secondary metrics + mini chart */}
-          <div className="flex flex-col lg:flex-row gap-3 items-stretch">
+          <div className="flex flex-col lg:flex-row gap-3 items-start">
             <div className="flex-1 min-w-0">
               <KpiCardsSecondary rows={rows} />
             </div>
