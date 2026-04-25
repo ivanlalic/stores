@@ -12,8 +12,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { TrendingUp, TrendingDown, Info } from "lucide-react";
+import { TrendingUp, TrendingDown, Info, ArrowDown, ArrowUp } from "lucide-react";
 import type { DailyRow } from "@/lib/queries/dashboard";
+
+const COSTO_RECHAZO = 13.76;
 
 interface KpiCardsProps {
   rows: DailyRow[];
@@ -45,76 +47,101 @@ export function KpiCards({ rows }: KpiCardsProps) {
   const totalVentas = rows.reduce((s, r) => s + r.ventas, 0);
   const totalPnlTeo = rows.reduce((s, r) => s + r.pnl_teorico, 0);
   const totalPnlReal = rows.reduce((s, r) => s + r.pnl_real, 0);
+  const totalPendientes = rows.reduce((s, r) => s + r.pendientes, 0);
   const tasaEntrega = totalEnviados > 0 ? totalEntregados / totalEnviados : 0;
 
-  const marginPnlTeo = totalVentas > 0 ? ((totalPnlTeo / totalVentas) * 100).toFixed(1) : "0";
-  const marginPnlReal = totalVentas > 0 ? ((totalPnlReal / totalVentas) * 100).toFixed(1) : "0";
+  const pnlPeor = totalPnlReal - totalPendientes * COSTO_RECHAZO;
+  const pnlResuelto = totalPnlReal;
+  const pnlMejor = totalPnlTeo;
 
-  const kpis = [
-    {
-      label: "Ventas",
-      tooltip: "Importe total de pedidos enviados al cliente. Incluye pedidos en tránsito, entregados y rechazados.",
-      value: formatEur(totalVentas),
-      isPositive: true,
-      change: `${totalPedidos} pedidos`,
-      description: `${totalEnviados} enviados`,
-    },
-    {
-      label: "P&L Teórico",
-      tooltip: "Ganancia si todos los pedidos en tránsito se entregaran. Fórmula: Σ beneficio(enviados) − ads − gestión. Incluye pedidos aún sin resolver.",
-      value: formatEur(totalPnlTeo),
-      isPositive: totalPnlTeo >= 0,
-      change: `${totalPnlTeo >= 0 ? "+" : ""}${marginPnlTeo}%`,
-      description: "Margen sobre ventas",
-    },
-    {
-      label: "P&L Real",
-      tooltip: "Ganancia real de pedidos ya resueltos. Fórmula: Σ beneficio(entregados) + Σ beneficio(rechazados) − ads − gestión. Los rechazos suman negativo (≈−€13.76). Excluye pedidos en tránsito.",
-      value: formatEur(totalPnlReal),
-      isPositive: totalPnlReal >= 0,
-      change: `${totalPnlReal >= 0 ? "+" : ""}${marginPnlReal}%`,
-      description: "Margen sobre ventas",
-    },
-    {
-      label: "Tasa Entrega",
-      tooltip: "Porcentaje de pedidos enviados que fueron entregados y cobrados. Fórmula: Entregados ÷ Enviados. Buen ratio: >60%.",
-      value: `${(tasaEntrega * 100).toFixed(1)}%`,
-      isPositive: tasaEntrega >= 0.6,
-      change: `${totalEntregados} de ${totalEnviados}`,
-      description: tasaEntrega >= 0.6 ? "Buen ratio" : "Necesita atención",
-    },
-  ];
+  const marginResuelto = totalVentas > 0 ? ((pnlResuelto / totalVentas) * 100).toFixed(1) : "0";
 
   return (
     <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-      {kpis.map((kpi) => (
-        <Card key={kpi.label}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
-            <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-1">
-              {kpi.label}
-              <InfoTip text={kpi.tooltip} />
-            </CardTitle>
-            <div className={kpi.isPositive ? "text-emerald-500" : "text-red-500"}>
-              {kpi.isPositive ? (
-                <TrendingUp className="size-4" />
-              ) : (
-                <TrendingDown className="size-4" />
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
-            <div className="text-lg sm:text-2xl font-bold tracking-tight">{kpi.value}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              <span className={kpi.isPositive ? "text-emerald-600" : "text-red-600"}>
-                {kpi.change}
+      {/* Ventas */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+          <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-1">
+            Ventas
+            <InfoTip text="Importe total de pedidos enviados al cliente. Incluye pedidos en tránsito, entregados y rechazados." />
+          </CardTitle>
+          <TrendingUp className="size-4 text-emerald-500" />
+        </CardHeader>
+        <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+          <div className="text-lg sm:text-2xl font-bold tracking-tight">{formatEur(totalVentas)}</div>
+          <p className="text-xs text-muted-foreground mt-1">
+            <span className="text-emerald-600">{totalPedidos} pedidos</span>
+          </p>
+          <p className="text-xs text-muted-foreground hidden sm:block">{totalEnviados} enviados</p>
+        </CardContent>
+      </Card>
+
+      {/* P&L del Mes — card ancho */}
+      <Card className="col-span-2">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+          <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-1">
+            P&L del Mes
+            <InfoTip text="Tres escenarios según el resultado de los pedidos en tránsito. Resuelto: solo pedidos ya cerrados. Peor caso: si todos los pendientes se rechazan (−€13.76 c/u). Mejor caso: si todos los pendientes se entregan." />
+          </CardTitle>
+          <div className={pnlResuelto >= 0 ? "text-emerald-500" : "text-red-500"}>
+            {pnlResuelto >= 0 ? <TrendingUp className="size-4" /> : <TrendingDown className="size-4" />}
+          </div>
+        </CardHeader>
+        <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+          {/* Número principal */}
+          <div className="text-lg sm:text-2xl font-bold tracking-tight">
+            {formatEur(pnlResuelto)}
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Resuelto · {pnlResuelto >= 0 ? "+" : ""}{marginResuelto}% margen
+            {totalPendientes > 0 && (
+              <span className="ml-1 text-amber-600">· {totalPendientes} en tránsito</span>
+            )}
+          </p>
+
+          {/* Rango peor / mejor caso */}
+          {totalPendientes > 0 && (
+            <div className="mt-2 flex flex-col sm:flex-row gap-1 sm:gap-4">
+              <span className="flex items-center gap-1 text-xs text-red-500">
+                <ArrowDown className="size-3" />
+                {formatEur(pnlPeor)}
+                <span className="text-muted-foreground">peor caso</span>
               </span>
-            </p>
-            <p className="text-xs text-muted-foreground hidden sm:block">
-              {kpi.description}
-            </p>
-          </CardContent>
-        </Card>
-      ))}
+              <span className="flex items-center gap-1 text-xs text-emerald-600">
+                <ArrowUp className="size-3" />
+                {formatEur(pnlMejor)}
+                <span className="text-muted-foreground">mejor caso</span>
+              </span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Tasa Entrega */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+          <CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-1">
+            Tasa Entrega
+            <InfoTip text="Porcentaje de pedidos enviados que fueron entregados y cobrados. Fórmula: Entregados ÷ Enviados. Buen ratio: >60%." />
+          </CardTitle>
+          <div className={tasaEntrega >= 0.6 ? "text-emerald-500" : "text-red-500"}>
+            {tasaEntrega >= 0.6 ? <TrendingUp className="size-4" /> : <TrendingDown className="size-4" />}
+          </div>
+        </CardHeader>
+        <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+          <div className="text-lg sm:text-2xl font-bold tracking-tight">
+            {(tasaEntrega * 100).toFixed(1)}%
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            <span className={tasaEntrega >= 0.6 ? "text-emerald-600" : "text-red-600"}>
+              {totalEntregados} de {totalEnviados}
+            </span>
+          </p>
+          <p className="text-xs text-muted-foreground hidden sm:block">
+            {tasaEntrega >= 0.6 ? "Buen ratio" : "Necesita atención"}
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }
