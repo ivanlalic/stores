@@ -239,7 +239,7 @@ export async function getBreakevenMetrics(
   const brutoPorEnviado = totalBruto / totalEnviadosResueltos;
   const ticketPromedio = totalVentas / totalEnviadosResueltos;
 
-  const margenVariable = brutoPorEnviado - config.fee_gestion_eur - (tasaRechazo * config.costo_rechazo);
+  const margenVariable = brutoPorEnviado - config.fee_gestion_eur;
 
   const mesRows = currentMonthRows.filter((r) => r.enviados > 0 || r.total_ads > 0);
   const diasActivos = mesRows.length || 1;
