@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Zap, CheckCircle2, AlertCircle, X } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface SyncButtonProps {
   onComplete?: () => void;
@@ -90,27 +91,45 @@ export function SyncButton({ onComplete, className, showQuickSync = true }: Sync
       <div className={className}>
         <div className="flex items-center gap-1.5">
           {showQuickSync && (
-            <Button
-              onClick={() => handleSync("48h")}
-              disabled={syncing}
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-            >
-              <Zap className={`size-3.5 ${syncing && syncMode === "48h" ? "animate-pulse" : ""}`} />
-              {syncing && syncMode === "48h" ? "Sync 48h..." : "Sync 48h"}
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={() => handleSync("48h")}
+                    disabled={syncing}
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                  >
+                    <Zap className={`size-3.5 ${syncing && syncMode === "48h" ? "animate-pulse" : ""}`} />
+                    {syncing && syncMode === "48h" ? "Actualizando..." : "Actualizar"}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[200px] text-center leading-snug">
+                  Trae pedidos actualizados en los últimos 15 días. Captura nuevos estados: rechazos, entregas, incidencias.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
-          <Button
-            onClick={() => handleSync("full")}
-            disabled={syncing}
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-          >
-            <RefreshCw className={`size-3.5 ${syncing && syncMode === "full" ? "animate-spin" : ""}`} />
-            {syncing && syncMode === "full" ? "Sync..." : "Sync completo"}
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={() => handleSync("full")}
+                  disabled={syncing}
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                >
+                  <RefreshCw className={`size-3.5 ${syncing && syncMode === "full" ? "animate-spin" : ""}`} />
+                  {syncing && syncMode === "full" ? "Cargando..." : "Carga completa"}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[200px] text-center leading-snug">
+                Descarga todos los pedidos de los últimos 2 meses por fecha de creación. Usar para sincronización inicial o recuperar datos históricos.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
 
