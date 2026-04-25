@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { SyncButton } from "@/components/sync-button";
-import { KpiCards, KpiCardsSecondary } from "@/components/kpi-cards";
-import { BreakevenCards } from "@/components/breakeven-cards";
+import { VentasCard, PnlCard, TasaEntregaCard, KpiCardsSecondary } from "@/components/kpi-cards";
+import { BEDiarioCard, BEFacturacionCard, EstadoDiarioCard } from "@/components/breakeven-cards";
 import { SalesChart } from "@/components/sales-chart";
 import { DailyTable } from "@/components/daily-table";
 import { AdsInputModal } from "@/components/ads-input-modal";
@@ -114,11 +114,15 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          {/* KPI Cards - primary metrics */}
-          <KpiCards rows={rows} />
-
-          {/* Break-even cards */}
-          <BreakevenCards metrics={beMetrics} />
+          {/* All metrics — single 6-col row on desktop */}
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+            <VentasCard rows={rows} />
+            <PnlCard rows={rows} />
+            <TasaEntregaCard rows={rows} />
+            <BEDiarioCard metrics={beMetrics} />
+            <BEFacturacionCard metrics={beMetrics} />
+            <EstadoDiarioCard metrics={beMetrics} />
+          </div>
 
           {/* Chart */}
           <SalesChart rows={rows} />
