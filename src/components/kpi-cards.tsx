@@ -140,7 +140,7 @@ export function KpiCards({ rows }: KpiCardsProps) {
   );
 }
 
-export function KpiCardsSecondary({ rows }: KpiCardsProps) {
+export function KpiCardsSecondary({ rows, className }: KpiCardsProps & { className?: string }) {
   const totalAds = rows.reduce((s, r) => s + r.total_ads, 0);
   const totalGastos = rows.reduce((s, r) => s + r.gastos, 0);
   const totalEnviados = rows.reduce((s, r) => s + r.enviados, 0);
@@ -156,7 +156,7 @@ export function KpiCardsSecondary({ rows }: KpiCardsProps) {
   ];
 
   return (
-    <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+    <div className={className ?? "grid gap-3 grid-cols-2 lg:grid-cols-4"}>
       {items.map((item) => (
         <Card key={item.label}>
           <CardHeader className="pb-1 px-3 pt-3 sm:px-4 sm:pt-4">

@@ -123,14 +123,10 @@ export default function DashboardPage() {
             <EstadoDiarioCard metrics={beMetrics} />
           </div>
 
-          {/* KPI Row 2 — secondary metrics + mini chart */}
-          <div className="flex flex-col lg:flex-row gap-3 items-start">
-            <div className="flex-1 min-w-0">
-              <KpiCardsSecondary rows={rows} />
-            </div>
-            <div className="w-full lg:w-[280px] shrink-0">
-              <MiniSalesChart rows={rows} />
-            </div>
+          {/* KPI Row 2 — secondary metrics + mini chart, same grid for equal heights */}
+          <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">
+            <KpiCardsSecondary rows={rows} className="contents" />
+            <MiniSalesChart rows={rows} />
           </div>
 
           {/* Table */}
