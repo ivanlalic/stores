@@ -93,7 +93,7 @@ export function SyncButton({ onComplete, className, showQuickSync = true }: Sync
           {showQuickSync && (
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger asChild>
+                <TooltipTrigger>
                   <Button
                     onClick={() => handleSync("48h")}
                     disabled={syncing}
@@ -113,7 +113,7 @@ export function SyncButton({ onComplete, className, showQuickSync = true }: Sync
           )}
           <TooltipProvider>
             <Tooltip>
-              <TooltipTrigger asChild>
+              <TooltipTrigger>
                 <Button
                   onClick={() => handleSync("full")}
                   disabled={syncing}
