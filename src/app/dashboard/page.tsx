@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { SyncButton } from "@/components/sync-button";
 import { VentasCard, PnlCard, TasaEntregaCard, KpiCardsSecondary } from "@/components/kpi-cards";
-import { BEDiarioCard, BEFacturacionCard, EstadoDiarioCard } from "@/components/breakeven-cards";
+import { PuntoEquilibrioCard, EstadoDiarioCard } from "@/components/breakeven-cards";
 import { SalesChart } from "@/components/sales-chart";
 import { DailyTable } from "@/components/daily-table";
 import { AdsInputModal } from "@/components/ads-input-modal";
@@ -114,13 +114,12 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          {/* All metrics — single 6-col row on desktop */}
-          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+          {/* All metrics — single 5-col row on desktop */}
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
             <VentasCard rows={rows} />
             <PnlCard rows={rows} />
             <TasaEntregaCard rows={rows} />
-            <BEDiarioCard metrics={beMetrics} />
-            <BEFacturacionCard metrics={beMetrics} />
+            <PuntoEquilibrioCard metrics={beMetrics} />
             <EstadoDiarioCard metrics={beMetrics} />
           </div>
 

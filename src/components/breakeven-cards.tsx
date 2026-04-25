@@ -38,7 +38,7 @@ function getSemaforo(envDiario: number, beDiario: number) {
   return { label: "Pérdida", color: "text-red-700", bgColor: "bg-red-50 dark:bg-red-950/30" };
 }
 
-export function BEDiarioCard({ metrics }: Props) {
+export function PuntoEquilibrioCard({ metrics }: Props) {
   const [expanded, setExpanded] = useState(false);
   if (!metrics) return null;
   const m = metrics;
@@ -50,8 +50,8 @@ export function BEDiarioCard({ metrics }: Props) {
     >
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 px-3 pt-3 sm:px-4 sm:pt-4">
         <CardTitle className="text-xs font-medium flex items-center gap-1">
-          B/E Diario
-          <InfoTip text="Envíos mínimos por día para cubrir el gasto en ads. Toca para ver el cálculo." />
+          Punto de Equilibrio
+          <InfoTip text="Mínimo diario para cubrir los costos de ads, expresado en envíos y en facturación. Toca para ver el cálculo." />
         </CardTitle>
         <div className="flex items-center gap-1">
           <Target className="size-3.5 text-muted-foreground" />
@@ -62,33 +62,47 @@ export function BEDiarioCard({ metrics }: Props) {
         <div className="text-base sm:text-lg font-bold tracking-tight">
           {isFinite(m.breakeven_enviados_diario) ? `${Math.ceil(m.breakeven_enviados_diario)} env/día` : "—"}
         </div>
-        <p className="text-xs text-muted-foreground mt-0.5">Ads: {formatEur(m.ads_promedio_diario)}/día</p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          {isFinite(m.breakeven_facturacion_diario) ? `${formatEur(m.breakeven_facturacion_diario)}/día` : "—"}
+        </p>
         <p className="text-xs text-muted-foreground">
           Mrg: {formatEur(m.margen_variable)} · Rch: {(m.tasa_rechazo * 100).toFixed(1)}%
         </p>
 
         {expanded && (
-          <div className="mt-3 pt-3 border-t space-y-2" onClick={(e) => e.stopPropagation()}>
-            <p className="text-xs font-semibold text-foreground">Cómo se calcula</p>
-            <div className="space-y-1 text-xs text-muted-foreground">
-              <div className="flex justify-between">
-                <span>Ads promedio/día</span>
-                <span className="font-medium text-foreground">{formatEur(m.ads_promedio_diario)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>÷ Margen por envío</span>
-                <span className="font-medium text-foreground">{formatEur(m.margen_variable)}</span>
-              </div>
-              <div className="flex justify-between border-t pt-1 mt-1">
-                <span>= B/E exacto</span>
-                <span className="font-medium text-foreground">{m.breakeven_enviados_diario.toFixed(1)} env/día</span>
+          <div className="mt-3 pt-3 border-t space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-foreground">En envíos</p>
+              <div className="space-y-1 text-xs text-muted-foreground">
+                <div className="flex justify-between">
+                  <span>Ads promedio/día</span>
+                  <span className="font-medium text-foreground">{formatEur(m.ads_promedio_diario)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>÷ Margen por envío</span>
+                  <span className="font-medium text-foreground">{formatEur(m.margen_variable)}</span>
+                </div>
+                <div className="flex justify-between border-t pt-1">
+                  <span>= Envíos mínimos</span>
+                  <span className="font-medium text-foreground">{m.breakeven_enviados_diario.toFixed(1)} env/día</span>
+                </div>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground pt-1">
-              Margen/env = beneficio promedio de pedidos enviados (entregados y rechazados con −€13.76), calculado sobre <strong>{m.dias_resueltos} días resueltos</strong> de los últimos 60 días.
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Tasa de rechazo actual: <strong>{(m.tasa_rechazo * 100).toFixed(1)}%</strong> — ya descontada del margen.
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-foreground">En facturación</p>
+              <div className="space-y-1 text-xs text-muted-foreground">
+                <div className="flex justify-between">
+                  <span>B/E envíos × ticket</span>
+                  <span className="font-medium text-foreground">{m.breakeven_enviados_diario.toFixed(1)} × {formatEur(m.ticket_promedio)}</span>
+                </div>
+                <div className="flex justify-between border-t pt-1">
+                  <span>= Facturación mínima</span>
+                  <span className="font-medium text-foreground">{formatEur(m.breakeven_facturacion_diario)}/día</span>
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground border-t pt-2">
+              Margen/env calculado sobre <strong>{m.dias_resueltos} días resueltos</strong> (últimos 60d). Tasa de rechazo <strong>{(m.tasa_rechazo * 100).toFixed(1)}%</strong> ya incluida en el margen.
             </p>
           </div>
         )}
@@ -97,59 +111,9 @@ export function BEDiarioCard({ metrics }: Props) {
   );
 }
 
-export function BEFacturacionCard({ metrics }: Props) {
-  const [expanded, setExpanded] = useState(false);
-  if (!metrics) return null;
-  const m = metrics;
-
-  return (
-    <Card
-      className="cursor-pointer select-none transition-shadow hover:shadow-md"
-      onClick={() => setExpanded(!expanded)}
-    >
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 px-3 pt-3 sm:px-4 sm:pt-4">
-        <CardTitle className="text-xs font-medium flex items-center gap-1">
-          B/E Facturación
-          <InfoTip text="Facturación diaria mínima para cubrir costos. Toca para ver el cálculo." />
-        </CardTitle>
-        <div className="flex items-center gap-1">
-          <DollarSign className="size-3.5 text-muted-foreground" />
-          {expanded ? <ChevronUp className="size-3 text-muted-foreground" /> : <ChevronDown className="size-3 text-muted-foreground" />}
-        </div>
-      </CardHeader>
-      <CardContent className="px-3 pb-3 sm:px-4 sm:pb-4">
-        <div className="text-base sm:text-lg font-bold tracking-tight">
-          {isFinite(m.breakeven_facturacion_diario) ? `${formatEur(m.breakeven_facturacion_diario)}/día` : "—"}
-        </div>
-        <p className="text-xs text-muted-foreground mt-0.5">Ticket: {formatEur(m.ticket_promedio)}</p>
-        <p className="text-xs text-muted-foreground">Bruto/env: {formatEur(m.bruto_por_enviado)}</p>
-
-        {expanded && (
-          <div className="mt-3 pt-3 border-t space-y-2" onClick={(e) => e.stopPropagation()}>
-            <p className="text-xs font-semibold text-foreground">Cómo se calcula</p>
-            <div className="space-y-1 text-xs text-muted-foreground">
-              <div className="flex justify-between">
-                <span>B/E envíos/día</span>
-                <span className="font-medium text-foreground">{m.breakeven_enviados_diario.toFixed(1)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>× Ticket promedio</span>
-                <span className="font-medium text-foreground">{formatEur(m.ticket_promedio)}</span>
-              </div>
-              <div className="flex justify-between border-t pt-1 mt-1">
-                <span>= Facturación mínima</span>
-                <span className="font-medium text-foreground">{formatEur(m.breakeven_facturacion_diario)}/día</span>
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground pt-1">
-              Ticket promedio = ventas ÷ enviados, calculado sobre días resueltos. Bruto/env (<strong>{formatEur(m.bruto_por_enviado)}</strong>) es el beneficio de Dropea por pedido enviado antes de ads.
-            </p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
+// Keep individual exports for legacy use
+export const BEDiarioCard = PuntoEquilibrioCard;
+export const BEFacturacionCard = ({ metrics }: Props) => null;
 
 export function EstadoDiarioCard({ metrics }: Props) {
   if (!metrics) return null;
