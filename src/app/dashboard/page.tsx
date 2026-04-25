@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { SyncButton } from "@/components/sync-button";
 import { VentasCard, PnlCard, TasaEntregaCard, KpiCardsSecondary } from "@/components/kpi-cards";
 import { PuntoEquilibrioCard, EstadoDiarioCard } from "@/components/breakeven-cards";
-import { SalesChart } from "@/components/sales-chart";
+import { MiniSalesChart } from "@/components/sales-chart";
 import { DailyTable } from "@/components/daily-table";
 import { AdsInputModal } from "@/components/ads-input-modal";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronLeft, ChevronRight, MousePointerClick } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { DailyRow, BreakevenMetrics } from "@/lib/queries/dashboard";
 
 function getCurrentMonth() {
@@ -74,31 +74,31 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-3 sm:space-y-4">
       {/* Header bar */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1 sm:gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            className="size-8"
-            onClick={() => setMonth(prevMonth(month))}
-          >
-            <ChevronLeft className="size-4" />
-          </Button>
-          <h2 className="text-base sm:text-xl font-semibold min-w-0 sm:min-w-[170px] text-center tracking-tight">
-            {monthLabel(month)}
-          </h2>
-          <Button
-            variant="outline"
-            size="icon"
-            className="size-8"
-            onClick={() => setMonth(nextMonth(month))}
-            disabled={month >= getCurrentMonth()}
-          >
-            <ChevronRight className="size-4" />
-          </Button>
-        </div>
+      <div className="flex items-center gap-2">
+        <SidebarTrigger className="size-8 shrink-0" />
+        <Button
+          variant="outline"
+          size="icon"
+          className="size-8"
+          onClick={() => setMonth(prevMonth(month))}
+        >
+          <ChevronLeft className="size-4" />
+        </Button>
+        <h2 className="text-base sm:text-lg font-semibold min-w-[140px] sm:min-w-[160px] text-center tracking-tight">
+          {monthLabel(month)}
+        </h2>
+        <Button
+          variant="outline"
+          size="icon"
+          className="size-8"
+          onClick={() => setMonth(nextMonth(month))}
+          disabled={month >= getCurrentMonth()}
+        >
+          <ChevronRight className="size-4" />
+        </Button>
+        <div className="flex-1" />
         <SyncButton onComplete={fetchData} />
       </div>
 
@@ -114,7 +114,7 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          {/* All metrics — single 5-col row on desktop */}
+          {/* KPI Row 1 — 5 primary cards */}
           <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
             <VentasCard rows={rows} />
             <PnlCard rows={rows} />
@@ -123,28 +123,18 @@ export default function DashboardPage() {
             <EstadoDiarioCard metrics={beMetrics} />
           </div>
 
-          {/* Chart */}
-          <SalesChart rows={rows} />
-
-          {/* Secondary KPIs + Table */}
-          <Tabs defaultValue="detalle" className="space-y-4">
-            <TabsList>
-              <TabsTrigger value="detalle">Detalle Diario</TabsTrigger>
-              <TabsTrigger value="costos">Costos & CPA</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="detalle" className="space-y-4">
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <MousePointerClick className="size-3.5" />
-                <span>Click en una fila para editar los Ads de ese día</span>
-              </div>
-              <DailyTable rows={rows} onRowClick={handleRowClick} />
-            </TabsContent>
-
-            <TabsContent value="costos" className="space-y-4">
+          {/* KPI Row 2 — secondary metrics + mini chart */}
+          <div className="flex flex-col lg:flex-row gap-3 items-stretch">
+            <div className="flex-1 min-w-0">
               <KpiCardsSecondary rows={rows} />
-            </TabsContent>
-          </Tabs>
+            </div>
+            <div className="w-full lg:w-[280px] shrink-0">
+              <MiniSalesChart rows={rows} />
+            </div>
+          </div>
+
+          {/* Table */}
+          <DailyTable rows={rows} onRowClick={handleRowClick} />
         </>
       )}
 

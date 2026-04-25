@@ -127,8 +127,8 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
   return (
     <TooltipProvider>
       <Card className="p-0 overflow-hidden">
-        <div className="max-h-[70vh] overflow-auto">
-          <Table>
+        <div className="max-h-[55vh] overflow-auto">
+          <Table className="[&_td]:py-1 [&_td]:px-2 [&_th]:px-2 text-xs">
             <TableHeader className="sticky top-0 z-20">
               {/* Group header row */}
               <TableRow className="border-b-0 bg-muted">
@@ -165,7 +165,7 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
                 return (
                   <TableRow
                     key={row.fecha}
-                    className={`text-sm cursor-pointer transition-colors hover:bg-primary/5 ${
+                    className={`cursor-pointer transition-colors hover:bg-primary/5 ${
                       i % 2 === 0 ? "bg-background" : "bg-muted/20"
                     } ${isWeekend ? "bg-muted/30" : ""}`}
                     onClick={() => onRowClick(row.fecha, row.meta_ads, row.tiktok_ads)}
@@ -207,7 +207,7 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
               })}
 
               {/* Totals row */}
-              <TableRow className="font-semibold bg-primary/5 text-sm border-t-2 border-primary/20 hover:bg-primary/5">
+              <TableRow className="font-semibold bg-primary/5 border-t-2 border-primary/20 hover:bg-primary/5">
                 <TableCell className="sticky left-0 bg-primary/5 z-10">
                   <span className="text-primary font-bold">TOTAL</span>
                 </TableCell>
