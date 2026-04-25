@@ -19,7 +19,7 @@ function InfoTip({ text }: { text: string }) {
   return (
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger asChild>
+        <TooltipTrigger>
           <Info className="size-3.5 text-muted-foreground cursor-help shrink-0" />
         </TooltipTrigger>
         <TooltipContent side="top" className="max-w-[220px] text-center leading-snug">
