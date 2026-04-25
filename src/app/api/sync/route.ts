@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { getUser, createServiceClient } from "@/lib/insforge/server";
 import { decrypt } from "@/lib/encryption";
-import { fetchAllOrders, getDateRange, getDateRange48h, type DropeaOrder } from "@/lib/dropea/client";
+import { fetchAllOrders, getDateRange, getDateRangeUpdatedAt, type DropeaOrder } from "@/lib/dropea/client";
 import {
   isEnviado,
   isEntregado,
@@ -90,11 +90,12 @@ export async function POST(request: NextRequest) {
 
         const mode = request.nextUrl.searchParams.get("mode");
         const is48h = mode === "48h";
-        const { startDate, endDate } = is48h ? getDateRange48h() : getDateRange(2);
+        const { startDate, endDate } = is48h ? getDateRangeUpdatedAt(15) : getDateRange(2);
+        const dateField = is48h ? "UPDATED_AT" : "CREATED_AT";
 
-        send(`${is48h ? "Sync rápido (48h)" : "Sync completo"}: ${startDate} - ${endDate}...`);
+        send(`${is48h ? "Sync rápido (UPDATED_AT, 15d)" : "Sync completo (CREATED_AT, 2m)"}: ${startDate} - ${endDate}...`);
 
-        const orders = await fetchAllOrders(apiKey, startDate, endDate, send);
+        const orders = await fetchAllOrders(apiKey, startDate, endDate, send, dateField);
 
         send(`${orders.length} pedidos obtenidos. Procesando...`);
 

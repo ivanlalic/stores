@@ -125,11 +125,24 @@ export function getDateRange48h() {
   };
 }
 
+export function getDateRangeUpdatedAt(daysBack: number) {
+  const today = new Date();
+  const endDateObj = new Date();
+  endDateObj.setDate(today.getDate() + 1);
+  const startDateObj = new Date();
+  startDateObj.setDate(today.getDate() - daysBack);
+  return {
+    startDate: formatDateForAPI(startDateObj),
+    endDate: formatDateForAPI(endDateObj),
+  };
+}
+
 async function fetchPage(
   apiKey: string,
   page: number,
   startDate: string,
-  endDate: string
+  endDate: string,
+  dateField: "CREATED_AT" | "UPDATED_AT" = "CREATED_AT"
 ): Promise<OrdersResponse> {
   const res = await fetch(API_ENDPOINT, {
     method: "POST",
@@ -142,7 +155,7 @@ async function fetchPage(
       variables: {
         page,
         perPage: ITEMS_PER_PAGE,
-        dateField: "CREATED_AT",
+        dateField,
         startDate,
         endDate,
       },
@@ -166,7 +179,8 @@ export async function fetchAllOrders(
   apiKey: string,
   startDate: string,
   endDate: string,
-  onProgress?: (msg: string) => void
+  onProgress?: (msg: string) => void,
+  dateField: "CREATED_AT" | "UPDATED_AT" = "CREATED_AT"
 ): Promise<DropeaOrder[]> {
   const allOrders: DropeaOrder[] = [];
   let page = 1;
@@ -175,7 +189,7 @@ export async function fetchAllOrders(
   while (hasMore) {
     onProgress?.(`Obteniendo pagina ${page}...`);
 
-    const response = await fetchPage(apiKey, page, startDate, endDate);
+    const response = await fetchPage(apiKey, page, startDate, endDate, dateField);
     const ordersData = response.data.orders;
 
     allOrders.push(...ordersData.data);
