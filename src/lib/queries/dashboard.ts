@@ -1,4 +1,6 @@
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/insforge/server";
+
+type InsforgeClient = ReturnType<typeof createServiceClient>;
 
 export interface DailyRow {
   fecha: string;
@@ -49,24 +51,22 @@ export interface MonthlyRow {
 }
 
 export async function getDailyDashboard(
+  insforge: InsforgeClient,
   userId: string,
-  month: string, // YYYY-MM
+  month: string,
   feeGestionEur: number
 ): Promise<DailyRow[]> {
-  const supabase = await createServiceClient();
-
   const startDate = `${month}-01`;
   const [year, m] = month.split("-").map(Number);
   const endDate = new Date(year, m, 0).toISOString().split("T")[0];
 
-  // Get pedidos grouped by day (paginated to avoid 1000-row limit)
   const PAGE_SIZE = 1000;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let pedidos: any[] = [];
   let from = 0;
   let hasMore = true;
   while (hasMore) {
-    const { data } = await supabase
+    const { data } = await insforge.database
       .from("pedidos")
       .select("*")
       .eq("user_id", userId)
@@ -80,15 +80,13 @@ export async function getDailyDashboard(
     from += PAGE_SIZE;
   }
 
-  // Get ads for this month
-  const { data: ads } = await supabase
+  const { data: ads } = await insforge.database
     .from("ads_diario")
     .select("*")
     .eq("user_id", userId)
     .gte("fecha", startDate)
     .lte("fecha", endDate);
 
-  // Build ads map
   const adsMap = new Map<string, { meta_ads: number; tiktok_ads: number }>();
   (ads || []).forEach((a) => {
     adsMap.set(a.fecha, {
@@ -97,7 +95,6 @@ export async function getDailyDashboard(
     });
   });
 
-  // Group pedidos by day
   const dayMap = new Map<string, typeof pedidos>();
   (pedidos || []).forEach((p) => {
     const day = p.fecha;
@@ -107,15 +104,12 @@ export async function getDailyDashboard(
 
   const rows: DailyRow[] = [];
 
-  // Generate all days of the month
   for (let d = 1; d <= new Date(year, m, 0).getDate(); d++) {
     const fecha = `${year}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     const dayPedidos = dayMap.get(fecha) || [];
     const dayAds = adsMap.get(fecha) || { meta_ads: 0, tiktok_ads: 0 };
 
     if (dayPedidos.length === 0 && dayAds.meta_ads === 0 && dayAds.tiktok_ads === 0) {
-      // Only include days with data
-      // But still include if today or past
       const dateObj = new Date(fecha);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -129,7 +123,6 @@ export async function getDailyDashboard(
     const cancelados = dayPedidos.filter((p) => p.es_cancelado).length;
     const pendientes = enviados - entregados - rechazados;
 
-    // Ventas y bruto = sobre todos los enviados (igual que el Excel)
     const ventas = dayPedidos
       .filter((p) => p.es_enviado)
       .reduce((sum, p) => sum + Number(p.venta), 0);
@@ -138,7 +131,6 @@ export async function getDailyDashboard(
       .filter((p) => p.es_enviado)
       .reduce((sum, p) => sum + Number(p.neto), 0);
 
-    // Neto solo de pedidos con estado final (entregados + rechazados)
     const netoEntregados = dayPedidos
       .filter((p) => p.es_entregado)
       .reduce((sum, p) => sum + Number(p.neto), 0);
@@ -197,59 +189,39 @@ export interface BreakevenMetrics {
   dias_resueltos: number;
 }
 
-/**
- * Computes break-even metrics using "resolved days" from a 60-day rolling window.
- *
- * A day is "resolved" when pendientes < 10% of enviados for that day.
- * This avoids distortion from recent days where shipments haven't been
- * delivered or rejected yet.
- *
- * Uses DailyRow data (already paginated correctly) instead of raw pedidos
- * queries to avoid Supabase's 1000-row default limit.
- *
- * - tasa_rechazo, bruto/enviado, ticket: from resolved days (60d rolling)
- * - ads promedio, enviados promedio: from current month active days
- */
 export async function getBreakevenMetrics(
+  insforge: InsforgeClient,
   userId: string,
   currentMonthRows: DailyRow[],
   config: { fee_gestion_eur: number; costo_rechazo: number; dias_rolling: number; dias_excluir: number }
 ): Promise<BreakevenMetrics | null> {
-  // Build rolling 60 days of DailyRow data
-  // Current month rows are passed in; fetch previous months if needed
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const cutoff = new Date(today);
   cutoff.setDate(cutoff.getDate() - 60);
   const cutoffStr = cutoff.toISOString().split("T")[0];
 
-  // Collect all DailyRow data for the rolling window
   let allRows: DailyRow[] = [...currentMonthRows];
 
-  // Determine which previous months we need
   const currentMonth = currentMonthRows[0]?.fecha?.substring(0, 7);
   if (currentMonth) {
     const [cy, cm] = currentMonth.split("-").map(Number);
 
-    // Fetch up to 2 previous months to cover 60 days
     for (let i = 1; i <= 2; i++) {
       const prevDate = new Date(cy, cm - 1 - i, 1);
       const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
       const prevMonthEnd = new Date(prevDate.getFullYear(), prevDate.getMonth() + 1, 0);
-      // Only fetch if this month overlaps with our 60-day window
       if (prevMonthEnd.toISOString().split("T")[0] >= cutoffStr) {
-        const prevRows = await getDailyDashboard(userId, prevMonth, config.fee_gestion_eur);
+        const prevRows = await getDailyDashboard(insforge, userId, prevMonth, config.fee_gestion_eur);
         allRows = [...prevRows, ...allRows];
       }
     }
   }
 
-  // Filter to rolling 60-day window and only days with shipments
   const rollingRows = allRows.filter((r) => r.fecha >= cutoffStr && r.enviados > 0);
 
   if (rollingRows.length === 0) return null;
 
-  // Filter for resolved days: pendientes < 10% of enviados
   const resolvedDays = rollingRows.filter(
     (r) => (r.pendientes / r.enviados) < 0.10
   );
@@ -267,10 +239,8 @@ export async function getBreakevenMetrics(
   const brutoPorEnviado = totalBruto / totalEnviadosResueltos;
   const ticketPromedio = totalVentas / totalEnviadosResueltos;
 
-  // Margen variable
   const margenVariable = brutoPorEnviado - config.fee_gestion_eur - (tasaRechazo * config.costo_rechazo);
 
-  // Promedios diarios del mes en curso (solo días con actividad)
   const mesRows = currentMonthRows.filter((r) => r.enviados > 0 || r.total_ads > 0);
   const diasActivos = mesRows.length || 1;
   const adsMes = mesRows.reduce((s, r) => s + r.total_ads, 0);
@@ -278,7 +248,6 @@ export async function getBreakevenMetrics(
   const adsPromedioDiario = adsMes / diasActivos;
   const enviadosPromedioDiario = enviadosMes / diasActivos;
 
-  // Break-even diario
   const breakevenEnviadosDiario = margenVariable > 0 ? adsPromedioDiario / margenVariable : Infinity;
   const breakevenFacturacionDiario = isFinite(breakevenEnviadosDiario)
     ? breakevenEnviadosDiario * ticketPromedio
@@ -297,12 +266,12 @@ export async function getBreakevenMetrics(
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function fetchAll(
-  supabase: Awaited<ReturnType<typeof createServiceClient>>,
+  insforge: InsforgeClient,
   table: string,
   userId: string,
   orderBy?: string
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any[]> {
   const PAGE_SIZE = 1000;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -311,7 +280,7 @@ async function fetchAll(
   let hasMore = true;
 
   while (hasMore) {
-    let query = supabase
+    let query = insforge.database
       .from(table)
       .select("*")
       .eq("user_id", userId)
@@ -332,23 +301,18 @@ async function fetchAll(
 }
 
 export async function getMonthlyDashboard(
+  insforge: InsforgeClient,
   userId: string,
   feeGestionEur: number
 ): Promise<MonthlyRow[]> {
-  const supabase = await createServiceClient();
+  const pedidos = await fetchAll(insforge, "pedidos", userId, "fecha");
+  const ads = await fetchAll(insforge, "ads_diario", userId);
 
-  // Get all pedidos (paginated to avoid 1000 row limit)
-  const pedidos = await fetchAll(supabase, "pedidos", userId, "fecha");
-
-  // Get all ads
-  const ads = await fetchAll(supabase, "ads_diario", userId);
-
-  // Group by month
   const monthPedidos = new Map<string, typeof pedidos>();
   const monthAds = new Map<string, { meta: number; tiktok: number }>();
 
   (pedidos || []).forEach((p) => {
-    const mes = p.fecha.substring(0, 7); // YYYY-MM
+    const mes = p.fecha.substring(0, 7);
     if (!monthPedidos.has(mes)) monthPedidos.set(mes, []);
     monthPedidos.get(mes)!.push(p);
   });
@@ -361,7 +325,6 @@ export async function getMonthlyDashboard(
     monthAds.set(mes, current);
   });
 
-  // Get all unique months
   const allMonths = new Set([...monthPedidos.keys(), ...monthAds.keys()]);
   const sortedMonths = Array.from(allMonths).sort();
 
@@ -378,7 +341,6 @@ export async function getMonthlyDashboard(
     const cancelados = mp.filter((p) => p.es_cancelado).length;
     const pendientes = enviados - entregados - rechazados;
 
-    // Ventas y bruto = sobre todos los enviados (igual que el Excel)
     const ventas = mp
       .filter((p) => p.es_enviado)
       .reduce((sum, p) => sum + Number(p.venta), 0);
@@ -387,7 +349,6 @@ export async function getMonthlyDashboard(
       .filter((p) => p.es_enviado)
       .reduce((sum, p) => sum + Number(p.neto), 0);
 
-    // Neto solo de pedidos con estado final (entregados + rechazados)
     const netoEntregados = mp
       .filter((p) => p.es_entregado)
       .reduce((sum, p) => sum + Number(p.neto), 0);
@@ -400,7 +361,6 @@ export async function getMonthlyDashboard(
     const gastos = total_ads + gestion;
     const pnl_real = netoEntregados + netoRechazados - gastos;
 
-    // P&L ajustado: subtract €13 per pending order
     const COSTO_PENDIENTE = 13;
     const reserva = pendientes * COSTO_PENDIENTE;
     const pnl_ajustado = pnl_real - reserva;

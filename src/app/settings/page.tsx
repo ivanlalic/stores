@@ -7,7 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SyncButton } from "@/components/sync-button";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/insforge/client";
+
+function clearAuthCookies() {
+  document.cookie = "insforge_token=; path=/; max-age=0";
+  document.cookie = "insforge_uid=; path=/; max-age=0";
+}
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -70,8 +75,9 @@ export default function SettingsPage() {
   }
 
   async function handleLogout() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    const insforge = createClient();
+    await insforge.auth.signOut();
+    clearAuthCookies();
     router.push("/login");
   }
 

@@ -1,11 +1,17 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/insforge/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+function setAuthCookies(token: string, uid: string) {
+  const maxAge = 60 * 60 * 24 * 7; // 7 days
+  document.cookie = `insforge_token=${token}; path=/; SameSite=Lax; max-age=${maxAge}`;
+  document.cookie = `insforge_uid=${uid}; path=/; SameSite=Lax; max-age=${maxAge}`;
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -13,7 +19,7 @@ export default function LoginPage() {
   const [isRegister, setIsRegister] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const supabase = useMemo(() => createClient(), []);
+  const insforge = useMemo(() => createClient(), []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -22,20 +28,19 @@ export default function LoginPage() {
 
     try {
       if (isRegister) {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { error } = await insforge.auth.signUp({ email, password });
         if (error) throw error;
-        // Auto-login after register
-        const { error: loginError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+        const { data: loginData, error: loginError } = await insforge.auth.signInWithPassword({ email, password });
         if (loginError) throw loginError;
+        if (loginData?.accessToken && loginData.user) {
+          setAuthCookies(loginData.accessToken, loginData.user.id);
+        }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+        const { data, error } = await insforge.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        if (data?.accessToken && data.user) {
+          setAuthCookies(data.accessToken, data.user.id);
+        }
       }
       window.location.href = "/dashboard";
     } catch (err) {
@@ -101,9 +106,7 @@ export default function LoginPage() {
               }}
               className="text-sm text-muted-foreground hover:underline"
             >
-              {isRegister
-                ? "Ya tengo cuenta"
-                : "No tengo cuenta"}
+              {isRegister ? "Ya tengo cuenta" : "No tengo cuenta"}
             </button>
           </div>
         </CardContent>

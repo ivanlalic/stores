@@ -10,7 +10,7 @@ import {
   TrendingUp,
   LogOut,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/insforge/client";
 
 import {
   Sidebar,
@@ -34,14 +34,20 @@ const settingsItems = [
   { title: "Configuración", href: "/settings", icon: Settings },
 ];
 
+function clearAuthCookies() {
+  document.cookie = "insforge_token=; path=/; max-age=0";
+  document.cookie = "insforge_uid=; path=/; max-age=0";
+}
+
 export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [storeName, setStoreName] = useState("Mi Tienda");
 
   async function handleLogout() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    const insforge = createClient();
+    await insforge.auth.signOut();
+    clearAuthCookies();
     router.push("/login");
   }
 

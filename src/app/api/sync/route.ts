@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { createServiceClient } from "@/lib/supabase/server";
+import { getUser, createServiceClient } from "@/lib/insforge/server";
 import { decrypt } from "@/lib/encryption";
 import { fetchAllOrders, getDateRange, getDateRange48h, type DropeaOrder } from "@/lib/dropea/client";
 import {
@@ -33,7 +32,6 @@ function mapOrder(order: DropeaOrder, userId: string) {
   const status = order.status || "";
   const zeroRevenue = shouldZeroRevenue(status);
 
-  // Parse date from "2025-11-27 20:03:21" format
   const fecha = order.created_at ? order.created_at.split(" ")[0] : null;
 
   return {
@@ -66,11 +64,7 @@ export async function POST(request: NextRequest) {
       try {
         send("Autenticando...");
 
-        const supabase = await createClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
+        const user = await getUser();
         if (!user) {
           send("Error: No autenticado");
           controller.close();
@@ -79,11 +73,12 @@ export async function POST(request: NextRequest) {
 
         send("Obteniendo configuracion...");
 
-        const { data: config } = await supabase
+        const insforge = createServiceClient();
+        const { data: config } = await insforge.database
           .from("users_config")
           .select("dropea_api_key_encrypted")
           .eq("id", user.id)
-          .single();
+          .maybeSingle();
 
         if (!config?.dropea_api_key_encrypted) {
           send("Error: No hay API key configurada");
@@ -103,11 +98,8 @@ export async function POST(request: NextRequest) {
 
         send(`${orders.length} pedidos obtenidos. Procesando...`);
 
-        // Map orders to DB format
         const mappedOrders = orders.map((o) => mapOrder(o, user.id));
 
-        // Upsert in batches of 100
-        const serviceClient = await createServiceClient();
         const batchSize = 100;
         let added = 0;
         let updated = 0;
@@ -115,26 +107,20 @@ export async function POST(request: NextRequest) {
         for (let i = 0; i < mappedOrders.length; i += batchSize) {
           const batch = mappedOrders.slice(i, i + batchSize);
 
-          // Check which exist
           const dropeaIds = batch.map((o) => o.dropea_id);
-          const { data: existing } = await serviceClient
+          const { data: existing } = await insforge.database
             .from("pedidos")
             .select("dropea_id")
             .eq("user_id", user.id)
             .in("dropea_id", dropeaIds);
 
           const existingSet = new Set(existing?.map((e) => e.dropea_id) || []);
-
           for (const order of batch) {
-            if (existingSet.has(order.dropea_id)) {
-              updated++;
-            } else {
-              added++;
-            }
+            if (existingSet.has(order.dropea_id)) { updated++; } else { added++; }
           }
 
-          const { error } = await serviceClient.from("pedidos").upsert(batch, {
-            onConflict: "user_id,dropea_id",
+          const { error } = await insforge.database.rpc("upsert_pedidos_batch", {
+            records: batch,
           });
 
           if (error) {
