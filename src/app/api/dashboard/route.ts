@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser, createServiceClient } from "@/lib/insforge/server";
-import { getDailyDashboard, getMonthlyDashboard, getBreakevenMetrics } from "@/lib/queries/dashboard";
+import { getDailyDashboard, getMonthlyDashboard, getBreakevenMetrics, getProductosDashboard } from "@/lib/queries/dashboard";
 
 export async function GET(request: NextRequest) {
   const user = await getUser();
@@ -29,6 +29,11 @@ export async function GET(request: NextRequest) {
   if (type === "monthly") {
     const rows = await getMonthlyDashboard(insforge, user.id, feeGestionEur);
     return NextResponse.json({ rows, breakevenConfig });
+  }
+
+  if (type === "productos") {
+    const rows = await getProductosDashboard(insforge, user.id);
+    return NextResponse.json({ rows });
   }
 
   const currentMonth =

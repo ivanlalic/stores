@@ -267,6 +267,94 @@ export async function getBreakevenMetrics(
   };
 }
 
+export interface ProductoRow {
+  nombre: string;
+  pedidos: number;
+  unidades: number;
+  enviados: number;
+  entregados: number;
+  rechazados: number;
+  pendientes: number;
+  cancelados: number;
+  tasa_entrega: number;
+  tasa_rechazo: number;
+  ventas: number;
+  neto: number;
+  neto_por_unidad: number;
+}
+
+function parsePedidoItems(pedido: string): Array<{ name: string; qty: number }> {
+  return pedido.split(" | ").map((item) => {
+    const match = item.match(/^(.+?)\s*\(x(\d+)\)$/);
+    if (match) return { name: match[1].trim(), qty: parseInt(match[2]) };
+    return { name: item.trim(), qty: 1 };
+  });
+}
+
+export async function getProductosDashboard(
+  insforge: InsforgeClient,
+  userId: string
+): Promise<ProductoRow[]> {
+  const pedidos = await fetchAll(insforge, "pedidos", userId, "fecha");
+
+  const map = new Map<string, {
+    pedidos: number; unidades: number; enviados: number;
+    entregados: number; rechazados: number; pendientes: number; cancelados: number;
+    ventas: number; neto: number; ventasOrders: number;
+  }>();
+
+  for (const p of pedidos) {
+    const items = parsePedidoItems(p.pedido || "");
+    const isSingle = items.length === 1;
+
+    for (const item of items) {
+      const existing = map.get(item.name) || {
+        pedidos: 0, unidades: 0, enviados: 0, entregados: 0,
+        rechazados: 0, pendientes: 0, cancelados: 0,
+        ventas: 0, neto: 0, ventasOrders: 0,
+      };
+
+      existing.pedidos += 1;
+      existing.unidades += item.qty;
+      if (p.es_enviado) existing.enviados += 1;
+      if (p.es_entregado) existing.entregados += 1;
+      if (p.es_rechazado) existing.rechazados += 1;
+      if (p.es_cancelado) existing.cancelados += 1;
+      if (p.es_enviado) existing.pendientes = Math.max(0, existing.enviados - existing.entregados - existing.rechazados);
+
+      if (isSingle && p.es_enviado) {
+        existing.ventas += Number(p.venta) || 0;
+        existing.neto += Number(p.neto) || 0;
+        existing.ventasOrders += 1;
+      }
+
+      map.set(item.name, existing);
+    }
+  }
+
+  const rows: ProductoRow[] = [];
+  for (const [nombre, s] of map.entries()) {
+    const pendientes = s.enviados - s.entregados - s.rechazados;
+    rows.push({
+      nombre,
+      pedidos: s.pedidos,
+      unidades: s.unidades,
+      enviados: s.enviados,
+      entregados: s.entregados,
+      rechazados: s.rechazados,
+      pendientes: Math.max(0, pendientes),
+      cancelados: s.cancelados,
+      tasa_entrega: s.enviados > 0 ? s.entregados / s.enviados : 0,
+      tasa_rechazo: s.enviados > 0 ? s.rechazados / s.enviados : 0,
+      ventas: Math.round(s.ventas * 100) / 100,
+      neto: Math.round(s.neto * 100) / 100,
+      neto_por_unidad: s.ventasOrders > 0 ? Math.round((s.neto / s.ventasOrders) * 100) / 100 : 0,
+    });
+  }
+
+  return rows.sort((a, b) => b.pedidos - a.pedidos);
+}
+
 async function fetchAll(
   insforge: InsforgeClient,
   table: string,

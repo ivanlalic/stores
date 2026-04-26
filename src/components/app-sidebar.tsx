@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   BarChart3,
   CalendarDays,
+  Package,
   Settings,
   TrendingUp,
   LogOut,
@@ -28,6 +29,7 @@ import {
 const navItems = [
   { title: "Dashboard Diario", href: "/dashboard", icon: BarChart3 },
   { title: "Resumen Mensual", href: "/dashboard/mensual", icon: CalendarDays },
+  { title: "Productos", href: "/dashboard/productos", icon: Package },
 ];
 
 const settingsItems = [
