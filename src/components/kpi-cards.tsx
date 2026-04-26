@@ -46,6 +46,9 @@ function useTotals(rows: DailyRow[]) {
 
 export function VentasCard({ rows }: KpiCardsProps) {
   const { totalPedidos, totalEnviados, totalVentas } = useTotals(rows);
+  const today = new Date().toISOString().slice(0, 10);
+  const todayRow = rows.find((r) => r.fecha === today);
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 px-3 pt-3 sm:px-4 sm:pt-4">
@@ -57,8 +60,15 @@ export function VentasCard({ rows }: KpiCardsProps) {
       </CardHeader>
       <CardContent className="px-3 pb-3 sm:px-4 sm:pb-4">
         <div className="text-base sm:text-lg font-bold tracking-tight">{formatEur(totalVentas)}</div>
-        <p className="text-xs text-emerald-600 mt-0.5">{totalPedidos} pedidos</p>
-        <p className="text-xs text-muted-foreground">{totalEnviados} enviados</p>
+        <p className="text-xs text-emerald-600 mt-0.5">{totalPedidos} pedidos · {totalEnviados} env.</p>
+        {todayRow ? (
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Hoy: <span className="font-medium text-foreground">{formatEur(todayRow.ventas)}</span>
+            <span className="ml-1 opacity-60">({todayRow.enviados} env.)</span>
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground mt-0.5">Sin datos hoy</p>
+        )}
       </CardContent>
     </Card>
   );
