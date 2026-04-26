@@ -2,15 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUser, createServiceClient } from "@/lib/insforge/server";
 import { decrypt } from "@/lib/encryption";
 import * as XLSX from "xlsx";
+import * as https from "https";
+import * as http from "http";
 
 function parseDropiDate(raw: string): string {
-  // Format: DD-MM-YYYY → YYYY-MM-DD
   if (!raw || typeof raw !== "string") return "";
   const parts = raw.split("-");
   if (parts.length === 3 && parts[2].length === 4) {
     return `${parts[2]}-${parts[1]}-${parts[0]}`;
   }
-  // Already YYYY-MM-DD
   return raw;
 }
 
@@ -23,99 +23,144 @@ function mapStatus(estado: string, envio: number) {
   return { es_enviado, es_entregado, es_rechazado, es_cancelado };
 }
 
-async function dropiLogin(email: string, pwd: string): Promise<string> {
-  const cookieJar = new Map<string, string>();
+interface HttpResult {
+  status: number;
+  headers: http.IncomingHttpHeaders;
+  body: Buffer;
+}
 
-  const parseCookies = (setCookieArr: string[] | undefined) => {
-    (setCookieArr || []).forEach((c) => {
-      const [kv] = c.split(";");
-      const eq = kv.indexOf("=");
-      if (eq > 0) cookieJar.set(kv.slice(0, eq).trim(), kv.slice(eq + 1).trim());
+function httpRequest(
+  options: https.RequestOptions,
+  postData?: string
+): Promise<HttpResult> {
+  return new Promise((resolve, reject) => {
+    const req = https.request(options, (res) => {
+      const chunks: Buffer[] = [];
+      res.on("data", (chunk: Buffer) => chunks.push(chunk));
+      res.on("end", () =>
+        resolve({ status: res.statusCode ?? 0, headers: res.headers, body: Buffer.concat(chunks) })
+      );
     });
-  };
-
-  const cookieStr = () =>
-    [...cookieJar.entries()].map(([k, v]) => `${k}=${v}`).join("; ");
-
-  // GET login page for CSRF
-  const loginPage = await fetch("https://dropipro.com/", {
-    headers: { "User-Agent": "Mozilla/5.0 Chrome/120" },
-    redirect: "manual",
+    req.on("error", reject);
+    if (postData) req.write(postData);
+    req.end();
   });
-  parseCookies([...(loginPage.headers as Headers).getSetCookie?.() ?? []]);
-  const loginHtml = await loginPage.text();
+}
+
+function parseCookieHeaders(
+  jar: Map<string, string>,
+  setCookieArr: string | string[] | undefined
+) {
+  const arr = Array.isArray(setCookieArr)
+    ? setCookieArr
+    : setCookieArr
+    ? [setCookieArr]
+    : [];
+  arr.forEach((c) => {
+    const [kv] = c.split(";");
+    const eq = kv.indexOf("=");
+    if (eq > 0) jar.set(kv.slice(0, eq).trim(), kv.slice(eq + 1).trim());
+  });
+}
+
+async function dropiLogin(email: string, pwd: string): Promise<string> {
+  const jar = new Map<string, string>();
+  const cookieStr = () =>
+    [...jar.entries()].map(([k, v]) => `${k}=${v}`).join("; ");
+
+  const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120";
+
+  // Step 1: GET login page → CSRF + session cookies
+  const s1 = await httpRequest({
+    hostname: "dropipro.com", path: "/", method: "GET",
+    headers: { "User-Agent": UA },
+  });
+  parseCookieHeaders(jar, s1.headers["set-cookie"]);
+
+  const loginHtml = s1.body.toString();
   const csrfMatch = loginHtml.match(/name=["']_token["'][^>]*value=["']([^"']+)/i);
   if (!csrfMatch) throw new Error("CSRF token not found on Dropi login page");
   const csrfToken = csrfMatch[1];
 
-  // POST login
-  const loginBody = new URLSearchParams({
-    _token: csrfToken,
-    user: email,
-    pwd,
-  });
-  const loginRes = await fetch("https://dropipro.com/login/submit", {
-    method: "POST",
-    headers: {
-      "User-Agent": "Mozilla/5.0 Chrome/120",
-      "Content-Type": "application/x-www-form-urlencoded",
-      Cookie: cookieStr(),
-      Referer: "https://dropipro.com/",
-      Origin: "https://dropipro.com",
+  // Step 2: POST login
+  const postBody = new URLSearchParams({ _token: csrfToken, user: email, pwd }).toString();
+  const s2 = await httpRequest(
+    {
+      hostname: "dropipro.com", path: "/login/submit", method: "POST",
+      headers: {
+        "User-Agent": UA,
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Content-Length": String(Buffer.byteLength(postBody)),
+        Cookie: cookieStr(),
+        Referer: "https://dropipro.com/",
+        Origin: "https://dropipro.com",
+      },
     },
-    body: loginBody.toString(),
-    redirect: "manual",
-  });
-  parseCookies([...(loginRes.headers as Headers).getSetCookie?.() ?? []]);
+    postBody
+  );
+  parseCookieHeaders(jar, s2.headers["set-cookie"]);
 
-  if (!cookieJar.has("remember_web_59ba36addc2b2f9401580f014c7f58ea4e30989d") &&
-      !cookieJar.has("dropi_pro_session")) {
+  if (s2.status !== 302 || s2.headers.location?.includes("login")) {
     throw new Error("Login failed — check Dropi credentials");
   }
 
   return cookieStr();
 }
 
-async function downloadDropiExcel(cookieStr: string): Promise<Buffer> {
-  // GET the form page to get fresh download CSRF token
-  const formRes = await fetch("https://dropipro.com/app/orders/list/resume_excel", {
-    headers: { "User-Agent": "Mozilla/5.0 Chrome/120", Cookie: cookieStr },
+async function downloadDropiExcel(cookies: string): Promise<Buffer> {
+  const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120";
+  const jar = new Map<string, string>();
+  cookies.split("; ").forEach((kv) => {
+    const eq = kv.indexOf("=");
+    if (eq > 0) jar.set(kv.slice(0, eq), kv.slice(eq + 1));
   });
+  const cookieStr = () => [...jar.entries()].map(([k, v]) => `${k}=${v}`).join("; ");
 
-  const formHtml = await formRes.text();
-  const dlCsrfMatch = formHtml.match(/id="downloadForm"[\s\S]*?<input[^>]*name="_token"[^>]*value="([^"]+)/);
+  // GET the orders/resume_excel page → download form CSRF
+  const formRes = await httpRequest({
+    hostname: "dropipro.com",
+    path: "/app/orders/list/resume_excel",
+    method: "GET",
+    headers: { "User-Agent": UA, Cookie: cookieStr() },
+  });
+  parseCookieHeaders(jar, formRes.headers["set-cookie"]);
+
+  const formHtml = formRes.body.toString();
+  const dlCsrfMatch = formHtml.match(
+    /id="downloadForm"[\s\S]*?<input[^>]*name="_token"[^>]*value="([^"]+)/
+  );
   if (!dlCsrfMatch) throw new Error("Download form CSRF not found");
   const dlCsrf = dlCsrfMatch[1];
 
   // POST to download endpoint
   const dlBody = new URLSearchParams({
-    _token: dlCsrf,
-    start_date: "",
-    end_date: "",
-    date_filter: "0",
-    store: "",
-    product: "",
-    type: "",
-  });
+    _token: dlCsrf, start_date: "", end_date: "",
+    date_filter: "0", store: "", product: "", type: "",
+  }).toString();
 
-  const dlRes = await fetch("https://dropipro.com/app/orders/list/resume_excel/download", {
-    method: "POST",
-    headers: {
-      "User-Agent": "Mozilla/5.0 Chrome/120",
-      "Content-Type": "application/x-www-form-urlencoded",
-      Cookie: cookieStr,
-      Referer: "https://dropipro.com/app/orders/list/resume_excel",
-      Origin: "https://dropipro.com",
+  const dlRes = await httpRequest(
+    {
+      hostname: "dropipro.com",
+      path: "/app/orders/list/resume_excel/download",
+      method: "POST",
+      headers: {
+        "User-Agent": UA,
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Content-Length": String(Buffer.byteLength(dlBody)),
+        Cookie: cookieStr(),
+        Referer: "https://dropipro.com/app/orders/list/resume_excel",
+        Origin: "https://dropipro.com",
+      },
     },
-    body: dlBody.toString(),
-  });
+    dlBody
+  );
 
-  const contentType = dlRes.headers.get("content-type") || "";
-  if (!contentType.includes("spreadsheetml") && !contentType.includes("octet-stream")) {
-    throw new Error(`Expected xlsx, got: ${contentType}`);
+  const ct = dlRes.headers["content-type"] || "";
+  if (!ct.includes("spreadsheetml") && !ct.includes("octet-stream")) {
+    throw new Error(`Expected xlsx, got: ${ct}`);
   }
 
-  return Buffer.from(await dlRes.arrayBuffer());
+  return dlRes.body;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
