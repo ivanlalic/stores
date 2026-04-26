@@ -102,7 +102,7 @@ export function SyncButton({ onComplete, className, showQuickSync = true }: Sync
                     className="gap-1.5"
                   >
                     <Zap className={`size-3.5 ${syncing && syncMode === "48h" ? "animate-pulse" : ""}`} />
-                    {syncing && syncMode === "48h" ? "Actualizando..." : "Actualizar"}
+                    <span className="hidden sm:inline">{syncing && syncMode === "48h" ? "Actualizando..." : "Actualizar"}</span>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-[200px] text-center leading-snug">
@@ -122,7 +122,7 @@ export function SyncButton({ onComplete, className, showQuickSync = true }: Sync
                   className="gap-1.5"
                 >
                   <RefreshCw className={`size-3.5 ${syncing && syncMode === "full" ? "animate-spin" : ""}`} />
-                  {syncing && syncMode === "full" ? "Cargando..." : "Carga completa"}
+                  <span className="hidden sm:inline">{syncing && syncMode === "full" ? "Cargando..." : "Carga completa"}</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-[200px] text-center leading-snug">

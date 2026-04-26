@@ -59,6 +59,9 @@ const columnInfo: Record<string, string> = {
   "CPA Real": "CPA Real: Ads / Entregados",
 };
 
+// Columns hidden on mobile (< sm)
+const mobileHidden = new Set(["Ped.", "Ent.", "Pend.", "Rech.", "Canc.", "%Ent", "Bruto", "Ads", "Gest.", "Gastos", "CPA Env.", "CPA Real"]);
+
 const columnGroups = [
   { label: "Pedidos", cols: ["Dia", "Ped.", "Env.", "Ent.", "Pend.", "Rech.", "Canc.", "%Ent"] },
   { label: "Finanzas", cols: ["Ventas", "Bruto", "Ads", "Gest.", "Gastos"] },
@@ -83,10 +86,14 @@ function InfoHeader({ label }: { label: string }) {
   );
 }
 
-function ValueCell({ value, negative, positive, bold }: { value: string; negative?: boolean; positive?: boolean; bold?: boolean }) {
+function hid(col: string) {
+  return mobileHidden.has(col) ? "hidden sm:table-cell" : "";
+}
+
+function ValueCell({ value, negative, positive, bold, col }: { value: string; negative?: boolean; positive?: boolean; bold?: boolean; col: string }) {
   return (
     <TableCell
-      className={`text-right tabular-nums ${bold ? "font-semibold" : ""} ${
+      className={`text-right tabular-nums ${hid(col)} ${bold ? "font-semibold" : ""} ${
         negative ? "text-red-600 font-medium" : positive ? "text-emerald-600 font-medium" : ""
       }`}
     >
@@ -130,8 +137,8 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
         <div className="max-h-[55vh] overflow-auto">
           <Table className="[&_td]:py-1 [&_td]:px-2 [&_th]:px-2 text-xs">
             <TableHeader className="sticky top-0 z-20">
-              {/* Group header row */}
-              <TableRow className="border-b-0 bg-muted">
+              {/* Group header row — desktop only */}
+              <TableRow className="border-b-0 bg-muted hidden sm:table-row">
                 {columnGroups.map((group) => (
                   <TableHead
                     key={group.label}
@@ -148,9 +155,9 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
                   group.cols.map((h, hi) => (
                     <TableHead
                       key={h}
-                      className={`${h === "Dia" ? "w-20 sticky left-0 bg-muted/80 z-30" : "text-right"} ${
+                      className={`${h === "Dia" ? "w-16 sm:w-20 sticky left-0 bg-muted/80 z-30" : "text-right"} ${
                         hi === 0 && gi > 0 ? "border-l border-border/40" : ""
-                      } py-2.5 bg-muted/80`}
+                      } py-2.5 bg-muted/80 ${hid(h)}`}
                     >
                       <InfoHeader label={h} />
                     </TableHead>
@@ -170,38 +177,51 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
                     } ${isWeekend ? "bg-muted/30" : ""}`}
                     onClick={() => onRowClick(row.fecha, row.meta_ads, row.tiktok_ads)}
                   >
-                    {/* Date */}
+                    {/* Dia — always visible */}
                     <TableCell className="font-medium sticky left-0 bg-inherit z-10">
                       <div className="flex flex-col">
                         <span>{day}</span>
                         <span className="text-xs text-muted-foreground capitalize">{weekday}</span>
                       </div>
                     </TableCell>
-                    {/* Orders group */}
-                    <TableCell className="text-right tabular-nums">{row.pedidos}</TableCell>
+                    {/* Ped. — hidden mobile */}
+                    <TableCell className={`text-right tabular-nums ${hid("Ped.")}`}>{row.pedidos}</TableCell>
+                    {/* Env. — visible */}
                     <TableCell className="text-right tabular-nums">{row.enviados}</TableCell>
-                    <TableCell className="text-right tabular-nums font-medium">{row.entregados}</TableCell>
-                    <TableCell className={`text-right tabular-nums ${row.pendientes > 0 ? "text-amber-600" : ""}`}>{row.pendientes}</TableCell>
-                    <TableCell className={`text-right tabular-nums ${row.rechazados > 0 ? "text-red-500" : ""}`}>{row.rechazados}</TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">{row.cancelados}</TableCell>
-                    <TableCell className={`text-right tabular-nums border-r border-border/40 ${
+                    {/* Ent. — hidden mobile */}
+                    <TableCell className={`text-right tabular-nums font-medium ${hid("Ent.")}`}>{row.entregados}</TableCell>
+                    {/* Pend. — hidden mobile */}
+                    <TableCell className={`text-right tabular-nums ${hid("Pend.")} ${row.pendientes > 0 ? "text-amber-600" : ""}`}>{row.pendientes}</TableCell>
+                    {/* Rech. — hidden mobile */}
+                    <TableCell className={`text-right tabular-nums ${hid("Rech.")} ${row.rechazados > 0 ? "text-red-500" : ""}`}>{row.rechazados}</TableCell>
+                    {/* Canc. — hidden mobile */}
+                    <TableCell className={`text-right tabular-nums text-muted-foreground ${hid("Canc.")}`}>{row.cancelados}</TableCell>
+                    {/* %Ent — hidden mobile */}
+                    <TableCell className={`text-right tabular-nums border-r border-border/40 ${hid("%Ent")} ${
                       row.tasa_entrega > 0 && row.tasa_entrega < 0.6 ? "text-red-500 font-medium" : row.tasa_entrega >= 0.8 ? "text-emerald-600 font-medium" : ""
                     }`}>{pct(row.tasa_entrega)}</TableCell>
-                    {/* Finance group */}
-                    <ValueCell value={eur(row.ventas)} />
-                    <ValueCell value={eur(row.bruto)} />
-                    <ValueCell value={eur(row.total_ads)} />
-                    <ValueCell value={eur(row.gestion)} />
-                    <TableCell className="text-right tabular-nums border-r border-border/40">{eur(row.gastos)}</TableCell>
-                    {/* Result group */}
-                    <ValueCell value={eur(row.pnl_teorico)} negative={row.pnl_teorico < 0} positive={row.pnl_teorico > 0} />
-                    <ValueCell value={eur(row.pnl_real)} negative={row.pnl_real < 0} positive={row.pnl_real > 0} bold />
+                    {/* Ventas — visible */}
+                    <ValueCell col="Ventas" value={eur(row.ventas)} />
+                    {/* Bruto — hidden mobile */}
+                    <ValueCell col="Bruto" value={eur(row.bruto)} />
+                    {/* Ads — hidden mobile */}
+                    <ValueCell col="Ads" value={eur(row.total_ads)} />
+                    {/* Gest. — hidden mobile */}
+                    <ValueCell col="Gest." value={eur(row.gestion)} />
+                    {/* Gastos — hidden mobile */}
+                    <TableCell className={`text-right tabular-nums border-r border-border/40 ${hid("Gastos")}`}>{eur(row.gastos)}</TableCell>
+                    {/* P&L Teo. — visible */}
+                    <ValueCell col="P&L Teo." value={eur(row.pnl_teorico)} negative={row.pnl_teorico < 0} positive={row.pnl_teorico > 0} />
+                    {/* P&L Real — visible */}
+                    <ValueCell col="P&L Real" value={eur(row.pnl_real)} negative={row.pnl_real < 0} positive={row.pnl_real > 0} bold />
+                    {/* %Vtas — visible */}
                     <TableCell className={`text-right tabular-nums border-r border-border/40 ${
                       row.pct_margin < 0 ? "text-red-500" : row.pct_margin > 0.2 ? "text-emerald-600" : ""
                     }`}>{pct(row.pct_margin)}</TableCell>
-                    {/* CPA group */}
-                    <TableCell className="text-right tabular-nums">{eur(row.cpa_enviado)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{eur(row.cpa_real)}</TableCell>
+                    {/* CPA Env. — hidden mobile */}
+                    <TableCell className={`text-right tabular-nums ${hid("CPA Env.")}`}>{eur(row.cpa_enviado)}</TableCell>
+                    {/* CPA Real — hidden mobile */}
+                    <TableCell className={`text-right tabular-nums ${hid("CPA Real")}`}>{eur(row.cpa_real)}</TableCell>
                   </TableRow>
                 );
               })}
@@ -211,23 +231,23 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
                 <TableCell className="sticky left-0 bg-primary/5 z-10">
                   <span className="text-primary font-bold">TOTAL</span>
                 </TableCell>
-                <TableCell className="text-right tabular-nums">{totals.pedidos}</TableCell>
+                <TableCell className={`text-right tabular-nums ${hid("Ped.")}`}>{totals.pedidos}</TableCell>
                 <TableCell className="text-right tabular-nums">{totals.enviados}</TableCell>
-                <TableCell className="text-right tabular-nums">{totals.entregados}</TableCell>
-                <TableCell className="text-right tabular-nums">{totals.pendientes}</TableCell>
-                <TableCell className="text-right tabular-nums">{totals.rechazados}</TableCell>
-                <TableCell className="text-right tabular-nums">{totals.cancelados}</TableCell>
-                <TableCell className="text-right tabular-nums border-r border-border/40">{pct(totalTasaEntrega)}</TableCell>
+                <TableCell className={`text-right tabular-nums ${hid("Ent.")}`}>{totals.entregados}</TableCell>
+                <TableCell className={`text-right tabular-nums ${hid("Pend.")}`}>{totals.pendientes}</TableCell>
+                <TableCell className={`text-right tabular-nums ${hid("Rech.")}`}>{totals.rechazados}</TableCell>
+                <TableCell className={`text-right tabular-nums ${hid("Canc.")}`}>{totals.cancelados}</TableCell>
+                <TableCell className={`text-right tabular-nums border-r border-border/40 ${hid("%Ent")}`}>{pct(totalTasaEntrega)}</TableCell>
                 <TableCell className="text-right tabular-nums">{eur(totals.ventas)}</TableCell>
-                <TableCell className="text-right tabular-nums">{eur(totals.bruto)}</TableCell>
-                <TableCell className="text-right tabular-nums">{eur(totals.total_ads)}</TableCell>
-                <TableCell className="text-right tabular-nums">{eur(totals.gestion)}</TableCell>
-                <TableCell className="text-right tabular-nums border-r border-border/40">{eur(totals.gastos)}</TableCell>
-                <ValueCell value={eur(totals.pnl_teorico)} negative={totals.pnl_teorico < 0} positive={totals.pnl_teorico > 0} bold />
-                <ValueCell value={eur(totals.pnl_real)} negative={totals.pnl_real < 0} positive={totals.pnl_real > 0} bold />
+                <TableCell className={`text-right tabular-nums ${hid("Bruto")}`}>{eur(totals.bruto)}</TableCell>
+                <TableCell className={`text-right tabular-nums ${hid("Ads")}`}>{eur(totals.total_ads)}</TableCell>
+                <TableCell className={`text-right tabular-nums ${hid("Gest.")}`}>{eur(totals.gestion)}</TableCell>
+                <TableCell className={`text-right tabular-nums border-r border-border/40 ${hid("Gastos")}`}>{eur(totals.gastos)}</TableCell>
+                <ValueCell col="P&L Teo." value={eur(totals.pnl_teorico)} negative={totals.pnl_teorico < 0} positive={totals.pnl_teorico > 0} bold />
+                <ValueCell col="P&L Real" value={eur(totals.pnl_real)} negative={totals.pnl_real < 0} positive={totals.pnl_real > 0} bold />
                 <TableCell className="text-right tabular-nums border-r border-border/40">{pct(totalPctMargin)}</TableCell>
-                <TableCell className="text-right tabular-nums">{eur(totalCpaEnviado)}</TableCell>
-                <TableCell className="text-right tabular-nums">{eur(totalCpaReal)}</TableCell>
+                <TableCell className={`text-right tabular-nums ${hid("CPA Env.")}`}>{eur(totalCpaEnviado)}</TableCell>
+                <TableCell className={`text-right tabular-nums ${hid("CPA Real")}`}>{eur(totalCpaReal)}</TableCell>
               </TableRow>
             </TableBody>
           </Table>
