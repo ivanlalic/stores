@@ -150,36 +150,65 @@ export function KpiCards({ rows }: KpiCardsProps) {
   );
 }
 
-export function KpiCardsSecondary({ rows, className }: KpiCardsProps & { className?: string }) {
+export function GastosCard({ rows, className }: KpiCardsProps & { className?: string }) {
   const totalAds = rows.reduce((s, r) => s + r.total_ads, 0);
+  const totalGestion = rows.reduce((s, r) => s + r.gestion, 0);
   const totalGastos = rows.reduce((s, r) => s + r.gastos, 0);
+
+  return (
+    <Card className={className}>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 px-3 pt-3 sm:px-4 sm:pt-4">
+        <CardTitle className="text-xs font-medium flex items-center gap-1">
+          Gastos
+          <InfoTip text="Ads + fee de gestión por envío. El total es lo que sale del bolsillo antes de contar ingresos." />
+        </CardTitle>
+        <TrendingDown className="size-3.5 text-muted-foreground" />
+      </CardHeader>
+      <CardContent className="px-3 pb-3 sm:px-4 sm:pb-4">
+        <div className="text-base sm:text-lg font-bold tracking-tight">{formatEur(totalGastos)}</div>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Ads: <span className="font-medium text-foreground">{formatEur(totalAds)}</span>
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Gest: <span className="font-medium text-foreground">{formatEur(totalGestion)}</span>
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function CpaCard({ rows, className }: KpiCardsProps & { className?: string }) {
+  const totalAds = rows.reduce((s, r) => s + r.total_ads, 0);
   const totalEnviados = rows.reduce((s, r) => s + r.enviados, 0);
   const totalEntregados = rows.reduce((s, r) => s + r.entregados, 0);
   const cpaEnviado = totalEnviados > 0 ? totalAds / totalEnviados : 0;
   const cpaReal = totalEntregados > 0 ? totalAds / totalEntregados : 0;
 
-  const items = [
-    { label: "Total Ads", tooltip: "Gasto total en publicidad del período (Meta + TikTok).", value: formatEur(totalAds) },
-    { label: "Total Gastos", tooltip: "Ads + fee de gestión por cada pedido enviado.", value: formatEur(totalGastos) },
-    { label: "CPA Enviado", tooltip: "Ads ÷ Enviados. Costo por pedido enviado antes de saber si se entrega.", value: formatEur(cpaEnviado) },
-    { label: "CPA Real", tooltip: "Ads ÷ Entregados. Costo real por cliente pagador.", value: formatEur(cpaReal) },
-  ];
-
   return (
-    <div className={className ?? "grid gap-3 grid-cols-2 lg:grid-cols-4"}>
-      {items.map((item) => (
-        <Card key={item.label}>
-          <CardHeader className="pb-1 px-3 pt-3 sm:px-4 sm:pt-4">
-            <CardTitle className="text-xs font-medium flex items-center gap-1">
-              {item.label}
-              <InfoTip text={item.tooltip} />
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-3 pb-3 sm:px-4 sm:pb-4">
-            <div className="text-base sm:text-lg font-bold tracking-tight">{item.value}</div>
-          </CardContent>
-        </Card>
-      ))}
+    <Card className={className}>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 px-3 pt-3 sm:px-4 sm:pt-4">
+        <CardTitle className="text-xs font-medium flex items-center gap-1">
+          CPA
+          <InfoTip text="CPA Enviado: Ads÷Enviados (antes de saber si se entrega). CPA Real: Ads÷Entregados (costo por cliente pagador)." />
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="px-3 pb-3 sm:px-4 sm:pb-4">
+        <div className="text-base sm:text-lg font-bold tracking-tight">{formatEur(cpaEnviado)}</div>
+        <p className="text-xs text-muted-foreground mt-0.5">por enviado</p>
+        <p className="text-xs text-muted-foreground">
+          Real: <span className="font-medium text-foreground">{formatEur(cpaReal)}</span>
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Keep for backwards compat
+export function KpiCardsSecondary({ rows }: KpiCardsProps) {
+  return (
+    <div className="grid gap-3 grid-cols-2">
+      <GastosCard rows={rows} />
+      <CpaCard rows={rows} />
     </div>
   );
 }
