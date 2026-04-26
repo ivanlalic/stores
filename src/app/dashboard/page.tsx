@@ -6,7 +6,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { SyncButton } from "@/components/sync-button";
 import { VentasCard, PnlCard, TasaEntregaCard, KpiCardsSecondary } from "@/components/kpi-cards";
 import { PuntoEquilibrioCard, EstadoDiarioCard } from "@/components/breakeven-cards";
-import { MiniSalesChart } from "@/components/sales-chart";
+import { ChartStrip } from "@/components/sales-chart";
 import { DailyTable } from "@/components/daily-table";
 import { AdsInputModal } from "@/components/ads-input-modal";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -123,11 +123,11 @@ export default function DashboardPage() {
             <EstadoDiarioCard metrics={beMetrics} />
           </div>
 
-          {/* KPI Row 2 — secondary metrics + mini chart, same grid for equal heights */}
-          <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">
-            <KpiCardsSecondary rows={rows} className="contents" />
-            <MiniSalesChart rows={rows} />
-          </div>
+          {/* KPI Row 2 — secondary metrics */}
+          <KpiCardsSecondary rows={rows} />
+
+          {/* Chart strip — thin full-width trend, decoupled from grid */}
+          <ChartStrip rows={rows} />
 
           {/* Table */}
           <DailyTable rows={rows} onRowClick={handleRowClick} />
