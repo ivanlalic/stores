@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { SyncButton } from "@/components/sync-button";
 import { VentasCard, PnlCard, TasaEntregaCard, GastosCard, CpaCard } from "@/components/kpi-cards";
-import { PuntoEquilibrioCard, EstadoDiarioCard } from "@/components/breakeven-cards";
+import { EquilibrioCard } from "@/components/breakeven-cards";
 import { ChartStrip } from "@/components/sales-chart";
 import { DailyTable } from "@/components/daily-table";
 import { AdsInputModal } from "@/components/ads-input-modal";
@@ -115,14 +115,13 @@ export default function DashboardPage() {
       ) : (
         <>
           {/* All KPI cards — 5+2, single row on 2xl ultrawide */}
-          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 2xl:grid-cols-7">
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
             <VentasCard rows={rows} />
             <PnlCard rows={rows} />
             <TasaEntregaCard rows={rows} />
-            <PuntoEquilibrioCard metrics={beMetrics} />
-            <EstadoDiarioCard metrics={beMetrics} />
-            <GastosCard rows={rows} className="lg:col-span-2 2xl:col-span-1" />
-            <CpaCard rows={rows} className="lg:col-span-3 2xl:col-span-1" />
+            <EquilibrioCard metrics={beMetrics} />
+            <GastosCard rows={rows} />
+            <CpaCard rows={rows} />
           </div>
 
           {/* Chart strip — thin full-width trend, decoupled from grid */}

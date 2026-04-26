@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Target, DollarSign, Activity, Info, ChevronDown, ChevronUp } from "lucide-react";
+import { Activity, Info, ChevronDown, ChevronUp } from "lucide-react";
 import type { BreakevenMetrics } from "@/lib/queries/dashboard";
 
 interface Props { metrics: BreakevenMetrics | null; }
@@ -38,35 +38,37 @@ function getSemaforo(envDiario: number, beDiario: number) {
   return { label: "Pérdida", color: "text-red-700", bgColor: "bg-red-50 dark:bg-red-950/30" };
 }
 
-export function PuntoEquilibrioCard({ metrics }: Props) {
+export function EquilibrioCard({ metrics }: Props) {
   const [expanded, setExpanded] = useState(false);
   if (!metrics) return null;
   const m = metrics;
+  const semaforo = getSemaforo(m.enviados_promedio_diario, m.breakeven_enviados_diario);
+  const plDiarioEstimado = (m.enviados_promedio_diario * m.margen_variable) - m.ads_promedio_diario;
 
   return (
     <Card
-      className="cursor-pointer select-none transition-shadow hover:shadow-md"
+      className={`cursor-pointer select-none transition-shadow hover:shadow-md ${semaforo.bgColor}`}
       onClick={() => setExpanded(!expanded)}
     >
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 px-3 pt-3 sm:px-4 sm:pt-4">
         <CardTitle className="text-xs font-medium flex items-center gap-1">
-          Punto de Equilibrio
-          <InfoTip text="Mínimo diario para cubrir los costos de ads, expresado en envíos y en facturación. Toca para ver el cálculo." />
+          Ritmo · B/E
+          <InfoTip text="Enviados promedio/día vs mínimo para cubrir ads. P&L est = ganancia diaria al ritmo actual. Toca para ver el cálculo." />
         </CardTitle>
         <div className="flex items-center gap-1">
-          <Target className="size-3.5 text-muted-foreground" />
+          <Activity className={`size-3.5 ${semaforo.color}`} />
           {expanded ? <ChevronUp className="size-3 text-muted-foreground" /> : <ChevronDown className="size-3 text-muted-foreground" />}
         </div>
       </CardHeader>
       <CardContent className="px-3 pb-3 sm:px-4 sm:pb-4">
-        <div className="text-base sm:text-lg font-bold tracking-tight">
-          {isFinite(m.breakeven_enviados_diario) ? `${Math.ceil(m.breakeven_enviados_diario)} env/día` : "—"}
+        <div className={`text-base sm:text-lg font-bold tracking-tight ${semaforo.color}`}>
+          {m.enviados_promedio_diario.toFixed(0)} / {isFinite(m.breakeven_enviados_diario) ? Math.ceil(m.breakeven_enviados_diario) : "—"}
         </div>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          {isFinite(m.breakeven_facturacion_diario) ? `${formatEur(m.breakeven_facturacion_diario)}/día` : "—"}
+        <p className={`text-xs font-medium mt-0.5 ${semaforo.color}`}>
+          {semaforo.label} · <span className={plDiarioEstimado >= 0 ? "text-emerald-600" : "text-red-600"}>{formatEur(plDiarioEstimado)}/día</span>
         </p>
         <p className="text-xs text-muted-foreground">
-          Mrg: {formatEur(m.margen_variable)} · Rch: {(m.tasa_rechazo * 100).toFixed(1)}%
+          B/E: {isFinite(m.breakeven_facturacion_diario) ? `${formatEur(m.breakeven_facturacion_diario)}/día` : "—"} · Mrg {formatEur(m.margen_variable)} · Rch {(m.tasa_rechazo * 100).toFixed(1)}%
         </p>
 
         {expanded && (
@@ -111,40 +113,10 @@ export function PuntoEquilibrioCard({ metrics }: Props) {
   );
 }
 
-// Keep individual exports for legacy use
-export const BEDiarioCard = PuntoEquilibrioCard;
+export const PuntoEquilibrioCard = EquilibrioCard;
+export const BEDiarioCard = EquilibrioCard;
 export const BEFacturacionCard = ({ metrics }: Props) => null;
-
-export function EstadoDiarioCard({ metrics }: Props) {
-  if (!metrics) return null;
-  const m = metrics;
-  const semaforo = getSemaforo(m.enviados_promedio_diario, m.breakeven_enviados_diario);
-  const plDiarioEstimado = (m.enviados_promedio_diario * m.margen_variable) - m.ads_promedio_diario;
-
-  return (
-    <Card className={semaforo.bgColor}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 px-3 pt-3 sm:px-4 sm:pt-4">
-        <CardTitle className="text-xs font-medium flex items-center gap-1">
-          Estado Diario
-          <InfoTip text="Enviados promedio/día del mes vs B/E diario. P&L est = ganancia diaria estimada al ritmo actual." />
-        </CardTitle>
-        <Activity className={`size-3.5 ${semaforo.color}`} />
-      </CardHeader>
-      <CardContent className="px-3 pb-3 sm:px-4 sm:pb-4">
-        <div className={`text-base sm:text-lg font-bold tracking-tight ${semaforo.color}`}>
-          {m.enviados_promedio_diario.toFixed(0)} / {isFinite(m.breakeven_enviados_diario) ? Math.ceil(m.breakeven_enviados_diario) : "—"}
-        </div>
-        <p className={`text-xs font-medium mt-0.5 ${semaforo.color}`}>{semaforo.label}</p>
-        <p className="text-xs text-muted-foreground">
-          P&L est:{" "}
-          <span className={plDiarioEstimado >= 0 ? "text-emerald-600" : "text-red-600"}>
-            {formatEur(plDiarioEstimado)}/día
-          </span>
-        </p>
-      </CardContent>
-    </Card>
-  );
-}
+export const EstadoDiarioCard = ({ metrics }: Props) => null;
 
 // Legacy wrapper
 export function BreakevenCards({ metrics }: Props) {
