@@ -64,15 +64,17 @@ export function EquilibrioCard({ metrics }: Props) {
         <div className={`text-base sm:text-lg font-bold tracking-tight ${semaforo.color}`}>
           {m.enviados_promedio_diario.toFixed(0)} / {isFinite(m.breakeven_enviados_diario) ? Math.ceil(m.breakeven_enviados_diario) : "—"}
         </div>
-        <p className={`text-xs font-medium mt-0.5 ${semaforo.color}`}>
-          {semaforo.label} · <span className={plDiarioEstimado >= 0 ? "text-emerald-600" : "text-red-600"}>{formatEur(plDiarioEstimado)}/día</span>
-        </p>
+        <p className={`text-xs font-medium mt-0.5 ${semaforo.color}`}>{semaforo.label}</p>
         <p className="text-xs text-muted-foreground">
-          B/E: {isFinite(m.breakeven_facturacion_diario) ? `${formatEur(m.breakeven_facturacion_diario)}/día` : "—"} · Mrg {formatEur(m.margen_variable)} · Rch {(m.tasa_rechazo * 100).toFixed(1)}%
+          B/E: {isFinite(m.breakeven_facturacion_diario) ? `${formatEur(m.breakeven_facturacion_diario)}/día` : "—"}
         </p>
 
         {expanded && (
           <div className="mt-3 pt-3 border-t space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">P&L est/día</span>
+              <span className={`font-medium ${plDiarioEstimado >= 0 ? "text-emerald-600" : "text-red-600"}`}>{formatEur(plDiarioEstimado)}/día</span>
+            </div>
             <div className="space-y-1">
               <p className="text-xs font-semibold text-foreground">En envíos</p>
               <div className="space-y-1 text-xs text-muted-foreground">
