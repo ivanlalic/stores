@@ -40,6 +40,7 @@ export interface MonthlyRow {
   total_ads: number;
   gestion: number;
   gastos: number;
+  pnl_teorico: number;
   pnl_real: number;
   pnl_ajustado: number;
   cpa_enviado: number;
@@ -360,6 +361,7 @@ export async function getMonthlyDashboard(
     const gestion = enviados * feeGestionEur;
     const gastos = total_ads + gestion;
     const pnl_real = netoEntregados + netoRechazados - gastos;
+    const pnl_teorico = bruto - gastos;
 
     const COSTO_PENDIENTE = 13;
     const reserva = pendientes * COSTO_PENDIENTE;
@@ -387,6 +389,7 @@ export async function getMonthlyDashboard(
       total_ads,
       gestion: Math.round(gestion * 100) / 100,
       gastos: Math.round(gastos * 100) / 100,
+      pnl_teorico: Math.round(pnl_teorico * 100) / 100,
       pnl_real: Math.round(pnl_real * 100) / 100,
       pnl_ajustado: Math.round(pnl_ajustado * 100) / 100,
       cpa_enviado: Math.round(cpa_enviado * 100) / 100,

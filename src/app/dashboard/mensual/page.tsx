@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { MonthlyTable } from "@/components/monthly-table";
+import { MonthlyChart } from "@/components/monthly-chart";
 import { SyncButton } from "@/components/sync-button";
-import { Badge } from "@/components/ui/badge";
 import { CalendarDays } from "lucide-react";
 import type { MonthlyRow } from "@/lib/queries/dashboard";
 
@@ -55,11 +55,7 @@ export default function MensualPage() {
         </div>
       ) : (
         <>
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="text-xs font-normal">
-              P&L Ajustado = P&L Real - (Pendientes x €13)
-            </Badge>
-          </div>
+          <MonthlyChart rows={rows} />
           <MonthlyTable rows={rows} />
         </>
       )}
