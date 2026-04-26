@@ -90,10 +90,11 @@ export async function POST(request: NextRequest) {
 
         const mode = request.nextUrl.searchParams.get("mode");
         const is48h = mode === "48h";
-        const { startDate, endDate } = is48h ? getDateRangeUpdatedAt(15) : getDateRange(2);
+        const months = parseInt(request.nextUrl.searchParams.get("months") || "2", 10);
+        const { startDate, endDate } = is48h ? getDateRangeUpdatedAt(15) : getDateRange(months);
         const dateField = is48h ? "UPDATED_AT" : "CREATED_AT";
 
-        send(`${is48h ? "Sync rápido (UPDATED_AT, 15d)" : "Sync completo (CREATED_AT, 2m)"}: ${startDate} - ${endDate}...`);
+        send(`${is48h ? "Sync rápido (UPDATED_AT, 15d)" : `Sync completo (CREATED_AT, ${months}m)`}: ${startDate} - ${endDate}...`);
 
         const orders = await fetchAllOrders(apiKey, startDate, endDate, send, dateField);
 
