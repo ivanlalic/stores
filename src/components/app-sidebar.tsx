@@ -10,6 +10,7 @@ import {
   Settings,
   TrendingUp,
   LogOut,
+  ShoppingBag,
 } from "lucide-react";
 import { createClient } from "@/lib/insforge/client";
 
@@ -30,6 +31,10 @@ const navItems = [
   { title: "Dashboard Diario", href: "/dashboard", icon: BarChart3 },
   { title: "Resumen Mensual", href: "/dashboard/mensual", icon: CalendarDays },
   { title: "Productos", href: "/dashboard/productos", icon: Package },
+];
+
+const vittaoraItems = [
+  { title: "Dashboard Vittaora", href: "/vittaora", icon: ShoppingBag },
 ];
 
 const settingsItems = [
@@ -96,6 +101,25 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton
+                    render={<Link href={item.href} />}
+                    isActive={isActive(item.href)}
+                  >
+                    <item.icon className="size-4" />
+                    <span>{item.title}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Vittaora · Dropi</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {vittaoraItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     render={<Link href={item.href} />}

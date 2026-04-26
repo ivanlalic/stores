@@ -23,6 +23,9 @@ export default function SettingsPage() {
   const [costoRechazo, setCostoRechazo] = useState("13");
   const [diasRolling, setDiasRolling] = useState("30");
   const [diasExcluir, setDiasExcluir] = useState("4");
+  const [dropiEmail, setDropiEmail] = useState("");
+  const [dropiPwd, setDropiPwd] = useState("");
+  const [hasDropiCredentials, setHasDropiCredentials] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -37,6 +40,7 @@ export default function SettingsPage() {
         setCostoRechazo(String(data.config.costo_rechazo ?? 13));
         setDiasRolling(String(data.config.dias_rolling ?? 30));
         setDiasExcluir(String(data.config.dias_excluir ?? 4));
+        setHasDropiCredentials(!!data.config.has_dropi_credentials);
       }
     }
     load();
@@ -56,6 +60,8 @@ export default function SettingsPage() {
       if (newApiKey) {
         body.dropea_api_key = newApiKey;
       }
+      if (dropiEmail) body.dropi_email = dropiEmail;
+      if (dropiPwd) body.dropi_pwd = dropiPwd;
       const res = await fetch("/api/config", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -63,9 +69,11 @@ export default function SettingsPage() {
       });
       if (!res.ok) throw new Error("Error guardando");
       setMessage("Configuracion guardada");
-      if (newApiKey) {
-        setHasApiKey(true);
-        setNewApiKey("");
+      if (newApiKey) { setHasApiKey(true); setNewApiKey(""); }
+      if (dropiEmail || dropiPwd) {
+        setHasDropiCredentials(true);
+        setDropiEmail("");
+        setDropiPwd("");
       }
     } catch {
       setMessage("Error al guardar");
@@ -144,6 +152,40 @@ export default function SettingsPage() {
           <Button onClick={handleSave} disabled={saving} className="w-full">
             {saving ? "Guardando..." : "Guardar"}
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Vittaora · Dropi</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {hasDropiCredentials && (
+            <p className="text-xs text-muted-foreground">
+              Credenciales configuradas. Deja vacio para no cambiar.
+            </p>
+          )}
+          <div className="space-y-2">
+            <Label>Email Dropi</Label>
+            <Input
+              type="email"
+              placeholder={hasDropiCredentials ? "******* (no cambiar)" : "email@ejemplo.com"}
+              value={dropiEmail}
+              onChange={(e) => setDropiEmail(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Contraseña Dropi</Label>
+            <Input
+              type="password"
+              placeholder={hasDropiCredentials ? "******* (no cambiar)" : "Contraseña"}
+              value={dropiPwd}
+              onChange={(e) => setDropiPwd(e.target.value)}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Webhook URL para Dropi: <code className="bg-muted px-1 rounded">https://stores-steel.vercel.app/api/dropi/webhook</code>
+          </p>
         </CardContent>
       </Card>
 

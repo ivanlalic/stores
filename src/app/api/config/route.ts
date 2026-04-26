@@ -25,6 +25,7 @@ export async function GET() {
       costo_rechazo: data.costo_rechazo ?? 13,
       dias_rolling: data.dias_rolling ?? 30,
       dias_excluir: data.dias_excluir ?? 4,
+      has_dropi_credentials: !!(data.dropi_email_encrypted && data.dropi_pwd_encrypted),
     },
   });
 }
@@ -40,6 +41,12 @@ export async function PUT(request: NextRequest) {
     updates.dropea_api_key_encrypted = body.dropea_api_key
       ? encrypt(body.dropea_api_key)
       : null;
+  }
+  if (body.dropi_email !== undefined) {
+    updates.dropi_email_encrypted = body.dropi_email ? encrypt(body.dropi_email) : null;
+  }
+  if (body.dropi_pwd !== undefined) {
+    updates.dropi_pwd_encrypted = body.dropi_pwd ? encrypt(body.dropi_pwd) : null;
   }
   if (body.fee_gestion_eur !== undefined) updates.fee_gestion_eur = body.fee_gestion_eur;
   if (body.store_name !== undefined) updates.store_name = body.store_name;
