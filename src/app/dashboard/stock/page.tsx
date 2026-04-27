@@ -486,26 +486,13 @@ function StockContent() {
                     <td className="px-2 py-1 text-muted-foreground font-mono text-[10px]">{p.sku || "—"}</td>
                     <td className="px-2 py-1 text-center">
                       {p.image ? (
-                        <a
-                          href={p.image}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center justify-center size-8 rounded bg-muted hover:bg-muted/80 transition-colors"
-                          title={p.image}
-                        >
-                          <img
-                            src={p.image}
-                            alt=""
-                            className="size-7 object-contain rounded"
-                            loading="lazy"
-                            referrerPolicy="no-referrer"
-                            onError={(e) => {
-                              const el = e.currentTarget;
-                              el.style.display = "none";
-                              el.parentElement!.innerHTML = "📷";
-                            }}
-                          />
-                        </a>
+                        <img
+                          src={`/api/proxy-image?url=${encodeURIComponent(p.image)}&store_id=${storeId}`}
+                          alt=""
+                          className="size-8 object-contain rounded mx-auto"
+                          loading="lazy"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
                       ) : (
                         <div className="size-8 bg-muted rounded mx-auto" />
                       )}
