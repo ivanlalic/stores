@@ -42,7 +42,7 @@ export default function DashboardPage() {
   const [month, setMonth] = useState(getCurrentMonth);
   const [rows, setRows] = useState<DailyRow[]>([]);
   const [beMetrics, setBeMetrics] = useState<BreakevenMetrics | null>(null);
-  const [beConfig, setBeConfig] = useState<{ costo_rechazo: number }>({ costo_rechazo: 13.76 });
+  const [beConfig, setBeConfig] = useState<{ costo_rechazo: number; dias_rolling: number }>({ costo_rechazo: 13.76, dias_rolling: 30 });
   const [loading, setLoading] = useState(true);
 
   const [adsModal, setAdsModal] = useState<{
@@ -121,7 +121,7 @@ export default function DashboardPage() {
             <VentasCard rows={rows} />
             <PnlCard rows={rows} costoRechazo={beConfig.costo_rechazo} />
             <TasaEntregaCard rows={rows} />
-            <EquilibrioCard metrics={beMetrics} />
+            <EquilibrioCard metrics={beMetrics} diasRolling={beConfig.dias_rolling} />
             <GastosCard rows={rows} />
             <CpaCard rows={rows} />
           </div>

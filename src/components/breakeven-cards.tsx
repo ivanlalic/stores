@@ -6,7 +6,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Activity, Info, ChevronDown, ChevronUp } from "lucide-react";
 import type { BreakevenMetrics } from "@/lib/queries/dashboard";
 
-interface Props { metrics: BreakevenMetrics | null; }
+interface Props { metrics: BreakevenMetrics | null; diasRolling?: number; }
 
 function formatEur(n: number) {
   return `€${n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -38,7 +38,7 @@ function getSemaforo(envDiario: number, beDiario: number) {
   return { label: "Pérdida", color: "text-red-700", bgColor: "bg-red-50 dark:bg-red-950/30" };
 }
 
-export function EquilibrioCard({ metrics }: Props) {
+export function EquilibrioCard({ metrics, diasRolling = 30 }: Props) {
   const [expanded, setExpanded] = useState(false);
   if (!metrics) return null;
   const m = metrics;
@@ -106,7 +106,7 @@ export function EquilibrioCard({ metrics }: Props) {
               </div>
             </div>
             <p className="text-xs text-muted-foreground border-t pt-2">
-              Margen/env calculado sobre <strong>{m.dias_resueltos} días resueltos</strong> (últimos 60d). Tasa de rechazo <strong>{(m.tasa_rechazo * 100).toFixed(1)}%</strong> ya incluida en el margen.
+              Margen/env calculado sobre <strong>{m.dias_resueltos} días resueltos</strong> (últimos {diasRolling}d). Tasa de rechazo <strong>{(m.tasa_rechazo * 100).toFixed(1)}%</strong> ya incluida en el margen.
             </p>
           </div>
         )}
