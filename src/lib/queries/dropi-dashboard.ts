@@ -12,11 +12,11 @@ export interface DropiDailyRow {
   pendientes: number;
   tasa_entrega: number;
   ventas: number;
-  bruto: number;
+  bruto: number;       // neto_entregados + neto_rechazados (before ads)
   meta_ads: number;
   tiktok_ads: number;
   total_ads: number;
-  pnl_real: number;
+  pnl_real: number;   // bruto - total_ads
   pct_margin: number;
 }
 
@@ -95,17 +95,15 @@ export async function getDropiDailyDashboard(
     // ventas: sum stored venta (already 0 for cancelado/pendiente/nuevo)
     const ventas = dayPedidos.reduce((sum, p) => sum + Number(p.venta), 0);
 
-    // bruto: potential profit from in-flight orders (confirmed but not yet resolved)
-    const bruto = dayPedidos
-      .filter((p) => !p.es_cancelado && !p.es_entregado && !p.es_rechazado)
-      .reduce((sum, p) => sum + Number(p.neto), 0);
-
     const netoEntregados = dayPedidos
       .filter((p) => p.es_entregado)
       .reduce((sum, p) => sum + Number(p.neto), 0);
     const netoRechazados = dayPedidos
       .filter((p) => p.es_rechazado)
       .reduce((sum, p) => sum + Number(p.neto), 0);
+
+    // bruto: realized gross before ads (entregados + rechazados neto)
+    const bruto = netoEntregados + netoRechazados;
 
     const meta_ads = dayAds.meta_ads;
     const tiktok_ads = dayAds.tiktok_ads;

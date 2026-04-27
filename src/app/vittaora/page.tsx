@@ -101,6 +101,7 @@ export default function VittaoraPage() {
   const totEntregados = rows.reduce((s, r) => s + r.entregados, 0);
   const totRechazados = rows.reduce((s, r) => s + r.rechazados, 0);
   const totVentas = rows.reduce((s, r) => s + r.ventas, 0);
+  const totBruto = rows.reduce((s, r) => s + r.bruto, 0);
   const totPnl = rows.reduce((s, r) => s + r.pnl_real, 0);
   const totAds = rows.reduce((s, r) => s + r.total_ads, 0);
   const tasaEntrega = totEnviados > 0 ? totEntregados / totEnviados : 0;
@@ -200,6 +201,7 @@ export default function VittaoraPage() {
               <th className="text-right px-3 py-2 font-medium">%Enviados</th>
               <th className="text-right px-3 py-2 font-medium">Rechazados</th>
               <th className="text-right px-3 py-2 font-medium">Ventas</th>
+              <th className="text-right px-3 py-2 font-medium">Bruto</th>
               <th className="text-right px-3 py-2 font-medium">Ads</th>
               <th className="text-right px-3 py-2 font-medium">P&L</th>
             </tr>
@@ -207,13 +209,13 @@ export default function VittaoraPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={8} className="text-center py-8 text-muted-foreground">
+                <td colSpan={9} className="text-center py-8 text-muted-foreground">
                   Cargando...
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={8} className="text-center py-8 text-muted-foreground">
+                <td colSpan={9} className="text-center py-8 text-muted-foreground">
                   Sin datos. Haz clic en &quot;Sincronizar Dropi&quot; para importar pedidos.
                 </td>
               </tr>
@@ -247,6 +249,9 @@ export default function VittaoraPage() {
                     <td className="px-3 py-2 text-right">
                       {row.ventas > 0 ? `€${fmt(row.ventas)}` : "—"}
                     </td>
+                    <td className={`px-3 py-2 text-right ${row.bruto > 0 ? "text-green-600" : row.bruto < 0 ? "text-destructive" : ""}`}>
+                      {row.ventas > 0 ? `€${fmt(row.bruto)}` : "—"}
+                    </td>
                     <td className="px-3 py-2 text-right text-muted-foreground">
                       {row.total_ads > 0 ? `€${fmt(row.total_ads)}` : "—"}
                     </td>
@@ -271,6 +276,9 @@ export default function VittaoraPage() {
                 </td>
                 <td className="px-3 py-2 text-right text-destructive">{totRechazados || ""}</td>
                 <td className="px-3 py-2 text-right">€{fmt(totVentas)}</td>
+                <td className={`px-3 py-2 text-right ${totBruto >= 0 ? "text-green-600" : "text-destructive"}`}>
+                  €{fmt(totBruto)}
+                </td>
                 <td className="px-3 py-2 text-right">€{fmt(totAds)}</td>
                 <td className={`px-3 py-2 text-right ${totPnl >= 0 ? "text-green-600" : "text-destructive"}`}>
                   €{fmt(totPnl)}
