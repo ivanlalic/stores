@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   BarChart3,
   CalendarDays,
@@ -11,6 +10,7 @@ import {
   TrendingUp,
   LogOut,
   ShoppingBag,
+  Store,
 } from "lucide-react";
 import { createClient } from "@/lib/insforge/client";
 
@@ -27,7 +27,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
-const navItems = [
+const iberItems = [
   { title: "Dashboard Diario", href: "/dashboard", icon: BarChart3 },
   { title: "Resumen Mensual", href: "/dashboard/mensual", icon: CalendarDays },
   { title: "Productos", href: "/dashboard/productos", icon: Package },
@@ -35,10 +35,6 @@ const navItems = [
 
 const vittaoraItems = [
   { title: "Dashboard Vittaora", href: "/vittaora", icon: ShoppingBag },
-];
-
-const settingsItems = [
-  { title: "Configuración", href: "/settings", icon: Settings },
 ];
 
 function clearAuthCookies() {
@@ -49,7 +45,9 @@ function clearAuthCookies() {
 export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [storeName, setStoreName] = useState("Mi Tienda");
+
+  const activeStore = pathname.startsWith("/vittaora") ? "vittaora" : "ibericastore";
+  const activeItems = activeStore === "vittaora" ? vittaoraItems : iberItems;
 
   async function handleLogout() {
     const insforge = createClient();
@@ -57,17 +55,6 @@ export function AppSidebar() {
     clearAuthCookies();
     router.push("/login");
   }
-
-  useEffect(() => {
-    fetch("/api/config")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.config?.store_name) {
-          setStoreName(data.config.store_name);
-        }
-      })
-      .catch(() => {});
-  }, []);
 
   function isActive(href: string) {
     if (href === "/dashboard") return pathname === "/dashboard";
@@ -77,30 +64,52 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              size="lg"
-              render={<Link href="/dashboard" />}
-            >
-              <div className="flex items-center justify-center size-8 rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                <TrendingUp className="size-4" />
-              </div>
-              <div className="flex flex-col gap-0.5 leading-none">
-                <span className="font-semibold">{storeName}</span>
-                <span className="text-xs text-muted-foreground">Dropea Dashboard</span>
-              </div>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <div className="flex items-center gap-2 px-2 py-2">
+          <div className="flex items-center justify-center size-8 rounded-lg bg-sidebar-primary text-sidebar-primary-foreground shrink-0">
+            <Store className="size-4" />
+          </div>
+          <div className="flex flex-col gap-0.5 leading-none">
+            <span className="font-semibold text-sm">Mis Tiendas</span>
+            <span className="text-xs text-muted-foreground">Panel de control</span>
+          </div>
+        </div>
       </SidebarHeader>
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Análisis</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => (
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  render={<Link href="/dashboard" />}
+                  isActive={activeStore === "ibericastore"}
+                >
+                  <TrendingUp className="size-4" />
+                  <span>IBericaStore</span>
+                  <span className="text-xs text-muted-foreground ml-auto">Dropea</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  render={<Link href="/vittaora" />}
+                  isActive={activeStore === "vittaora"}
+                >
+                  <ShoppingBag className="size-4" />
+                  <span>VittaOra</span>
+                  <span className="text-xs text-muted-foreground ml-auto">Dropi</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>
+            {activeStore === "vittaora" ? "Vittaora · Dropi" : "Análisis"}
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {activeItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     render={<Link href={item.href} />}
@@ -116,39 +125,17 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Vittaora · Dropi</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {vittaoraItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    render={<Link href={item.href} />}
-                    isActive={isActive(item.href)}
-                  >
-                    <item.icon className="size-4" />
-                    <span>{item.title}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Ajustes</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {settingsItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    render={<Link href={item.href} />}
-                    isActive={isActive(item.href)}
-                  >
-                    <item.icon className="size-4" />
-                    <span>{item.title}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  render={<Link href="/settings" />}
+                  isActive={pathname.startsWith("/settings")}
+                >
+                  <Settings className="size-4" />
+                  <span>Configuración</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

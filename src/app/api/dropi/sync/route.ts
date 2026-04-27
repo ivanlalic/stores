@@ -25,7 +25,10 @@ function mapStatus(estado: string, envio: number) {
   const es_rechazado = es_devuelto;
   const es_cancelado = !es_devuelto && (s.includes("rechazado") || s.includes("cancelado"));
   const es_enviado = envio === 1 || es_entregado || es_devuelto;
-  return { es_enviado, es_entregado, es_rechazado, es_cancelado };
+  // Nuevo / Pendiente = unconfirmed, don't count as venta yet
+  const es_no_venta = !es_devuelto && !es_cancelado && !es_entregado && !es_enviado
+    && (s.includes("pendiente") || s === "nuevo" || s.startsWith("nuevo"));
+  return { es_enviado, es_entregado, es_rechazado, es_cancelado, es_no_venta };
 }
 
 interface HttpResult {
@@ -207,10 +210,11 @@ async function syncForUser(
     const rawFecha = String(row[18] || "").trim();
     const fecha = parseDropiDate(rawFecha);
     const shopifyId = row[21] ? Number(row[21]) : null;
-    const { es_enviado, es_entregado, es_rechazado, es_cancelado } = mapStatus(estado, envio);
+    const { es_enviado, es_entregado, es_rechazado, es_cancelado, es_no_venta } = mapStatus(estado, envio);
 
-    // Rehusado/devuelto: customer didn't pay, we only lose shipping cost (€6.20)
-    const netoFinal = es_rechazado ? -COSTO_DEVOLUCION : Math.round((venta - costo) * 100) / 100;
+    // Rehusado/devuelto: sale happened but returned → venta = price, neto = -shipping cost
+    // Nuevo/Pendiente: unconfirmed → venta = 0, neto = 0
+    const netoFinal = es_cancelado ? 0 : es_rechazado ? -COSTO_DEVOLUCION : Math.round((venta - costo) * 100) / 100;
 
     return {
       user_id: userId,
@@ -219,7 +223,7 @@ async function syncForUser(
       fecha,
       nombre,
       productos,
-      venta: es_rechazado ? 0 : venta, // no revenue on returned orders
+      venta: (es_cancelado || es_no_venta) ? 0 : venta,
       neto: netoFinal,
       status: estado,
       es_enviado,

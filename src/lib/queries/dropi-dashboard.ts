@@ -92,12 +92,12 @@ export async function getDropiDailyDashboard(
     const cancelados = dayPedidos.filter((p) => p.es_cancelado).length;
     const pendientes = Math.max(0, enviados - entregados - rechazados);
 
-    const ventas = dayPedidos
-      .filter((p) => p.es_enviado)
-      .reduce((sum, p) => sum + Number(p.venta), 0);
+    // ventas: sum stored venta (already 0 for cancelado/pendiente/nuevo)
+    const ventas = dayPedidos.reduce((sum, p) => sum + Number(p.venta), 0);
 
+    // bruto: potential profit from in-flight orders (confirmed but not yet resolved)
     const bruto = dayPedidos
-      .filter((p) => p.es_enviado)
+      .filter((p) => !p.es_cancelado && !p.es_entregado && !p.es_rechazado)
       .reduce((sum, p) => sum + Number(p.neto), 0);
 
     const netoEntregados = dayPedidos

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { DropiAdsModal } from "@/components/dropi-ads-modal";
 import type { DropiDailyRow } from "@/lib/queries/dropi-dashboard";
 
@@ -107,9 +108,12 @@ export default function VittaoraPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="text-lg font-semibold">Vittaora — Dashboard Diario</h2>
-          <p className="text-xs text-muted-foreground">Dropi · Portugal</p>
+        <div className="flex items-center gap-2">
+          <SidebarTrigger className="size-8 shrink-0" />
+          <div>
+            <h2 className="text-lg font-semibold">Vittaora — Dashboard Diario</h2>
+            <p className="text-xs text-muted-foreground">Dropi · Portugal</p>
+          </div>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <MonthSelector month={month} onChange={setMonth} />
@@ -167,7 +171,7 @@ export default function VittaoraPage() {
         </Card>
         <Card>
           <CardHeader className="pb-1 pt-3 px-3">
-            <CardTitle className="text-xs text-muted-foreground">Profit</CardTitle>
+            <CardTitle className="text-xs text-muted-foreground">P&L</CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-3">
             <p className={`text-2xl font-bold ${totPnl >= 0 ? "text-green-600" : "text-destructive"}`}>
@@ -193,24 +197,23 @@ export default function VittaoraPage() {
               <th className="text-left px-3 py-2 font-medium">Fecha</th>
               <th className="text-right px-3 py-2 font-medium">Pedidos</th>
               <th className="text-right px-3 py-2 font-medium">Enviados</th>
-              <th className="text-right px-3 py-2 font-medium">Entregados</th>
+              <th className="text-right px-3 py-2 font-medium">%Enviados</th>
               <th className="text-right px-3 py-2 font-medium">Rechazados</th>
               <th className="text-right px-3 py-2 font-medium">Ventas</th>
-              <th className="text-right px-3 py-2 font-medium">% Entrega</th>
-              <th className="text-right px-3 py-2 font-medium">Profit</th>
               <th className="text-right px-3 py-2 font-medium">Ads</th>
+              <th className="text-right px-3 py-2 font-medium">P&L</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={9} className="text-center py-8 text-muted-foreground">
+                <td colSpan={8} className="text-center py-8 text-muted-foreground">
                   Cargando...
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={9} className="text-center py-8 text-muted-foreground">
+                <td colSpan={8} className="text-center py-8 text-muted-foreground">
                   Sin datos. Haz clic en &quot;Sincronizar Dropi&quot; para importar pedidos.
                 </td>
               </tr>
@@ -220,6 +223,9 @@ export default function VittaoraPage() {
                   "es-ES",
                   { weekday: "short", day: "numeric", month: "short" }
                 );
+                const pctEnviados = row.pedidos > 0
+                  ? Math.round(row.enviados / row.pedidos * 100) + "%"
+                  : "—";
                 return (
                   <tr
                     key={row.fecha}
@@ -236,21 +242,18 @@ export default function VittaoraPage() {
                     <td className="px-3 py-2 text-muted-foreground capitalize">{displayDate}</td>
                     <td className="px-3 py-2 text-right">{row.pedidos}</td>
                     <td className="px-3 py-2 text-right">{row.enviados}</td>
-                    <td className="px-3 py-2 text-right">{row.entregados}</td>
+                    <td className="px-3 py-2 text-right">{pctEnviados}</td>
                     <td className="px-3 py-2 text-right text-destructive">{row.rechazados || ""}</td>
                     <td className="px-3 py-2 text-right">
                       {row.ventas > 0 ? `€${fmt(row.ventas)}` : "—"}
                     </td>
-                    <td className="px-3 py-2 text-right">
-                      {row.enviados > 0 ? pct(row.tasa_entrega) : "—"}
+                    <td className="px-3 py-2 text-right text-muted-foreground">
+                      {row.total_ads > 0 ? `€${fmt(row.total_ads)}` : "—"}
                     </td>
                     <td className={`px-3 py-2 text-right font-medium ${row.pnl_real > 0 ? "text-green-600" : row.pnl_real < 0 ? "text-destructive" : ""}`}>
                       {row.ventas > 0 || row.total_ads > 0
                         ? `€${fmt(row.pnl_real)}`
                         : "—"}
-                    </td>
-                    <td className="px-3 py-2 text-right text-muted-foreground">
-                      {row.total_ads > 0 ? `€${fmt(row.total_ads)}` : "—"}
                     </td>
                   </tr>
                 );
@@ -263,14 +266,15 @@ export default function VittaoraPage() {
                 <td className="px-3 py-2">Total</td>
                 <td className="px-3 py-2 text-right">{totPedidos}</td>
                 <td className="px-3 py-2 text-right">{totEnviados}</td>
-                <td className="px-3 py-2 text-right">{totEntregados}</td>
+                <td className="px-3 py-2 text-right">
+                  {totPedidos > 0 ? Math.round(totEnviados / totPedidos * 100) + "%" : "—"}
+                </td>
                 <td className="px-3 py-2 text-right text-destructive">{totRechazados || ""}</td>
                 <td className="px-3 py-2 text-right">€{fmt(totVentas)}</td>
-                <td className="px-3 py-2 text-right">{pct(tasaEntrega)}</td>
+                <td className="px-3 py-2 text-right">€{fmt(totAds)}</td>
                 <td className={`px-3 py-2 text-right ${totPnl >= 0 ? "text-green-600" : "text-destructive"}`}>
                   €{fmt(totPnl)}
                 </td>
-                <td className="px-3 py-2 text-right">€{fmt(totAds)}</td>
               </tr>
             </tfoot>
           )}
