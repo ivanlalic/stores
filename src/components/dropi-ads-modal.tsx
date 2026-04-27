@@ -18,6 +18,7 @@ interface DropiAdsModalProps {
   initialMetaAds?: number;
   initialTiktokAds?: number;
   onSave: () => void;
+  storeId?: string;
 }
 
 export function DropiAdsModal({
@@ -27,6 +28,7 @@ export function DropiAdsModal({
   initialMetaAds = 0,
   initialTiktokAds = 0,
   onSave,
+  storeId,
 }: DropiAdsModalProps) {
   const [metaAds, setMetaAds] = useState(String(initialMetaAds));
   const [tiktokAds, setTiktokAds] = useState(String(initialTiktokAds));
@@ -47,6 +49,7 @@ export function DropiAdsModal({
           fecha,
           meta_ads: parseFloat(metaAds) || 0,
           tiktok_ads: parseFloat(tiktokAds) || 0,
+          ...(storeId ? { store_id: storeId } : {}),
         }),
       });
       onSave();

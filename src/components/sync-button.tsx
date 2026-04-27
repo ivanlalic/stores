@@ -9,6 +9,7 @@ interface SyncButtonProps {
   onComplete?: () => void;
   className?: string;
   showQuickSync?: boolean;
+  storeId?: string;
 }
 
 type ToastState =
@@ -17,7 +18,7 @@ type ToastState =
   | { status: "done"; added: number; updated: number }
   | { status: "error"; message: string };
 
-export function SyncButton({ onComplete, className, showQuickSync = true }: SyncButtonProps) {
+export function SyncButton({ onComplete, className, showQuickSync = true, storeId }: SyncButtonProps) {
   const [syncing, setSyncing] = useState(false);
   const [syncMode, setSyncMode] = useState<"48h" | "full" | null>(null);
   const [toast, setToast] = useState<ToastState>({ status: "idle" });
@@ -35,7 +36,8 @@ export function SyncButton({ onComplete, className, showQuickSync = true }: Sync
     setToast({ status: "syncing", message: "Conectando..." });
 
     try {
-      const url = mode === "48h" ? "/api/sync?mode=48h" : "/api/sync";
+      const storeParam = storeId ? `&store_id=${storeId}` : "";
+      const url = mode === "48h" ? `/api/sync?mode=48h${storeParam}` : `/api/sync?${storeParam.slice(1)}`;
       const response = await fetch(url, { method: "POST" });
 
       if (!response.body) {

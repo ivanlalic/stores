@@ -1,19 +1,23 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { ProductsTable } from "@/components/products-table";
 import { SyncButton } from "@/components/sync-button";
 import { Package } from "lucide-react";
 import type { ProductoRow } from "@/lib/queries/dashboard";
 
-export default function ProductosPage() {
+function ProductosContent() {
+  const searchParams = useSearchParams();
+  const storeId = searchParams.get("store") || "";
   const [rows, setRows] = useState<ProductoRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   async function fetchData() {
     setLoading(true);
     try {
-      const res = await fetch("/api/dashboard?type=productos");
+      const storeParam = storeId ? `&store_id=${storeId}` : "";
+      const res = await fetch(`/api/dashboard?type=productos${storeParam}`);
       const data = await res.json();
       setRows(data.rows || []);
     } catch {
@@ -23,7 +27,8 @@ export default function ProductosPage() {
     }
   }
 
-  useEffect(() => { fetchData(); }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchData(); }, [storeId]);
 
   return (
     <div className="space-y-4">
@@ -39,7 +44,7 @@ export default function ProductosPage() {
             </p>
           </div>
         </div>
-        <SyncButton onComplete={fetchData} />
+        <SyncButton onComplete={fetchData} storeId={storeId || undefined} />
       </div>
 
       {loading ? (
@@ -56,5 +61,13 @@ export default function ProductosPage() {
         <ProductsTable rows={rows} />
       )}
     </div>
+  );
+}
+
+export default function ProductosPage() {
+  return (
+    <Suspense fallback={null}>
+      <ProductosContent />
+    </Suspense>
   );
 }

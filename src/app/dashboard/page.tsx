@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { Suspense, useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { SyncButton } from "@/components/sync-button";
@@ -38,7 +39,10 @@ function nextMonth(month: string) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-export default function DashboardPage() {
+function DashboardContent() {
+  const searchParams = useSearchParams();
+  const storeId = searchParams.get("store") || "";
+
   const [month, setMonth] = useState(getCurrentMonth);
   const [rows, setRows] = useState<DailyRow[]>([]);
   const [beMetrics, setBeMetrics] = useState<BreakevenMetrics | null>(null);
@@ -55,7 +59,8 @@ export default function DashboardPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/dashboard?type=daily&month=${month}`);
+      const storeParam = storeId ? `&store_id=${storeId}` : "";
+      const res = await fetch(`/api/dashboard?type=daily&month=${month}${storeParam}`);
       const data = await res.json();
       setRows(data.rows || []);
       setBeMetrics(data.breakevenMetrics || null);
@@ -65,7 +70,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [month]);
+  }, [month, storeId]);
 
   useEffect(() => {
     fetchData();
@@ -101,7 +106,7 @@ export default function DashboardPage() {
           <ChevronRight className="size-4" />
         </Button>
         <div className="flex-1" />
-        <SyncButton onComplete={fetchData} />
+        <SyncButton onComplete={fetchData} storeId={storeId || undefined} />
       </div>
 
       {loading ? (
@@ -141,7 +146,16 @@ export default function DashboardPage() {
         initialMetaAds={adsModal.metaAds}
         initialTiktokAds={adsModal.tiktokAds}
         onSave={fetchData}
+        storeId={storeId || undefined}
       />
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={null}>
+      <DashboardContent />
+    </Suspense>
   );
 }

@@ -18,6 +18,7 @@ interface AdsInputModalProps {
   initialMetaAds?: number;
   initialTiktokAds?: number;
   onSave: () => void;
+  storeId?: string;
 }
 
 export function AdsInputModal({
@@ -27,6 +28,7 @@ export function AdsInputModal({
   initialMetaAds = 0,
   initialTiktokAds = 0,
   onSave,
+  storeId,
 }: AdsInputModalProps) {
   const [metaAds, setMetaAds] = useState(String(initialMetaAds));
   const [tiktokAds, setTiktokAds] = useState(String(initialTiktokAds));
@@ -48,6 +50,7 @@ export function AdsInputModal({
           fecha,
           meta_ads: parseFloat(metaAds) || 0,
           tiktok_ads: parseFloat(tiktokAds) || 0,
+          ...(storeId ? { store_id: storeId } : {}),
         }),
       });
       if (!res.ok) throw new Error("Error guardando");

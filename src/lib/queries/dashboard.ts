@@ -53,7 +53,7 @@ export interface MonthlyRow {
 
 export async function getDailyDashboard(
   insforge: InsforgeClient,
-  userId: string,
+  storeId: string,
   month: string,
   feeGestionEur: number
 ): Promise<DailyRow[]> {
@@ -70,7 +70,7 @@ export async function getDailyDashboard(
     const { data } = await insforge.database
       .from("pedidos")
       .select("*")
-      .eq("user_id", userId)
+      .eq("store_id", storeId)
       .gte("fecha", startDate)
       .lte("fecha", endDate)
       .order("fecha", { ascending: true })
@@ -84,7 +84,7 @@ export async function getDailyDashboard(
   const { data: ads } = await insforge.database
     .from("ads_diario")
     .select("*")
-    .eq("user_id", userId)
+    .eq("store_id", storeId)
     .gte("fecha", startDate)
     .lte("fecha", endDate);
 
@@ -192,7 +192,7 @@ export interface BreakevenMetrics {
 
 export async function getBreakevenMetrics(
   insforge: InsforgeClient,
-  userId: string,
+  storeId: string,
   currentMonthRows: DailyRow[],
   config: { fee_gestion_eur: number; costo_rechazo: number; dias_rolling: number; dias_excluir: number }
 ): Promise<BreakevenMetrics | null> {
@@ -217,13 +217,12 @@ export async function getBreakevenMetrics(
       const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
       const prevMonthEnd = new Date(prevDate.getFullYear(), prevDate.getMonth() + 1, 0);
       if (prevMonthEnd.toISOString().split("T")[0] >= cutoffStr) {
-        const prevRows = await getDailyDashboard(insforge, userId, prevMonth, config.fee_gestion_eur);
+        const prevRows = await getDailyDashboard(insforge, storeId, prevMonth, config.fee_gestion_eur);
         allRows = [...prevRows, ...allRows];
       }
     }
   }
 
-  // dias_excluir: exclude last N days from rejection rate (orders still in transit)
   const rollingRows = allRows.filter((r) => r.fecha >= cutoffStr && r.fecha < excluirStr && r.enviados > 0);
 
   if (rollingRows.length === 0) return null;
@@ -298,9 +297,9 @@ function parsePedidoItems(pedido: string): Array<{ name: string; qty: number }> 
 
 export async function getProductosDashboard(
   insforge: InsforgeClient,
-  userId: string
+  storeId: string
 ): Promise<ProductoRow[]> {
-  const pedidos = await fetchAll(insforge, "pedidos", userId, "fecha");
+  const pedidos = await fetchAllByStore(insforge, "pedidos", storeId, "fecha");
 
   const map = new Map<string, {
     pedidos: number; unidades: number; enviados: number;
@@ -360,10 +359,10 @@ export async function getProductosDashboard(
   return rows.sort((a, b) => b.pedidos - a.pedidos);
 }
 
-async function fetchAll(
+async function fetchAllByStore(
   insforge: InsforgeClient,
   table: string,
-  userId: string,
+  storeId: string,
   orderBy?: string
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any[]> {
@@ -377,7 +376,7 @@ async function fetchAll(
     let query = insforge.database
       .from(table)
       .select("*")
-      .eq("user_id", userId)
+      .eq("store_id", storeId)
       .range(from, from + PAGE_SIZE - 1);
 
     if (orderBy) {
@@ -396,11 +395,11 @@ async function fetchAll(
 
 export async function getMonthlyDashboard(
   insforge: InsforgeClient,
-  userId: string,
+  storeId: string,
   feeGestionEur: number
 ): Promise<MonthlyRow[]> {
-  const pedidos = await fetchAll(insforge, "pedidos", userId, "fecha");
-  const ads = await fetchAll(insforge, "ads_diario", userId);
+  const pedidos = await fetchAllByStore(insforge, "pedidos", storeId, "fecha");
+  const ads = await fetchAllByStore(insforge, "ads_diario", storeId);
 
   const monthPedidos = new Map<string, typeof pedidos>();
   const monthAds = new Map<string, { meta: number; tiktok: number }>();

@@ -1,20 +1,24 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { MonthlyTable } from "@/components/monthly-table";
 import { MonthlyChart } from "@/components/monthly-chart";
 import { SyncButton } from "@/components/sync-button";
 import { CalendarDays } from "lucide-react";
 import type { MonthlyRow } from "@/lib/queries/dashboard";
 
-export default function MensualPage() {
+function MensualContent() {
+  const searchParams = useSearchParams();
+  const storeId = searchParams.get("store") || "";
   const [rows, setRows] = useState<MonthlyRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   async function fetchData() {
     setLoading(true);
     try {
-      const res = await fetch("/api/dashboard?type=monthly");
+      const storeParam = storeId ? `&store_id=${storeId}` : "";
+      const res = await fetch(`/api/dashboard?type=monthly${storeParam}`);
       const data = await res.json();
       setRows(data.rows || []);
     } catch {
@@ -26,7 +30,8 @@ export default function MensualPage() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storeId]);
 
   return (
     <div className="space-y-6">
@@ -40,7 +45,7 @@ export default function MensualPage() {
             <p className="text-xs text-muted-foreground">Resumen acumulado por mes</p>
           </div>
         </div>
-        <SyncButton onComplete={fetchData} />
+        <SyncButton onComplete={fetchData} storeId={storeId || undefined} />
       </div>
 
       {loading ? (
@@ -60,5 +65,13 @@ export default function MensualPage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function MensualPage() {
+  return (
+    <Suspense fallback={null}>
+      <MensualContent />
+    </Suspense>
   );
 }

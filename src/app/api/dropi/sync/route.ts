@@ -184,9 +184,10 @@ function parseDropiExcel(buffer: Buffer): any[] {
   return rows.slice(1).filter((row) => row[14] || row[3]); // need order_id
 }
 
-async function syncForUser(
+async function syncForStore(
   insforge: ReturnType<typeof createServiceClient>,
   userId: string,
+  storeId: string,
   emailEncrypted: string,
   pwdEncrypted: string
 ): Promise<{ total: number }> {
@@ -206,7 +207,6 @@ async function syncForUser(
     const venta = parseFloat(String(row[6])) || 0;
     const nombre = String(row[8] || "").trim();
     const costo = parseFloat(String(row[17])) || 0;
-    const neto = Math.round((venta - costo) * 100) / 100;
     const rawFecha = String(row[18] || "").trim();
     const fecha = parseDropiDate(rawFecha);
     const shopifyId = row[21] ? Number(row[21]) : null;
@@ -218,6 +218,7 @@ async function syncForUser(
 
     return {
       user_id: userId,
+      store_id: storeId,
       order_id: orderId,
       shopify_order_id: shopifyId,
       fecha,
@@ -240,7 +241,7 @@ async function syncForUser(
     const chunk = orders.slice(i, i + CHUNK);
     const { error } = await insforge.database
       .from("dropi_pedidos")
-      .upsert(chunk, { onConflict: "user_id,order_id" });
+      .upsert(chunk, { onConflict: "store_id,order_id" });
     if (error) throw new Error(error.message);
   }
 
@@ -256,25 +257,27 @@ export async function POST(request: NextRequest) {
   const isCron = cronSecret && authHeader === `Bearer ${cronSecret}`;
 
   if (isCron) {
-    // Sync all users with Dropi credentials
-    const { data: configs } = await insforge.database
-      .from("users_config")
-      .select("id, dropi_email_encrypted, dropi_pwd_encrypted")
+    // Sync all dropi stores across all users
+    const { data: stores } = await insforge.database
+      .from("stores")
+      .select("id, user_id, dropi_email_encrypted, dropi_pwd_encrypted")
+      .eq("type", "dropi")
       .not("dropi_email_encrypted", "is", null)
       .not("dropi_pwd_encrypted", "is", null);
 
     let totalSynced = 0;
-    for (const config of configs || []) {
+    for (const store of stores || []) {
       try {
-        const result = await syncForUser(
+        const result = await syncForStore(
           insforge,
-          config.id,
-          config.dropi_email_encrypted,
-          config.dropi_pwd_encrypted
+          store.user_id,
+          store.id,
+          store.dropi_email_encrypted,
+          store.dropi_pwd_encrypted
         );
         totalSynced += result.total;
       } catch {
-        // Continue with other users
+        // Continue with other stores
       }
     }
     return NextResponse.json({ ok: true, total: totalSynced });
@@ -284,22 +287,40 @@ export async function POST(request: NextRequest) {
   const user = await getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: config } = await insforge.database
-    .from("users_config")
-    .select("dropi_email_encrypted, dropi_pwd_encrypted")
-    .eq("id", user.id)
-    .maybeSingle();
+  const storeParam = request.nextUrl.searchParams.get("store_id");
 
-  if (!config?.dropi_email_encrypted || !config?.dropi_pwd_encrypted) {
+  let store;
+  if (storeParam) {
+    const { data } = await insforge.database
+      .from("stores")
+      .select("id, user_id, dropi_email_encrypted, dropi_pwd_encrypted")
+      .eq("id", storeParam)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    store = data;
+  } else {
+    const { data } = await insforge.database
+      .from("stores")
+      .select("id, user_id, dropi_email_encrypted, dropi_pwd_encrypted")
+      .eq("user_id", user.id)
+      .eq("type", "dropi")
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    store = data;
+  }
+
+  if (!store?.dropi_email_encrypted || !store?.dropi_pwd_encrypted) {
     return NextResponse.json({ error: "Dropi credentials not configured" }, { status: 400 });
   }
 
   try {
-    const result = await syncForUser(
+    const result = await syncForStore(
       insforge,
-      user.id,
-      config.dropi_email_encrypted,
-      config.dropi_pwd_encrypted
+      store.user_id,
+      store.id,
+      store.dropi_email_encrypted,
+      store.dropi_pwd_encrypted
     );
     return NextResponse.json({ total: result.total });
   } catch (err) {

@@ -9,8 +9,9 @@ import {
   isCancelado,
   shouldZeroRevenue,
 } from "@/lib/dropea/status";
+import { getDefaultStore, requireStore } from "@/lib/store-utils";
 
-function mapOrder(order: DropeaOrder, userId: string) {
+function mapOrder(order: DropeaOrder, userId: string, storeId: string) {
   const customer = order.customer;
   const nombre =
     customer?.full_name ||
@@ -36,6 +37,7 @@ function mapOrder(order: DropeaOrder, userId: string) {
 
   return {
     user_id: userId,
+    store_id: storeId,
     dropea_id: order.id,
     orden: order.external_order_id || null,
     fecha,
@@ -74,19 +76,28 @@ export async function POST(request: NextRequest) {
         send("Obteniendo configuracion...");
 
         const insforge = createServiceClient();
-        const { data: config } = await insforge.database
-          .from("users_config")
-          .select("dropea_api_key_encrypted")
-          .eq("id", user.id)
-          .maybeSingle();
+        const storeParam = request.nextUrl.searchParams.get("store_id");
 
-        if (!config?.dropea_api_key_encrypted) {
+        let store;
+        if (storeParam) {
+          try {
+            store = await requireStore(insforge, storeParam, user.id);
+          } catch {
+            send("Error: Tienda no encontrada");
+            controller.close();
+            return;
+          }
+        } else {
+          store = await getDefaultStore(insforge, user.id, "dropea");
+        }
+
+        if (!store?.dropea_api_key_encrypted) {
           send("Error: No hay API key configurada");
           controller.close();
           return;
         }
 
-        const apiKey = decrypt(config.dropea_api_key_encrypted);
+        const apiKey = decrypt(store.dropea_api_key_encrypted);
 
         const mode = request.nextUrl.searchParams.get("mode");
         const is48h = mode === "48h";
@@ -100,7 +111,7 @@ export async function POST(request: NextRequest) {
 
         send(`${orders.length} pedidos obtenidos. Procesando...`);
 
-        const mappedOrders = orders.map((o) => mapOrder(o, user.id));
+        const mappedOrders = orders.map((o) => mapOrder(o, user.id, store.id));
 
         const batchSize = 100;
         let added = 0;
@@ -113,7 +124,7 @@ export async function POST(request: NextRequest) {
           const { data: existing } = await insforge.database
             .from("pedidos")
             .select("dropea_id")
-            .eq("user_id", user.id)
+            .eq("store_id", store.id)
             .in("dropea_id", dropeaIds);
 
           const existingSet = new Set(existing?.map((e) => e.dropea_id) || []);
@@ -121,9 +132,9 @@ export async function POST(request: NextRequest) {
             if (existingSet.has(order.dropea_id)) { updated++; } else { added++; }
           }
 
-          const { error } = await insforge.database.rpc("upsert_pedidos_batch", {
-            records: batch,
-          });
+          const { error } = await insforge.database
+            .from("pedidos")
+            .upsert(batch, { onConflict: "store_id,dropea_id" });
 
           if (error) {
             send(`Error procesando batch: ${error.message}`);

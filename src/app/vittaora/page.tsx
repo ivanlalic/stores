@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { Suspense, useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -48,9 +49,13 @@ function MonthSelector({
   );
 }
 
-export default function VittaoraPage() {
+function VittaoraContent() {
+  const searchParams = useSearchParams();
+  const storeId = searchParams.get("store") || "";
+
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [rows, setRows] = useState<DropiDailyRow[]>([]);
+  const [storeName, setStoreName] = useState("Vittaora");
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState("");
@@ -64,13 +69,15 @@ export default function VittaoraPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/dropi/dashboard?month=${month}`);
+      const storeParam = storeId ? `&store_id=${storeId}` : "";
+      const res = await fetch(`/api/dropi/dashboard?month=${month}${storeParam}`);
       const data = await res.json();
       setRows(data.rows || []);
+      if (data.storeName) setStoreName(data.storeName);
     } finally {
       setLoading(false);
     }
-  }, [month]);
+  }, [month, storeId]);
 
   useEffect(() => {
     loadData();
@@ -80,7 +87,8 @@ export default function VittaoraPage() {
     setSyncing(true);
     setSyncMsg("");
     try {
-      const res = await fetch("/api/dropi/sync", { method: "POST" });
+      const storeParam = storeId ? `?store_id=${storeId}` : "";
+      const res = await fetch(`/api/dropi/sync${storeParam}`, { method: "POST" });
       const data = await res.json();
       if (data.error) {
         setSyncMsg(`Error: ${data.error}`);
@@ -112,7 +120,7 @@ export default function VittaoraPage() {
         <div className="flex items-center gap-2">
           <SidebarTrigger className="size-8 shrink-0" />
           <div>
-            <h2 className="text-lg font-semibold">Vittaora — Dashboard Diario</h2>
+            <h2 className="text-lg font-semibold">{storeName} — Dashboard Diario</h2>
             <p className="text-xs text-muted-foreground">Dropi · Portugal</p>
           </div>
         </div>
@@ -296,7 +304,16 @@ export default function VittaoraPage() {
         initialMetaAds={adsModal.meta}
         initialTiktokAds={adsModal.tiktok}
         onSave={loadData}
+        storeId={storeId || undefined}
       />
     </div>
+  );
+}
+
+export default function VittaoraPage() {
+  return (
+    <Suspense fallback={null}>
+      <VittaoraContent />
+    </Suspense>
   );
 }

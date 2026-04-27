@@ -1,6 +1,7 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   BarChart3,
@@ -11,6 +12,7 @@ import {
   LogOut,
   ShoppingBag,
   Store,
+  Plus,
 } from "lucide-react";
 import { createClient } from "@/lib/insforge/client";
 
@@ -27,15 +29,11 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
-const iberItems = [
-  { title: "Dashboard Diario", href: "/dashboard", icon: BarChart3 },
-  { title: "Resumen Mensual", href: "/dashboard/mensual", icon: CalendarDays },
-  { title: "Productos", href: "/dashboard/productos", icon: Package },
-];
-
-const vittaoraItems = [
-  { title: "Dashboard Vittaora", href: "/vittaora", icon: ShoppingBag },
-];
+interface StoreItem {
+  id: string;
+  name: string;
+  type: "dropea" | "dropi";
+}
 
 function clearAuthCookies() {
   document.cookie = "insforge_token=; path=/; max-age=0";
@@ -45,9 +43,33 @@ function clearAuthCookies() {
 export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [stores, setStores] = useState<StoreItem[]>([]);
 
-  const activeStore = pathname.startsWith("/vittaora") ? "vittaora" : "ibericastore";
-  const activeItems = activeStore === "vittaora" ? vittaoraItems : iberItems;
+  useEffect(() => {
+    fetch("/api/stores")
+      .then((r) => r.json())
+      .then((d) => setStores(d.stores || []))
+      .catch(() => {});
+  }, []);
+
+  const currentStoreId = searchParams.get("store");
+
+  // Find the active store to determine nav items
+  const activeStore = stores.find((s) => s.id === currentStoreId) ||
+    (pathname.startsWith("/vittaora")
+      ? stores.find((s) => s.type === "dropi")
+      : stores.find((s) => s.type === "dropea"));
+
+  const activeType = activeStore?.type || (pathname.startsWith("/vittaora") ? "dropi" : "dropea");
+
+  const navItems = activeType === "dropi"
+    ? [{ title: "Dashboard Diario", href: `/vittaora${currentStoreId ? `?store=${currentStoreId}` : ""}`, icon: ShoppingBag }]
+    : [
+        { title: "Dashboard Diario", href: `/dashboard${currentStoreId ? `?store=${currentStoreId}` : ""}`, icon: BarChart3 },
+        { title: "Resumen Mensual", href: `/dashboard/mensual${currentStoreId ? `?store=${currentStoreId}` : ""}`, icon: CalendarDays },
+        { title: "Productos", href: `/dashboard/productos${currentStoreId ? `?store=${currentStoreId}` : ""}`, icon: Package },
+      ];
 
   async function handleLogout() {
     const insforge = createClient();
@@ -57,8 +79,21 @@ export function AppSidebar() {
   }
 
   function isActive(href: string) {
-    if (href === "/dashboard") return pathname === "/dashboard";
-    return pathname.startsWith(href);
+    const hrefPath = href.split("?")[0];
+    if (hrefPath === "/dashboard") return pathname === "/dashboard";
+    return pathname.startsWith(hrefPath);
+  }
+
+  function storeHref(s: StoreItem) {
+    const base = s.type === "dropi" ? "/vittaora" : "/dashboard";
+    return `${base}?store=${s.id}`;
+  }
+
+  function isStoreActive(s: StoreItem) {
+    if (currentStoreId) return currentStoreId === s.id;
+    // fallback: match by page type
+    if (s.type === "dropi") return pathname.startsWith("/vittaora");
+    return pathname.startsWith("/dashboard");
   }
 
   return (
@@ -79,37 +114,37 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  render={<Link href="/dashboard" />}
-                  isActive={activeStore === "ibericastore"}
-                >
-                  <TrendingUp className="size-4" />
-                  <span>IBericaStore</span>
-                  <span className="text-xs text-muted-foreground ml-auto">Dropea</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  render={<Link href="/vittaora" />}
-                  isActive={activeStore === "vittaora"}
-                >
-                  <ShoppingBag className="size-4" />
-                  <span>VittaOra</span>
-                  <span className="text-xs text-muted-foreground ml-auto">Dropi</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {stores.map((s) => (
+                <SidebarMenuItem key={s.id}>
+                  <SidebarMenuButton
+                    render={<Link href={storeHref(s)} />}
+                    isActive={isStoreActive(s)}
+                  >
+                    {s.type === "dropi"
+                      ? <ShoppingBag className="size-4" />
+                      : <TrendingUp className="size-4" />
+                    }
+                    <span>{s.name}</span>
+                    <span className="text-xs text-muted-foreground ml-auto capitalize">{s.type}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+              {stores.length === 0 && (
+                <SidebarMenuItem>
+                  <div className="px-2 py-1.5 text-xs text-muted-foreground">Cargando...</div>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
         <SidebarGroup>
           <SidebarGroupLabel>
-            {activeStore === "vittaora" ? "Vittaora · Dropi" : "Análisis"}
+            {activeStore ? activeStore.name : "Análisis"}
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {activeItems.map((item) => (
+              {navItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     render={<Link href={item.href} />}
@@ -143,6 +178,15 @@ export function AppSidebar() {
 
       <SidebarFooter>
         <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              render={<Link href="/settings#add-store" />}
+              className="text-muted-foreground"
+            >
+              <Plus className="size-4" />
+              <span>Agregar tienda</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton onClick={handleLogout}>
               <LogOut className="size-4" />

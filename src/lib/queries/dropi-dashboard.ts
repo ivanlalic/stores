@@ -22,7 +22,7 @@ export interface DropiDailyRow {
 
 export async function getDropiDailyDashboard(
   insforge: InsforgeClient,
-  userId: string,
+  storeId: string,
   month: string
 ): Promise<DropiDailyRow[]> {
   const startDate = `${month}-01`;
@@ -38,7 +38,7 @@ export async function getDropiDailyDashboard(
     const { data } = await insforge.database
       .from("dropi_pedidos")
       .select("*")
-      .eq("user_id", userId)
+      .eq("store_id", storeId)
       .gte("fecha", startDate)
       .lte("fecha", endDate)
       .order("fecha", { ascending: true })
@@ -52,7 +52,7 @@ export async function getDropiDailyDashboard(
   const { data: ads } = await insforge.database
     .from("dropi_ads_diario")
     .select("*")
-    .eq("user_id", userId)
+    .eq("store_id", storeId)
     .gte("fecha", startDate)
     .lte("fecha", endDate);
 
@@ -92,7 +92,6 @@ export async function getDropiDailyDashboard(
     const cancelados = dayPedidos.filter((p) => p.es_cancelado).length;
     const pendientes = Math.max(0, enviados - entregados - rechazados);
 
-    // ventas: sum stored venta (already 0 for cancelado/pendiente/nuevo)
     const ventas = dayPedidos.reduce((sum, p) => sum + Number(p.venta), 0);
 
     const netoEntregados = dayPedidos
@@ -102,7 +101,6 @@ export async function getDropiDailyDashboard(
       .filter((p) => p.es_rechazado)
       .reduce((sum, p) => sum + Number(p.neto), 0);
 
-    // bruto: realized gross before ads (entregados + rechazados neto)
     const bruto = netoEntregados + netoRechazados;
 
     const meta_ads = dayAds.meta_ads;
