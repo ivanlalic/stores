@@ -47,6 +47,7 @@ function StockContent() {
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState("");
   const [filter, setFilter] = useState("");
+  const [hideInnovaGoods, setHideInnovaGoods] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("variacion");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
@@ -101,9 +102,10 @@ function StockContent() {
     }
   }
 
-  const filtered = products.filter((p) =>
-    p.name.toLowerCase().includes(filter.toLowerCase())
-  );
+  const filtered = products.filter((p) => {
+    if (hideInnovaGoods && p.name.toLowerCase().includes("innovagoods")) return false;
+    return p.name.toLowerCase().includes(filter.toLowerCase());
+  });
 
   const sorted = [...filtered].sort((a, b) => {
     let diff = 0;
@@ -156,6 +158,15 @@ function StockContent() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={hideInnovaGoods}
+              onChange={(e) => setHideInnovaGoods(e.target.checked)}
+              className="rounded"
+            />
+            Ocultar InnovaGoods
+          </label>
           <Input
             placeholder="Filtrar productos..."
             value={filter}
