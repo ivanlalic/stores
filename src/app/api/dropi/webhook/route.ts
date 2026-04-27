@@ -3,10 +3,11 @@ import { createServiceClient } from "@/lib/insforge/server";
 
 function mapWebhookStatus(statusName: string) {
   const s = (statusName || "").toLowerCase();
+  const es_devuelto = s.includes("rehusado") || s.includes("devuelto");
   const es_entregado = s.includes("entregado") || s.includes("cobrado");
-  const es_rechazado = s.includes("rechazado");
-  const es_cancelado = s.includes("cancelado");
-  const es_enviado = s.includes("enviado") || es_entregado || es_rechazado;
+  const es_rechazado = es_devuelto;
+  const es_cancelado = !es_devuelto && (s.includes("rechazado") || s.includes("cancelado"));
+  const es_enviado = s.includes("enviado") || es_entregado || es_devuelto;
   return { es_enviado, es_entregado, es_rechazado, es_cancelado };
 }
 

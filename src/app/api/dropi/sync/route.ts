@@ -14,12 +14,17 @@ function parseDropiDate(raw: string): string {
   return raw;
 }
 
+const COSTO_DEVOLUCION = 6.20; // envío cobrado por Dropi en rehusado/devuelto
+
 function mapStatus(estado: string, envio: number) {
   const s = (estado || "").toLowerCase();
+  // Rehusado = refused at door (shipped). Devuelto = returned to warehouse (shipped).
+  const es_devuelto = s.includes("rehusado") || s.includes("devuelto");
   const es_entregado = s.includes("entregado") || s.includes("cobrado");
-  const es_rechazado = s.includes("rechazado");
-  const es_cancelado = s.includes("cancelado");
-  const es_enviado = envio === 1 || es_entregado || es_rechazado;
+  // "Rechazado" with ENVIO=0 = cancelled before dispatch → cancelado, not rechazado
+  const es_rechazado = es_devuelto;
+  const es_cancelado = !es_devuelto && (s.includes("rechazado") || s.includes("cancelado"));
+  const es_enviado = envio === 1 || es_entregado || es_devuelto;
   return { es_enviado, es_entregado, es_rechazado, es_cancelado };
 }
 
@@ -204,6 +209,9 @@ async function syncForUser(
     const shopifyId = row[21] ? Number(row[21]) : null;
     const { es_enviado, es_entregado, es_rechazado, es_cancelado } = mapStatus(estado, envio);
 
+    // Rehusado/devuelto: customer didn't pay, we only lose shipping cost (€6.20)
+    const netoFinal = es_rechazado ? -COSTO_DEVOLUCION : Math.round((venta - costo) * 100) / 100;
+
     return {
       user_id: userId,
       order_id: orderId,
@@ -211,8 +219,8 @@ async function syncForUser(
       fecha,
       nombre,
       productos,
-      venta,
-      neto,
+      venta: es_rechazado ? 0 : venta, // no revenue on returned orders
+      neto: netoFinal,
       status: estado,
       es_enviado,
       es_entregado,
