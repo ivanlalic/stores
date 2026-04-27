@@ -46,6 +46,9 @@ export default function SettingsPage() {
     load();
   }, []);
 
+  const [dropiMessage, setDropiMessage] = useState("");
+  const [savingDropi, setSavingDropi] = useState(false);
+
   async function handleSave() {
     setSaving(true);
     setMessage("");
@@ -57,11 +60,8 @@ export default function SettingsPage() {
         dias_rolling: parseInt(diasRolling) || 30,
         dias_excluir: parseInt(diasExcluir) || 4,
       };
-      if (newApiKey) {
-        body.dropea_api_key = newApiKey;
-      }
-      if (dropiEmail) body.dropi_email = dropiEmail;
-      if (dropiPwd) body.dropi_pwd = dropiPwd;
+      if (newApiKey) body.dropea_api_key = newApiKey;
+      // Never touch dropi credentials here
       const res = await fetch("/api/config", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -70,15 +70,35 @@ export default function SettingsPage() {
       if (!res.ok) throw new Error("Error guardando");
       setMessage("Configuracion guardada");
       if (newApiKey) { setHasApiKey(true); setNewApiKey(""); }
-      if (dropiEmail || dropiPwd) {
-        setHasDropiCredentials(true);
-        setDropiEmail("");
-        setDropiPwd("");
-      }
     } catch {
       setMessage("Error al guardar");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleSaveDropi() {
+    if (!dropiEmail.trim() || !dropiPwd.trim()) {
+      setDropiMessage("Ingresa email Y contraseña para actualizar");
+      return;
+    }
+    setSavingDropi(true);
+    setDropiMessage("");
+    try {
+      const res = await fetch("/api/config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dropi_email: dropiEmail.trim(), dropi_pwd: dropiPwd.trim() }),
+      });
+      if (!res.ok) throw new Error("Error guardando");
+      setDropiMessage("Credenciales guardadas");
+      setHasDropiCredentials(true);
+      setDropiEmail("");
+      setDropiPwd("");
+    } catch {
+      setDropiMessage("Error al guardar");
+    } finally {
+      setSavingDropi(false);
     }
   }
 
@@ -160,16 +180,17 @@ export default function SettingsPage() {
           <CardTitle className="text-base">Vittaora · Dropi</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {hasDropiCredentials && (
-            <p className="text-xs text-muted-foreground">
-              Credenciales configuradas. Deja vacio para no cambiar.
-            </p>
-          )}
+          <p className="text-xs text-muted-foreground">
+            {hasDropiCredentials
+              ? "Credenciales configuradas. Para cambiarlas, ingresa email Y contraseña nuevos."
+              : "Ingresa las credenciales de dropipro.com para sincronizar automaticamente."}
+          </p>
           <div className="space-y-2">
             <Label>Email Dropi</Label>
             <Input
-              type="email"
-              placeholder={hasDropiCredentials ? "******* (no cambiar)" : "email@ejemplo.com"}
+              type="text"
+              autoComplete="off"
+              placeholder="vittaora@gmail.com"
               value={dropiEmail}
               onChange={(e) => setDropiEmail(e.target.value)}
             />
@@ -178,13 +199,22 @@ export default function SettingsPage() {
             <Label>Contraseña Dropi</Label>
             <Input
               type="password"
-              placeholder={hasDropiCredentials ? "******* (no cambiar)" : "Contraseña"}
+              autoComplete="new-password"
+              placeholder="Contraseña de dropipro.com"
               value={dropiPwd}
               onChange={(e) => setDropiPwd(e.target.value)}
             />
           </div>
+          {dropiMessage && (
+            <p className={`text-sm ${dropiMessage.includes("Error") || dropiMessage.includes("Ingresa") ? "text-destructive" : "text-green-600"}`}>
+              {dropiMessage}
+            </p>
+          )}
+          <Button onClick={handleSaveDropi} disabled={savingDropi} className="w-full">
+            {savingDropi ? "Guardando..." : "Guardar credenciales Dropi"}
+          </Button>
           <p className="text-xs text-muted-foreground">
-            Webhook URL para Dropi: <code className="bg-muted px-1 rounded">https://stores-steel.vercel.app/api/dropi/webhook</code>
+            Webhook URL: <code className="bg-muted px-1 rounded text-xs">https://stores-steel.vercel.app/api/dropi/webhook</code>
           </p>
         </CardContent>
       </Card>

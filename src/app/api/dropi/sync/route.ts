@@ -83,7 +83,7 @@ async function dropiLogin(email: string, pwd: string): Promise<string> {
   const csrfToken = csrfMatch[1];
 
   // Step 2: POST login
-  const postBody = new URLSearchParams({ _token: csrfToken, user: email, pwd }).toString();
+  const postBody = new URLSearchParams({ _token: csrfToken, user: email, pwd, remember: "1" }).toString();
   const s2 = await httpRequest(
     {
       hostname: "dropipro.com", path: "/login/submit", method: "POST",
@@ -129,7 +129,10 @@ async function downloadDropiExcel(cookies: string): Promise<Buffer> {
   const dlCsrfMatch = formHtml.match(
     /id="downloadForm"[\s\S]*?<input[^>]*name="_token"[^>]*value="([^"]+)/
   );
-  if (!dlCsrfMatch) throw new Error("Download form CSRF not found");
+  if (!dlCsrfMatch) {
+    const snippet = formHtml.slice(0, 400).replace(/\s+/g, " ");
+    throw new Error(`Download form CSRF not found. Status=${formRes.status} HTML=${snippet}`);
+  }
   const dlCsrf = dlCsrfMatch[1];
 
   // POST to download endpoint
