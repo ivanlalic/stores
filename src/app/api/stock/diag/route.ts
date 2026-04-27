@@ -2,6 +2,27 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUser, createServiceClient } from "@/lib/insforge/server";
 import { getDefaultStore, requireStore } from "@/lib/store-utils";
 
+async function fetchAllSnapshotRows(
+  insforge: Awaited<ReturnType<typeof createServiceClient>>,
+  syncIds: string[]
+) {
+  const pageSize = 1000;
+  let offset = 0;
+  const all: { sync_id: string; stock: number }[] = [];
+  while (true) {
+    const { data } = await insforge.database
+      .from("stock_snapshots")
+      .select("sync_id, stock")
+      .in("sync_id", syncIds)
+      .range(offset, offset + pageSize - 1);
+    if (!data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < pageSize) break;
+    offset += pageSize;
+  }
+  return all;
+}
+
 export async function GET(request: NextRequest) {
   const user = await getUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
@@ -41,29 +62,12 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Count snapshots per sync
+  // Get actual per-sync counts with server-side pagination
   const syncIds = syncs.map((s) => s.id);
-  const { data: snapshotCounts, error: countError } = await insforge.database
-    .from("stock_snapshots")
-    .select("sync_id", { count: "exact" })
-    .in("sync_id", syncIds);
-
-  if (countError) {
-    return NextResponse.json({ error: countError.message }, { status: 500 });
-  }
-
-  // Get actual per-sync counts via rpc or manual aggregation
-  const { data: rows, error: rowsError } = await insforge.database
-    .from("stock_snapshots")
-    .select("sync_id, stock")
-    .in("sync_id", syncIds);
-
-  if (rowsError) {
-    return NextResponse.json({ error: rowsError.message }, { status: 500 });
-  }
+  const rows = await fetchAllSnapshotRows(insforge, syncIds);
 
   const countBySync = new Map<string, { total: number; zeroStock: number }>();
-  for (const r of rows || []) {
+  for (const r of rows) {
     const curr = countBySync.get(r.sync_id) || { total: 0, zeroStock: 0 };
     curr.total++;
     if (r.stock === 0) curr.zeroStock++;

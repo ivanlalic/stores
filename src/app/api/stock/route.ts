@@ -4,6 +4,27 @@ import { decrypt } from "@/lib/encryption";
 import { fetchProductPagesBatch } from "@/lib/dropea/client";
 import { getDefaultStore, requireStore } from "@/lib/store-utils";
 
+async function fetchAllSnapshots(
+  insforge: Awaited<ReturnType<typeof createServiceClient>>,
+  syncIds: string[]
+) {
+  const pageSize = 1000;
+  let offset = 0;
+  const all: { sync_id: string; dropea_id: string; sku: string | null; name: string; image: string | null; stock: number }[] = [];
+  while (true) {
+    const { data } = await insforge.database
+      .from("stock_snapshots")
+      .select("sync_id, dropea_id, sku, name, image, stock")
+      .in("sync_id", syncIds)
+      .range(offset, offset + pageSize - 1);
+    if (!data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < pageSize) break;
+    offset += pageSize;
+  }
+  return all;
+}
+
 export async function GET(request: NextRequest) {
   const user = await getUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
@@ -36,13 +57,8 @@ export async function GET(request: NextRequest) {
   // Only fetch snapshots for the 2 most recent syncs (needed for variation)
   const syncIds = syncs.slice(0, 2).map((s: { id: string }) => s.id);
 
-  // Load snapshots for top 2 syncs
-  const { data: snapshots } = await insforge.database
-    .from("stock_snapshots")
-    .select("sync_id, dropea_id, sku, name, image, stock")
-    .in("sync_id", syncIds);
-
-  if (!snapshots) return NextResponse.json({ syncs, products: [] });
+  // Load snapshots with server-side pagination (PostgREST max may be 1000)
+  const snapshots = await fetchAllSnapshots(insforge, syncIds);
 
   // Build per-product map keyed by dropea_id
   // syncs[0] = latest, syncs[1] = previous
