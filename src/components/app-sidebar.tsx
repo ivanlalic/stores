@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   BarChart3,
+  Boxes,
   CalendarDays,
   Package,
   Settings,
@@ -69,6 +70,7 @@ export function AppSidebar() {
         { title: "Dashboard Diario", href: `/dashboard${currentStoreId ? `?store=${currentStoreId}` : ""}`, icon: BarChart3 },
         { title: "Resumen Mensual", href: `/dashboard/mensual${currentStoreId ? `?store=${currentStoreId}` : ""}`, icon: CalendarDays },
         { title: "Productos", href: `/dashboard/productos${currentStoreId ? `?store=${currentStoreId}` : ""}`, icon: Package },
+        { title: "Stock · Catálogo", href: `/dashboard/stock${currentStoreId ? `?store=${currentStoreId}` : ""}`, icon: Boxes },
       ];
 
   async function handleLogout() {

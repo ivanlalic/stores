@@ -208,6 +208,75 @@ export async function fetchAllOrders(
   return allOrders;
 }
 
+// ─── Products (stock/catalog) ────────────────────────────────────────────────
+
+const PRODUCTS_QUERY = `
+  query GetProducts($page: Int!) {
+    products(page: $page) {
+      data { id name sku stock_available image }
+      current_page
+      has_more_pages
+      total
+      per_page
+    }
+  }
+`;
+
+export interface DropeaProduct {
+  id: string;
+  name: string;
+  sku: string;
+  stock_available: number;
+  image: string;
+}
+
+interface ProductsResponse {
+  data: {
+    products: {
+      data: DropeaProduct[];
+      current_page: number;
+      has_more_pages: boolean;
+      total: number;
+      per_page: number;
+    };
+  };
+}
+
+export async function fetchAllProducts(
+  apiKey: string,
+  onProgress?: (msg: string) => void
+): Promise<DropeaProduct[]> {
+  const all: DropeaProduct[] = [];
+  let page = 1;
+  let hasMore = true;
+
+  while (hasMore) {
+    const res = await fetch(API_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+      body: JSON.stringify({ query: PRODUCTS_QUERY, variables: { page } }),
+    });
+
+    if (!res.ok) throw new Error(`Dropea API error ${res.status}`);
+    const json: ProductsResponse = await res.json();
+    if (json.data?.products == null) throw new Error("Respuesta inesperada de la API de productos");
+
+    const chunk = json.data.products;
+    all.push(...chunk.data);
+    hasMore = chunk.has_more_pages;
+    onProgress?.(`Productos: ${all.length} / ${chunk.total}`);
+
+    if (hasMore) {
+      await new Promise((r) => setTimeout(r, 150));
+      page++;
+    }
+  }
+
+  return all;
+}
+
+// ─── Connection test ──────────────────────────────────────────────────────────
+
 export async function testConnection(
   apiKey: string
 ): Promise<{ success: boolean; total: number; error?: string }> {
