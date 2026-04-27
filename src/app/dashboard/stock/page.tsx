@@ -451,10 +451,10 @@ function StockContent() {
                 </th>
                 <th className="text-left px-2 py-1.5 font-medium">SKU</th>
                 <th className="text-center px-2 py-1.5 font-medium">Img</th>
-                <ColHeader label="Stock" k="stock" />
                 <th className="text-right px-2 py-1.5 font-medium text-muted-foreground">
                   Ant.
                 </th>
+                <ColHeader label="Stock" k="stock" />
                 <ColHeader label="Var" k="variacion" />
               </tr>
             </thead>
@@ -486,24 +486,36 @@ function StockContent() {
                     <td className="px-2 py-1 text-muted-foreground font-mono text-[10px]">{p.sku || "—"}</td>
                     <td className="px-2 py-1 text-center">
                       {p.image ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={p.image}
-                          alt=""
-                          className="size-8 object-contain rounded mx-auto"
-                          loading="lazy"
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                        />
+                        <a
+                          href={p.image}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center size-8 rounded bg-muted hover:bg-muted/80 transition-colors"
+                          title={p.image}
+                        >
+                          <img
+                            src={p.image}
+                            alt=""
+                            className="size-7 object-contain rounded"
+                            loading="lazy"
+                            referrerPolicy="no-referrer"
+                            onError={(e) => {
+                              const el = e.currentTarget;
+                              el.style.display = "none";
+                              el.parentElement!.innerHTML = "📷";
+                            }}
+                          />
+                        </a>
                       ) : (
                         <div className="size-8 bg-muted rounded mx-auto" />
                       )}
                     </td>
-                    <td className="px-2 py-1 text-right text-xs tabular-nums">
-                      {p.stock.toLocaleString("es-ES")}
-                      {stockBadge}
-                    </td>
                     <td className="px-2 py-1 text-right text-xs tabular-nums text-muted-foreground">
                       {p.prevStock !== null ? p.prevStock.toLocaleString("es-ES") : "—"}
+                    </td>
+                    <td className="px-2 py-1 text-right text-xs tabular-nums font-medium">
+                      {p.stock.toLocaleString("es-ES")}
+                      {stockBadge}
                     </td>
                     <td className={`px-2 py-1 text-right text-xs tabular-nums ${varColor}`}>
                       {fmt(p.variacion)}
