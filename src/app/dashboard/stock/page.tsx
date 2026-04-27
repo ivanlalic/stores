@@ -223,7 +223,7 @@ function StockContent() {
     const active = sortKey === k;
     return (
       <th
-        className="text-right px-3 py-2 font-medium cursor-pointer select-none hover:text-foreground"
+        className="text-right px-2 py-1.5 font-medium cursor-pointer select-none hover:text-foreground"
         onClick={() => toggleSort(k)}
       >
         <span className="inline-flex items-center gap-1 justify-end">
@@ -233,6 +233,9 @@ function StockContent() {
       </th>
     );
   }
+
+  const latestSyncDate = syncs[0]?.synced_at ? fmtDate(syncs[0].synced_at) : "";
+  const prevSyncDate = syncs[1]?.synced_at ? fmtDate(syncs[1].synced_at) : "";
 
   const latestSyncIncomplete = diag?.incompleteSymptoms.some(
     (s) => s.syncId === syncs[0]?.id
@@ -451,10 +454,10 @@ function StockContent() {
                 </th>
                 <th className="text-left px-2 py-1.5 font-medium">SKU</th>
                 <th className="text-center px-2 py-1.5 font-medium">Img</th>
-                <th className="text-right px-2 py-1.5 font-medium text-muted-foreground">
-                  Ant.
+                <th className="text-right px-2 py-1.5 font-medium text-muted-foreground text-[10px] leading-tight">
+                  Ant.<br/>{prevSyncDate}
                 </th>
-                <ColHeader label="Stock" k="stock" />
+                <ColHeader label={`Stock ${latestSyncDate}`} k="stock" />
                 <ColHeader label="Var" k="variacion" />
               </tr>
             </thead>
