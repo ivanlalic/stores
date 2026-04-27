@@ -46,6 +46,7 @@ function StockContent() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState("");
+  const [syncProgress, setSyncProgress] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
   const [hideInnovaGoods, setHideInnovaGoods] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("variacion");
@@ -70,19 +71,45 @@ function StockContent() {
   async function handleSync() {
     setSyncing(true);
     setSyncMsg("");
+    setSyncProgress("Iniciando...");
     try {
       const res = await fetch(`/api/stock${storeParam}`, { method: "POST" });
-      const data = await res.json();
-      if (data.error) {
-        setSyncMsg(`Error: ${data.error}`);
-      } else {
-        setSyncMsg(`${data.total} productos sincronizados`);
-        await loadData();
+      if (!res.body) throw new Error("No stream");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const event = JSON.parse(line);
+            if (event.status === "fetching") {
+              setSyncProgress(event.msg);
+            } else if (event.status === "inserting") {
+              setSyncProgress(event.msg);
+            } else if (event.status === "progress") {
+              setSyncProgress(`Guardando... ${event.done} / ${event.total} productos`);
+            } else if (event.status === "done") {
+              setSyncMsg(`${event.total} productos sincronizados`);
+              await loadData();
+            } else if (event.status === "error") {
+              setSyncMsg(`Error: ${event.error}`);
+            }
+          } catch { /* malformed line */ }
+        }
       }
     } catch {
       setSyncMsg("Error de conexión");
     } finally {
       setSyncing(false);
+      setSyncProgress(null);
     }
   }
 
@@ -179,7 +206,13 @@ function StockContent() {
         </div>
       </div>
 
-      {syncMsg && (
+      {syncProgress && (
+        <p className="text-sm text-muted-foreground flex items-center gap-2">
+          <span className="inline-block size-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+          {syncProgress}
+        </p>
+      )}
+      {syncMsg && !syncProgress && (
         <p className={`text-sm ${syncMsg.startsWith("Error") ? "text-destructive" : "text-green-600"}`}>
           {syncMsg}
         </p>

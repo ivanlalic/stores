@@ -91,37 +91,60 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No hay API key configurada" }, { status: 400 });
   }
 
-  const apiKey = decrypt(store.dropea_api_key_encrypted);
-  const products = await fetchAllProducts(apiKey);
+  const enc = new TextEncoder();
+  const storeRef = store;
+  const apiKey = decrypt(storeRef.dropea_api_key_encrypted!);
 
-  // Insert sync session
-  const { data: syncRow, error: syncErr } = await insforge.database
-    .from("stock_syncs")
-    .insert({ store_id: store.id, total: products.length })
-    .select("id, synced_at")
-    .single();
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (msg: Record<string, unknown>) =>
+        controller.enqueue(enc.encode(JSON.stringify(msg) + "\n"));
 
-  if (syncErr || !syncRow) {
-    return NextResponse.json({ error: syncErr?.message || "Error al crear sync" }, { status: 500 });
-  }
+      try {
+        send({ status: "fetching", msg: "Conectando con Dropea..." });
+        const products = await fetchAllProducts(apiKey);
+        send({ status: "inserting", msg: `${products.length} productos obtenidos. Guardando sync...`, total: products.length });
 
-  // Batch insert snapshots
-  const CHUNK = 500;
-  for (let i = 0; i < products.length; i += CHUNK) {
-    const chunk = products.slice(i, i + CHUNK).map((p) => ({
-      sync_id: syncRow.id,
-      store_id: store.id,
-      dropea_id: p.id,
-      sku: p.sku,
-      name: p.name,
-      image: p.image,
-      stock: p.stock_available,
-    }));
-    const { error } = await insforge.database.from("stock_snapshots").insert(chunk);
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-  }
+        const { data: syncRow, error: syncErr } = await insforge.database
+          .from("stock_syncs")
+          .insert({ store_id: storeRef.id, total: products.length })
+          .select("id, synced_at")
+          .single();
 
-  return NextResponse.json({ sync_id: syncRow.id, total: products.length, synced_at: syncRow.synced_at });
+        if (syncErr || !syncRow) {
+          send({ status: "error", error: syncErr?.message || "Error al crear sync" });
+          controller.close();
+          return;
+        }
+
+        const CHUNK = 500;
+        for (let i = 0; i < products.length; i += CHUNK) {
+          const chunk = products.slice(i, i + CHUNK).map((p) => ({
+            sync_id: syncRow.id,
+            store_id: storeRef.id,
+            dropea_id: p.id,
+            sku: p.sku,
+            name: p.name,
+            image: p.image,
+            stock: p.stock_available,
+          }));
+          const { error } = await insforge.database.from("stock_snapshots").insert(chunk);
+          if (error) {
+            send({ status: "error", error: error.message });
+            controller.close();
+            return;
+          }
+          send({ status: "progress", done: Math.min(i + CHUNK, products.length), total: products.length });
+        }
+
+        send({ status: "done", total: products.length, sync_id: syncRow.id, synced_at: syncRow.synced_at });
+      } catch (e) {
+        send({ status: "error", error: String(e) });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, { headers: { "Content-Type": "application/x-ndjson" } });
 }
