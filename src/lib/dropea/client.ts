@@ -258,6 +258,27 @@ export async function fetchProductPage(
   return { products: chunk.data, hasMore: chunk.has_more_pages, total: chunk.total };
 }
 
+export async function fetchProductPagesBatch(
+  apiKey: string,
+  startPage: number,
+  batchSize = 10
+): Promise<{ products: DropeaProduct[]; hasMore: boolean; total: number }> {
+  const pageNums = Array.from({ length: batchSize }, (_, i) => startPage + i);
+  const results = await Promise.allSettled(
+    pageNums.map((p) => fetchProductPage(apiKey, p))
+  );
+  const products: DropeaProduct[] = [];
+  let hasMore = true;
+  let total = 0;
+  for (const r of results) {
+    if (r.status === "rejected" || r.value.products.length === 0) { hasMore = false; break; }
+    products.push(...r.value.products);
+    total = r.value.total;
+    if (!r.value.hasMore) { hasMore = false; break; }
+  }
+  return { products, hasMore, total };
+}
+
 export async function fetchAllProducts(
   apiKey: string,
   onProgress?: (msg: string) => void

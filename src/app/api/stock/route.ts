@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser, createServiceClient } from "@/lib/insforge/server";
 import { decrypt } from "@/lib/encryption";
-import { fetchProductPage } from "@/lib/dropea/client";
+import { fetchProductPagesBatch } from "@/lib/dropea/client";
 import { getDefaultStore, requireStore } from "@/lib/store-utils";
 
 export async function GET(request: NextRequest) {
@@ -95,12 +95,13 @@ export async function POST(request: NextRequest) {
   }
 
   const apiKey = decrypt(store.dropea_api_key_encrypted!);
-  const body = await request.json().catch(() => ({})) as { syncId?: string; page?: number; done?: number };
-  const page = body.page ?? 1;
+  const BATCH = 10;
+  const body = await request.json().catch(() => ({})) as { syncId?: string; startPage?: number; done?: number };
+  const startPage = body.startPage ?? 1;
 
-  // Page 1: create the sync record
+  // First batch: create the sync record
   let syncId: string;
-  if (page === 1) {
+  if (startPage === 1) {
     const { data: syncRow, error: syncErr } = await insforge.database
       .from("stock_syncs")
       .insert({ store_id: store.id, total: 0 })
@@ -115,8 +116,8 @@ export async function POST(request: NextRequest) {
     syncId = body.syncId;
   }
 
-  // Fetch one page from Dropea
-  const { products, hasMore, total } = await fetchProductPage(apiKey, page);
+  // Fetch batch of pages in parallel from Dropea
+  const { products, hasMore, total } = await fetchProductPagesBatch(apiKey, startPage, BATCH);
 
   // Insert this page's snapshots
   if (products.length > 0) {
@@ -134,6 +135,7 @@ export async function POST(request: NextRequest) {
   }
 
   const done = (body.done ?? 0) + products.length;
+  const nextPage = startPage + BATCH;
 
   // Last page: update sync total and trim to keep only last 2 syncs
   if (!hasMore) {
@@ -155,5 +157,5 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ syncId, page, done, total, hasMore });
+  return NextResponse.json({ syncId, nextPage, done, total, hasMore });
 }

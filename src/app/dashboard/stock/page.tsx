@@ -74,13 +74,13 @@ function StockContent() {
     setSyncMsg("");
     setSyncProgress("Iniciando...");
     try {
-      let page = 1;
+      let startPage = 1;
       let syncId: string | undefined;
       let done = 0;
       let hasMore = true;
 
       while (hasMore) {
-        const body: Record<string, unknown> = { page, done };
+        const body: Record<string, unknown> = { startPage, done };
         if (syncId) body.syncId = syncId;
 
         const res = await fetch(`/api/stock${storeParam}`, {
@@ -102,7 +102,7 @@ function StockContent() {
         done = data.done;
         hasMore = data.hasMore;
         setSyncProgress(`Sincronizando... ${done} / ${data.total} productos`);
-        page++;
+        startPage = data.nextPage;
       }
 
       setSyncMsg(`${done} productos sincronizados`);
