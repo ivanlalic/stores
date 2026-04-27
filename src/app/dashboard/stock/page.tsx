@@ -49,6 +49,7 @@ function StockContent() {
   const [syncProgress, setSyncProgress] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
   const [hideInnovaGoods, setHideInnovaGoods] = useState(false);
+  const [hideSinStock, setHideSinStock] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("variacion");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
@@ -132,6 +133,7 @@ function StockContent() {
 
   const filtered = products.filter((p) => {
     if (hideInnovaGoods && p.name.toLowerCase().includes("innovagoods")) return false;
+    if (hideSinStock && p.stock === 0) return false;
     return p.name.toLowerCase().includes(filter.toLowerCase());
   });
 
@@ -186,6 +188,15 @@ function StockContent() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={hideSinStock}
+              onChange={(e) => setHideSinStock(e.target.checked)}
+              className="rounded"
+            />
+            Ocultar sin stock
+          </label>
           <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
             <input
               type="checkbox"

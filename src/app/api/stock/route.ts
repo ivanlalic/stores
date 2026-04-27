@@ -21,21 +21,22 @@ export async function GET(request: NextRequest) {
   }
   if (!store) return NextResponse.json({ syncs: [], products: [] });
 
-  // Load last 2 syncs
+  // Load last 3 syncs for display; use only first 2 for variation computation
   const { data: syncs } = await insforge.database
     .from("stock_syncs")
     .select("id, synced_at, total")
     .eq("store_id", store.id)
     .order("synced_at", { ascending: false })
-    .limit(2);
+    .limit(3);
 
   if (!syncs || syncs.length === 0) {
     return NextResponse.json({ syncs: [], products: [] });
   }
 
-  const syncIds = syncs.map((s: { id: string }) => s.id);
+  // Only fetch snapshots for the 2 most recent syncs (needed for variation)
+  const syncIds = syncs.slice(0, 2).map((s: { id: string }) => s.id);
 
-  // Load snapshots for both syncs
+  // Load snapshots for top 2 syncs
   const { data: snapshots } = await insforge.database
     .from("stock_snapshots")
     .select("sync_id, dropea_id, sku, name, image, stock")
@@ -148,8 +149,8 @@ export async function POST(request: NextRequest) {
       .eq("store_id", store.id)
       .order("synced_at", { ascending: false });
 
-    if (allSyncs && allSyncs.length > 2) {
-      const toDelete = allSyncs.slice(2).map((s: { id: string }) => s.id);
+    if (allSyncs && allSyncs.length > 3) {
+      const toDelete = allSyncs.slice(3).map((s: { id: string }) => s.id);
       await insforge.database.from("stock_syncs").delete().in("id", toDelete);
     }
   }
