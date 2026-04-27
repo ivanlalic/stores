@@ -199,8 +199,12 @@ export async function getBreakevenMetrics(
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const cutoff = new Date(today);
-  cutoff.setDate(cutoff.getDate() - 60);
+  cutoff.setDate(cutoff.getDate() - config.dias_rolling);
   const cutoffStr = cutoff.toISOString().split("T")[0];
+
+  const excluir = new Date(today);
+  excluir.setDate(excluir.getDate() - config.dias_excluir);
+  const excluirStr = excluir.toISOString().split("T")[0];
 
   let allRows: DailyRow[] = [...currentMonthRows];
 
@@ -219,7 +223,8 @@ export async function getBreakevenMetrics(
     }
   }
 
-  const rollingRows = allRows.filter((r) => r.fecha >= cutoffStr && r.enviados > 0);
+  // dias_excluir: exclude last N days from rejection rate (orders still in transit)
+  const rollingRows = allRows.filter((r) => r.fecha >= cutoffStr && r.fecha < excluirStr && r.enviados > 0);
 
   if (rollingRows.length === 0) return null;
 
@@ -423,7 +428,6 @@ export async function getMonthlyDashboard(
     const mp = monthPedidos.get(mes) || [];
     const ma = monthAds.get(mes) || { meta: 0, tiktok: 0 };
 
-    const total = mp.length;
     const enviados = mp.filter((p) => p.es_enviado).length;
     const entregados = mp.filter((p) => p.es_entregado).length;
     const rechazados = mp.filter((p) => p.es_rechazado).length;

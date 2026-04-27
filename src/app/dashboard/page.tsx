@@ -42,6 +42,7 @@ export default function DashboardPage() {
   const [month, setMonth] = useState(getCurrentMonth);
   const [rows, setRows] = useState<DailyRow[]>([]);
   const [beMetrics, setBeMetrics] = useState<BreakevenMetrics | null>(null);
+  const [beConfig, setBeConfig] = useState<{ costo_rechazo: number }>({ costo_rechazo: 13.76 });
   const [loading, setLoading] = useState(true);
 
   const [adsModal, setAdsModal] = useState<{
@@ -58,6 +59,7 @@ export default function DashboardPage() {
       const data = await res.json();
       setRows(data.rows || []);
       setBeMetrics(data.breakevenMetrics || null);
+      if (data.breakevenConfig) setBeConfig(data.breakevenConfig);
     } catch {
       // handle error
     } finally {
@@ -117,7 +119,7 @@ export default function DashboardPage() {
           {/* All KPI cards — 5+2, single row on 2xl ultrawide */}
           <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
             <VentasCard rows={rows} />
-            <PnlCard rows={rows} />
+            <PnlCard rows={rows} costoRechazo={beConfig.costo_rechazo} />
             <TasaEntregaCard rows={rows} />
             <EquilibrioCard metrics={beMetrics} />
             <GastosCard rows={rows} />

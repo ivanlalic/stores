@@ -20,7 +20,7 @@ export default function SettingsPage() {
   const [newApiKey, setNewApiKey] = useState("");
   const [feeGestion, setFeeGestion] = useState("0");
   const [hasApiKey, setHasApiKey] = useState(false);
-  const [costoRechazo, setCostoRechazo] = useState("13");
+  const [costoRechazo, setCostoRechazo] = useState("13.76");
   const [diasRolling, setDiasRolling] = useState("30");
   const [diasExcluir, setDiasExcluir] = useState("4");
   const [dropiEmail, setDropiEmail] = useState("");
@@ -37,7 +37,7 @@ export default function SettingsPage() {
         setFeeGestion(String(data.config.fee_gestion_eur || 0));
         setHasApiKey(data.config.has_api_key);
         setStoreName(data.config.store_name || "Mi Tienda");
-        setCostoRechazo(String(data.config.costo_rechazo ?? 13));
+        setCostoRechazo(String(data.config.costo_rechazo ?? 13.76));
         setDiasRolling(String(data.config.dias_rolling ?? 30));
         setDiasExcluir(String(data.config.dias_excluir ?? 4));
         setHasDropiCredentials(!!data.config.has_dropi_credentials);

@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
   const feeGestionEur = Number(config?.fee_gestion_eur) || 0;
   const breakevenConfig = {
     fee_gestion_eur: feeGestionEur,
-    costo_rechazo: Number(config?.costo_rechazo) || 13,
+    costo_rechazo: Number(config?.costo_rechazo) || 13.76,
     dias_rolling: Number(config?.dias_rolling) || 30,
     dias_excluir: Number(config?.dias_excluir) || 4,
   };

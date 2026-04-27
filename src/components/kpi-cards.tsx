@@ -5,8 +5,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { TrendingUp, TrendingDown, Info, ArrowDown, ArrowUp } from "lucide-react";
 import type { DailyRow } from "@/lib/queries/dashboard";
 
-const COSTO_RECHAZO = 13.76;
-
 interface KpiCardsProps { rows: DailyRow[]; }
 
 function formatEur(n: number) {
@@ -74,9 +72,9 @@ export function VentasCard({ rows }: KpiCardsProps) {
   );
 }
 
-export function PnlCard({ rows }: KpiCardsProps) {
+export function PnlCard({ rows, costoRechazo = 13.76 }: KpiCardsProps & { costoRechazo?: number }) {
   const { totalVentas, totalPnlTeo, totalPnlReal, totalPendientes } = useTotals(rows);
-  const pnlPeor = totalPnlReal - totalPendientes * COSTO_RECHAZO;
+  const pnlPeor = totalPnlReal - totalPendientes * costoRechazo;
   const isPos = totalPnlReal >= 0;
   const margin = totalVentas > 0 ? ((totalPnlReal / totalVentas) * 100).toFixed(1) : "0";
 
@@ -85,7 +83,7 @@ export function PnlCard({ rows }: KpiCardsProps) {
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 px-3 pt-3 sm:px-4 sm:pt-4">
         <CardTitle className="text-xs font-medium flex items-center gap-1">
           P&L del Mes
-          <InfoTip text="Resuelto: pedidos cerrados. Peor caso: si todos los pendientes se rechazan (−€13.76 c/u). Mejor caso: si todos los pendientes se entregan." />
+          <InfoTip text={`Resuelto: pedidos cerrados. Peor caso: si todos los pendientes se rechazan (−€${costoRechazo.toFixed(2)} c/u). Mejor caso: si todos los pendientes se entregan.`} />
         </CardTitle>
         <div className={isPos ? "text-emerald-500" : "text-red-500"}>
           {isPos ? <TrendingUp className="size-3.5" /> : <TrendingDown className="size-3.5" />}
