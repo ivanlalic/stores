@@ -81,6 +81,7 @@ export async function GET(request: NextRequest) {
       name: latest.name,
       image: latest.image,
       stock: latest.stock,
+      prevStock: prev != null ? prev.stock : null,
       variacion: prev != null ? latest.stock - prev.stock : null,
     };
   });

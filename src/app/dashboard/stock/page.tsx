@@ -28,6 +28,7 @@ interface ProductStockRow {
   name: string;
   image: string | null;
   stock: number;
+  prevStock: number | null;
   variacion: number | null;
 }
 
@@ -251,7 +252,7 @@ function StockContent() {
               <h2 className="text-lg font-bold tracking-tight">Stock · Catálogo</h2>
               <p className="text-xs text-muted-foreground">
                 {products.length} productos
-                {syncs[0] ? ` · última sync: ${fmtDate(syncs[0].synced_at)}` : ""}
+                {syncs[0] ? ` · ${fmtDate(syncs[0].synced_at)}` : ""}
               </p>
             </div>
           </div>
@@ -440,7 +441,7 @@ function StockContent() {
             <thead>
               <tr className="border-b bg-muted/50">
                 <th
-                  className="text-left px-3 py-2 font-medium cursor-pointer select-none hover:text-foreground"
+                  className="text-left px-2 py-1.5 font-medium cursor-pointer select-none hover:text-foreground"
                   onClick={() => toggleSort("name")}
                 >
                   <span className="inline-flex items-center gap-1">
@@ -448,10 +449,13 @@ function StockContent() {
                     <ArrowUpDown className={`size-3 ${sortKey === "name" ? "text-foreground" : "text-muted-foreground/40"}`} />
                   </span>
                 </th>
-                <th className="text-left px-3 py-2 font-medium">SKU</th>
-                <th className="text-left px-3 py-2 font-medium">Imagen</th>
+                <th className="text-left px-2 py-1.5 font-medium">SKU</th>
+                <th className="text-center px-2 py-1.5 font-medium">Img</th>
                 <ColHeader label="Stock" k="stock" />
-                <ColHeader label="Variación" k="variacion" />
+                <th className="text-right px-2 py-1.5 font-medium text-muted-foreground">
+                  Ant.
+                </th>
+                <ColHeader label="Var" k="variacion" />
               </tr>
             </thead>
             <tbody>
@@ -467,32 +471,41 @@ function StockContent() {
 
                 const stockBadge =
                   p.stock === 0 ? (
-                    <span className="ml-1 inline-flex items-center rounded px-1 py-0.5 text-xs font-medium bg-destructive/10 text-destructive">
-                      Sin stock
+                    <span className="ml-1 inline-flex items-center rounded px-1 py-0 text-[10px] font-medium bg-destructive/10 text-destructive">
+                      0
                     </span>
                   ) : p.stock < 10 ? (
-                    <span className="ml-1 inline-flex items-center rounded px-1 py-0.5 text-xs font-medium bg-amber-500/10 text-amber-600">
-                      Poco
+                    <span className="ml-1 inline-flex items-center rounded px-1 py-0 text-[10px] font-medium bg-amber-500/10 text-amber-600">
+                      !
                     </span>
                   ) : null;
 
                 return (
                   <tr key={p.dropea_id} className="border-b hover:bg-muted/30">
-                    <td className="px-3 py-2 max-w-[280px] truncate">{p.name}</td>
-                    <td className="px-3 py-2 text-muted-foreground font-mono text-xs">{p.sku || "—"}</td>
-                    <td className="px-3 py-2">
+                    <td className="px-2 py-1 max-w-[260px] truncate text-xs leading-tight">{p.name}</td>
+                    <td className="px-2 py-1 text-muted-foreground font-mono text-[10px]">{p.sku || "—"}</td>
+                    <td className="px-2 py-1 text-center">
                       {p.image ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={p.image} alt="" className="size-12 object-contain rounded" />
+                        <img
+                          src={p.image}
+                          alt=""
+                          className="size-8 object-contain rounded mx-auto"
+                          loading="lazy"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
                       ) : (
-                        <div className="size-12 bg-muted rounded" />
+                        <div className="size-8 bg-muted rounded mx-auto" />
                       )}
                     </td>
-                    <td className="px-3 py-2 text-right">
-                      {p.stock}
+                    <td className="px-2 py-1 text-right text-xs tabular-nums">
+                      {p.stock.toLocaleString("es-ES")}
                       {stockBadge}
                     </td>
-                    <td className={`px-3 py-2 text-right ${varColor}`}>
+                    <td className="px-2 py-1 text-right text-xs tabular-nums text-muted-foreground">
+                      {p.prevStock !== null ? p.prevStock.toLocaleString("es-ES") : "—"}
+                    </td>
+                    <td className={`px-2 py-1 text-right text-xs tabular-nums ${varColor}`}>
                       {fmt(p.variacion)}
                     </td>
                   </tr>
