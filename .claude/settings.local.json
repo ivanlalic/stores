@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"\\\\.\\(ts|js\\)$\")",
+      "WebSearch",
+      "WebFetch(domain:docs.insforge.dev)",
+      "WebFetch(domain:insforge.dev)",
+      "Bash(npx @insforge/install --client claude-code --env API_KEY=ik_92971e8aa30996093f3f84fe2e498c82 --env API_BASE_URL=https://w6dfsk7t.us-east.insforge.app)",
+      "mcp__insforge__fetch-docs",
+      "mcp__insforge__fetch-sdk-docs",
+      "mcp__claude_ai_Vercel__list_deployments",
+      "mcp__insforge__run-raw-sql",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "mcp__claude_ai_Vercel__list_teams",
+      "Bash(npx vercel *)",
+      "Bash(node -e ' *)"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "insforge"
+  ]
+}

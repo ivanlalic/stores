@@ -5,7 +5,16 @@ import { useSearchParams } from "next/navigation";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Boxes, X, ArrowUpDown } from "lucide-react";
+import {
+  Boxes,
+  X,
+  ArrowUpDown,
+  AlertTriangle,
+  CheckCircle2,
+  BarChart3,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 
 interface SyncMeta {
   id: string;
@@ -20,6 +29,35 @@ interface ProductStockRow {
   image: string | null;
   stock: number;
   variacion: number | null;
+}
+
+interface DiagSync {
+  id: string;
+  syncedAt: string;
+  declaredTotal: number;
+  actualSnapshotCount: number;
+  zeroStockCount: number;
+  discrepancy: number;
+  isIncomplete: boolean;
+  zeroStockRatio: number;
+}
+
+interface DiagData {
+  storeId: string;
+  storeName: string;
+  totalSyncs: number;
+  syncs: DiagSync[];
+  latestCatalogSize: number | null;
+  incompleteSymptoms: {
+    syncId: string;
+    syncedAt: string;
+    declaredTotal: number;
+    actualSnapshotCount: number;
+    zeroStockCount: number;
+    discrepancy: number;
+    symptom: string;
+    severity: string;
+  }[];
 }
 
 type SortKey = "name" | "stock" | "variacion";
@@ -53,6 +91,10 @@ function StockContent() {
   const [sortKey, setSortKey] = useState<SortKey>("variacion");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
+  const [diag, setDiag] = useState<DiagData | null>(null);
+  const [showDiag, setShowDiag] = useState(false);
+  const [diagLoading, setDiagLoading] = useState(false);
+
   const storeParam = storeId ? `?store_id=${storeId}` : "";
 
   const loadData = useCallback(async () => {
@@ -67,12 +109,24 @@ function StockContent() {
     }
   }, [storeParam]);
 
+  const loadDiag = useCallback(async () => {
+    setDiagLoading(true);
+    try {
+      const res = await fetch(`/api/stock/diag${storeParam}`);
+      const data = await res.json();
+      if (!data.error) setDiag(data);
+    } finally {
+      setDiagLoading(false);
+    }
+  }, [storeParam]);
+
   useEffect(() => { loadData(); }, [loadData]);
 
   async function handleSync() {
     setSyncing(true);
     setSyncMsg("");
     setSyncProgress("Iniciando...");
+    let errorsDuringSync = 0;
     try {
       let startPage = 1;
       let syncId: string | undefined;
@@ -101,12 +155,21 @@ function StockContent() {
         syncId = data.syncId;
         done = data.done;
         hasMore = data.hasMore;
-        setSyncProgress(`Sincronizando... ${done} / ${data.total} productos`);
+        if (data.errors) errorsDuringSync += data.errors;
+
+        const progressText = data.isIncomplete
+          ? `Sincronizando... ${done} / ${data.total} productos (⚠️ incompleto)`
+          : `Sincronizando... ${done} / ${data.total} productos`;
+        setSyncProgress(progressText);
         startPage = data.nextPage;
       }
 
-      setSyncMsg(`${done} productos sincronizados`);
+      const msg = errorsDuringSync > 0
+        ? `${done} productos sincronizados con ${errorsDuringSync} errores de página`
+        : `${done} productos sincronizados`;
+      setSyncMsg(msg);
       await loadData();
+      await loadDiag();
     } catch {
       setSyncMsg("Error de conexión");
     } finally {
@@ -118,7 +181,10 @@ function StockContent() {
   async function handleDeleteSync(syncId: string) {
     const res = await fetch(`/api/stock/syncs/${syncId}${storeParam}`, { method: "DELETE" });
     const data = await res.json();
-    if (data.success) await loadData();
+    if (data.success) {
+      await loadData();
+      await loadDiag();
+    }
     else setSyncMsg(`Error: ${data.error}`);
   }
 
@@ -144,7 +210,6 @@ function StockContent() {
     } else if (sortKey === "stock") {
       diff = a.stock - b.stock;
     } else {
-      // variacion: null goes last
       if (a.variacion === null && b.variacion === null) diff = 0;
       else if (a.variacion === null) diff = 1;
       else if (b.variacion === null) diff = -1;
@@ -168,6 +233,10 @@ function StockContent() {
     );
   }
 
+  const latestSyncIncomplete = diag?.incompleteSymptoms.some(
+    (s) => s.syncId === syncs[0]?.id
+  );
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -188,6 +257,16 @@ function StockContent() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => { setShowDiag((v) => !v); if (!diag) loadDiag(); }}
+            disabled={diagLoading}
+          >
+            <BarChart3 className="size-4 mr-1" />
+            Diagnóstico
+            {diagLoading && <span className="ml-1 size-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin inline-block" />}
+          </Button>
           <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
             <input
               type="checkbox"
@@ -218,6 +297,20 @@ function StockContent() {
         </div>
       </div>
 
+      {/* Incomplete sync warning */}
+      {latestSyncIncomplete && (
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 flex items-start gap-2">
+          <AlertTriangle className="size-5 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium">La última sincronización parece incompleta</p>
+            <p className="text-xs opacity-80">
+              El número de productos guardados es menor al total declarado por Dropea.
+              Haz clic en <strong>Sincronizar</strong> para reintentar.
+            </p>
+          </div>
+        </div>
+      )}
+
       {syncProgress && (
         <p className="text-sm text-muted-foreground flex items-center gap-2">
           <span className="inline-block size-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
@@ -228,6 +321,83 @@ function StockContent() {
         <p className={`text-sm ${syncMsg.startsWith("Error") ? "text-destructive" : "text-green-600"}`}>
           {syncMsg}
         </p>
+      )}
+
+      {/* Diagnosis panel */}
+      {showDiag && diag && (
+        <div className="rounded-md border bg-card p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-sm flex items-center gap-2">
+              <BarChart3 className="size-4" />
+              Diagnóstico de sincronizaciones
+            </h3>
+            <span className="text-xs text-muted-foreground">
+              {diag.totalSyncs} syncs en total
+            </span>
+          </div>
+
+          {diag.incompleteSymptoms.length > 0 && (
+            <div className="rounded-md border border-destructive/20 bg-destructive/5 p-3 space-y-2">
+              <p className="text-sm font-medium text-destructive flex items-center gap-1.5">
+                <AlertTriangle className="size-4" />
+                {diag.incompleteSymptoms.length} sync{diag.incompleteSymptoms.length > 1 ? "s" : ""} con problemas detectados
+              </p>
+              <div className="space-y-1.5">
+                {diag.incompleteSymptoms.map((sym) => (
+                  <div key={sym.syncId} className="text-xs flex items-center gap-2">
+                    <span className={`inline-block size-2 rounded-full ${sym.severity === "high" ? "bg-destructive" : sym.severity === "medium" ? "bg-amber-500" : "bg-yellow-400"}`} />
+                    <span className="text-muted-foreground">{fmtDate(sym.syncedAt)}</span>
+                    <span className="font-mono">{sym.actualSnapshotCount}/{sym.declaredTotal}</span>
+                    <span className="text-destructive">-{sym.discrepancy} prod</span>
+                    <span className="text-muted-foreground">({sym.symptom})</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left px-2 py-1.5 font-medium">Fecha</th>
+                  <th className="text-right px-2 py-1.5 font-medium">Declarado</th>
+                  <th className="text-right px-2 py-1.5 font-medium">Guardado</th>
+                  <th className="text-right px-2 py-1.5 font-medium">Sin stock</th>
+                  <th className="text-right px-2 py-1.5 font-medium">Diferencia</th>
+                  <th className="text-center px-2 py-1.5 font-medium">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {diag.syncs.map((s) => (
+                  <tr key={s.id} className="border-b last:border-0">
+                    <td className="px-2 py-1.5">{fmtDate(s.syncedAt)}</td>
+                    <td className="px-2 py-1.5 text-right font-mono">{s.declaredTotal}</td>
+                    <td className="px-2 py-1.5 text-right font-mono">{s.actualSnapshotCount}</td>
+                    <td className="px-2 py-1.5 text-right font-mono">
+                      {s.zeroStockCount}
+                      <span className="text-muted-foreground ml-1">({Math.round(s.zeroStockRatio * 100)}%)</span>
+                    </td>
+                    <td className="px-2 py-1.5 text-right font-mono">
+                      {s.discrepancy > 0 ? (
+                        <span className="text-destructive">-{s.discrepancy}</span>
+                      ) : (
+                        <span className="text-green-600">0</span>
+                      )}
+                    </td>
+                    <td className="px-2 py-1.5 text-center">
+                      {s.isIncomplete ? (
+                        <AlertTriangle className="size-4 text-destructive mx-auto" />
+                      ) : (
+                        <CheckCircle2 className="size-4 text-green-600 mx-auto" />
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
 
       {/* Sync history pills */}

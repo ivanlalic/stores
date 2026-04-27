@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Fetch batch of pages in parallel from Dropea
-  const { products, hasMore, total } = await fetchProductPagesBatch(apiKey, startPage, BATCH);
+  const { products, hasMore, total, errors } = await fetchProductPagesBatch(apiKey, startPage, BATCH);
 
   // Insert this page's snapshots
   if (products.length > 0) {
@@ -136,6 +136,12 @@ export async function POST(request: NextRequest) {
 
   const done = (body.done ?? 0) + products.length;
   const nextPage = startPage + BATCH;
+
+  // If there were errors mid-batch, continue from after the last successful page
+  // rather than skipping pages. But since we retry each page individually,
+  // nextPage should still be correct. If hasMore is false due to error,
+  // the sync is incomplete - log it for visibility.
+  const isIncomplete = !hasMore && done < total && total > 0;
 
   // Last page: update sync total and trim to keep only last 2 syncs
   if (!hasMore) {
@@ -157,5 +163,5 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ syncId, nextPage, done, total, hasMore });
+  return NextResponse.json({ syncId, nextPage, done, total, hasMore, errors, isIncomplete });
 }

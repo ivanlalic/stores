@@ -262,7 +262,7 @@ export async function fetchProductPagesBatch(
   apiKey: string,
   startPage: number,
   batchSize = 10
-): Promise<{ products: DropeaProduct[]; hasMore: boolean; total: number }> {
+): Promise<{ products: DropeaProduct[]; hasMore: boolean; total: number; errors: number }> {
   const pageNums = Array.from({ length: batchSize }, (_, i) => startPage + i);
   const results = await Promise.allSettled(
     pageNums.map((p) => fetchProductPage(apiKey, p))
@@ -270,13 +270,46 @@ export async function fetchProductPagesBatch(
   const products: DropeaProduct[] = [];
   let hasMore = true;
   let total = 0;
-  for (const r of results) {
-    if (r.status === "rejected" || r.value.products.length === 0) { hasMore = false; break; }
+  let errors = 0;
+  let lastSuccessfulPage = 0;
+
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i];
+    if (r.status === "rejected") {
+      errors++;
+      // Retry individual page once after 500ms
+      try {
+        const retry = await fetchProductPage(apiKey, pageNums[i]);
+        products.push(...retry.products);
+        total = retry.total;
+        if (!retry.hasMore) { hasMore = false; break; }
+        lastSuccessfulPage = pageNums[i];
+        continue;
+      } catch {
+        errors++;
+        // If a middle page fails after retry, we can't safely continue because
+        // we don't know if subsequent pages have data. Stop here.
+        hasMore = false;
+        break;
+      }
+    }
+
+    if (r.value.products.length === 0) {
+      hasMore = false;
+      break;
+    }
+
     products.push(...r.value.products);
     total = r.value.total;
-    if (!r.value.hasMore) { hasMore = false; break; }
+    lastSuccessfulPage = pageNums[i];
+
+    if (!r.value.hasMore) {
+      hasMore = false;
+      break;
+    }
   }
-  return { products, hasMore, total };
+
+  return { products, hasMore, total, errors };
 }
 
 export async function fetchAllProducts(
