@@ -5,10 +5,10 @@ import { getDefaultStore, requireStore } from "@/lib/store-utils";
 
 export async function GET(request: NextRequest) {
   const user = await getUser();
-  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  if (!user) return new Response("Unauthorized", { status: 401 });
 
   const url = request.nextUrl.searchParams.get("url");
-  if (!url) return NextResponse.json({ error: "url requerida" }, { status: 400 });
+  if (!url) return new Response("url required", { status: 400 });
 
   const insforge = createServiceClient();
   const storeParam = request.nextUrl.searchParams.get("store_id");
@@ -19,34 +19,25 @@ export async function GET(request: NextRequest) {
       ? await requireStore(insforge, storeParam, user.id)
       : await getDefaultStore(insforge, user.id, "dropea");
   } catch {
-    return NextResponse.json({ error: "Tienda no encontrada" }, { status: 403 });
+    return new Response("Store not found", { status: 403 });
   }
   if (!store?.dropea_api_key_encrypted) {
-    return NextResponse.json({ error: "No hay API key" }, { status: 400 });
+    return new Response("No API key", { status: 400 });
   }
 
   const apiKey = decrypt(store.dropea_api_key_encrypted);
 
   try {
-    const res = await fetch(url, {
-      headers: { "x-api-key": apiKey },
-    });
-
-    if (!res.ok) {
-      return NextResponse.json(
-        { error: `Dropea error ${res.status}` },
-        { status: res.status }
-      );
-    }
-
+    const res = await fetch(url, { headers: { "x-api-key": apiKey } });
+    if (!res.ok) return new Response(`Dropea ${res.status}`, { status: res.status });
     const blob = await res.blob();
-    return new NextResponse(blob, {
+    return new Response(blob, {
       headers: {
         "Content-Type": res.headers.get("Content-Type") || "image/jpeg",
         "Cache-Control": "public, max-age=86400",
       },
     });
   } catch {
-    return NextResponse.json({ error: "Error descargando imagen" }, { status: 500 });
+    return new Response("Error", { status: 500 });
   }
 }

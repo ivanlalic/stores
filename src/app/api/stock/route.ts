@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
       dropea_id: p.id,
       sku: p.sku,
       name: p.name,
-      image: p.image,
+      image: p.image || null,
       stock: p.stock_available,
     }));
     const { error } = await insforge.database.from("stock_snapshots").insert(rows);
