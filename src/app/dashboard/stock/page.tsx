@@ -73,38 +73,39 @@ function StockContent() {
     setSyncMsg("");
     setSyncProgress("Iniciando...");
     try {
-      const res = await fetch(`/api/stock${storeParam}`, { method: "POST" });
-      if (!res.body) throw new Error("No stream");
+      let page = 1;
+      let syncId: string | undefined;
+      let done = 0;
+      let hasMore = true;
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = "";
+      while (hasMore) {
+        const body: Record<string, unknown> = { page, done };
+        if (syncId) body.syncId = syncId;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        const lines = buf.split("\n");
-        buf = lines.pop() ?? "";
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            const event = JSON.parse(line);
-            if (event.status === "fetching") {
-              setSyncProgress(event.msg);
-            } else if (event.status === "inserting") {
-              setSyncProgress(event.msg);
-            } else if (event.status === "progress") {
-              setSyncProgress(`Guardando... ${event.done} / ${event.total} productos`);
-            } else if (event.status === "done") {
-              setSyncMsg(`${event.total} productos sincronizados`);
-              await loadData();
-            } else if (event.status === "error") {
-              setSyncMsg(`Error: ${event.error}`);
-            }
-          } catch { /* malformed line */ }
+        const res = await fetch(`/api/stock${storeParam}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          setSyncMsg(`Error: ${data.error || res.statusText}`);
+          return;
         }
+
+        const data = await res.json();
+        if (data.error) { setSyncMsg(`Error: ${data.error}`); return; }
+
+        syncId = data.syncId;
+        done = data.done;
+        hasMore = data.hasMore;
+        setSyncProgress(`Sincronizando... ${done} / ${data.total} productos`);
+        page++;
       }
+
+      setSyncMsg(`${done} productos sincronizados`);
+      await loadData();
     } catch {
       setSyncMsg("Error de conexión");
     } finally {

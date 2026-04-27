@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser, createServiceClient } from "@/lib/insforge/server";
 import { decrypt } from "@/lib/encryption";
-import { fetchAllProducts } from "@/lib/dropea/client";
+import { fetchProductPage } from "@/lib/dropea/client";
 import { getDefaultStore, requireStore } from "@/lib/store-utils";
 
 export async function GET(request: NextRequest) {
@@ -71,6 +71,8 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ syncs, products });
 }
 
+// POST /api/stock — paginated sync (one Dropea page per request, fits Vercel hobby 10s limit)
+// Body: {} for page 1 (creates sync), or { syncId, page, done } for subsequent pages
 export async function POST(request: NextRequest) {
   const user = await getUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
@@ -91,60 +93,66 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No hay API key configurada" }, { status: 400 });
   }
 
-  const enc = new TextEncoder();
-  const storeRef = store;
-  const apiKey = decrypt(storeRef.dropea_api_key_encrypted!);
+  const apiKey = decrypt(store.dropea_api_key_encrypted!);
+  const body = await request.json().catch(() => ({})) as { syncId?: string; page?: number; done?: number };
+  const page = body.page ?? 1;
 
-  const stream = new ReadableStream({
-    async start(controller) {
-      const send = (msg: Record<string, unknown>) =>
-        controller.enqueue(enc.encode(JSON.stringify(msg) + "\n"));
+  // Page 1: create the sync record
+  let syncId: string;
+  if (page === 1) {
+    const { data: syncRow, error: syncErr } = await insforge.database
+      .from("stock_syncs")
+      .insert({ store_id: store.id, total: 0 })
+      .select("id")
+      .single();
+    if (syncErr || !syncRow) {
+      return NextResponse.json({ error: syncErr?.message || "Error al crear sync" }, { status: 500 });
+    }
+    syncId = syncRow.id;
+  } else {
+    if (!body.syncId) return NextResponse.json({ error: "syncId requerido" }, { status: 400 });
+    syncId = body.syncId;
+  }
 
-      try {
-        send({ status: "fetching", msg: "Conectando con Dropea..." });
-        const products = await fetchAllProducts(apiKey);
-        send({ status: "inserting", msg: `${products.length} productos obtenidos. Guardando sync...`, total: products.length });
+  // Fetch one page from Dropea
+  const { products, hasMore, total } = await fetchProductPage(apiKey, page);
 
-        const { data: syncRow, error: syncErr } = await insforge.database
-          .from("stock_syncs")
-          .insert({ store_id: storeRef.id, total: products.length })
-          .select("id, synced_at")
-          .single();
+  // Insert this page's snapshots
+  if (products.length > 0) {
+    const rows = products.map((p) => ({
+      sync_id: syncId,
+      store_id: store.id,
+      dropea_id: p.id,
+      sku: p.sku,
+      name: p.name,
+      image: p.image,
+      stock: p.stock_available,
+    }));
+    const { error } = await insforge.database.from("stock_snapshots").insert(rows);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
-        if (syncErr || !syncRow) {
-          send({ status: "error", error: syncErr?.message || "Error al crear sync" });
-          controller.close();
-          return;
-        }
+  const done = (body.done ?? 0) + products.length;
 
-        const CHUNK = 500;
-        for (let i = 0; i < products.length; i += CHUNK) {
-          const chunk = products.slice(i, i + CHUNK).map((p) => ({
-            sync_id: syncRow.id,
-            store_id: storeRef.id,
-            dropea_id: p.id,
-            sku: p.sku,
-            name: p.name,
-            image: p.image,
-            stock: p.stock_available,
-          }));
-          const { error } = await insforge.database.from("stock_snapshots").insert(chunk);
-          if (error) {
-            send({ status: "error", error: error.message });
-            controller.close();
-            return;
-          }
-          send({ status: "progress", done: Math.min(i + CHUNK, products.length), total: products.length });
-        }
+  // Last page: update sync total and trim to keep only last 2 syncs
+  if (!hasMore) {
+    await insforge.database
+      .from("stock_syncs")
+      .update({ total: done })
+      .eq("id", syncId);
 
-        send({ status: "done", total: products.length, sync_id: syncRow.id, synced_at: syncRow.synced_at });
-      } catch (e) {
-        send({ status: "error", error: String(e) });
-      } finally {
-        controller.close();
-      }
-    },
-  });
+    // Delete syncs beyond the 2 most recent
+    const { data: allSyncs } = await insforge.database
+      .from("stock_syncs")
+      .select("id")
+      .eq("store_id", store.id)
+      .order("synced_at", { ascending: false });
 
-  return new Response(stream, { headers: { "Content-Type": "application/x-ndjson" } });
+    if (allSyncs && allSyncs.length > 2) {
+      const toDelete = allSyncs.slice(2).map((s: { id: string }) => s.id);
+      await insforge.database.from("stock_syncs").delete().in("id", toDelete);
+    }
+  }
+
+  return NextResponse.json({ syncId, page, done, total, hasMore });
 }

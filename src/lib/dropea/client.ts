@@ -242,6 +242,22 @@ interface ProductsResponse {
   };
 }
 
+export async function fetchProductPage(
+  apiKey: string,
+  page: number
+): Promise<{ products: DropeaProduct[]; hasMore: boolean; total: number }> {
+  const res = await fetch(API_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+    body: JSON.stringify({ query: PRODUCTS_QUERY, variables: { page } }),
+  });
+  if (!res.ok) throw new Error(`Dropea API error ${res.status}`);
+  const json: ProductsResponse = await res.json();
+  if (json.data?.products == null) throw new Error("Respuesta inesperada de la API de productos");
+  const chunk = json.data.products;
+  return { products: chunk.data, hasMore: chunk.has_more_pages, total: chunk.total };
+}
+
 export async function fetchAllProducts(
   apiKey: string,
   onProgress?: (msg: string) => void
