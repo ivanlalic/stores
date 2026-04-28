@@ -16,6 +16,8 @@ export interface StoreRow {
   dias_excluir: number;
   dropi_email_encrypted: string | null;
   dropi_pwd_encrypted: string | null;
+  ads_label_1: string | null;
+  ads_label_2: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -32,6 +32,8 @@ export async function GET(request: NextRequest) {
     costo_rechazo: Number(store.costo_rechazo) || 13.76,
     dias_rolling: Number(store.dias_rolling) || 30,
     dias_excluir: Number(store.dias_excluir) || 4,
+    ads_label_1: store.ads_label_1 || "Meta Ads",
+    ads_label_2: store.ads_label_2 || "TikTok Ads",
   };
 
   if (type === "monthly") {

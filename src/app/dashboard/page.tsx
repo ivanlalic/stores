@@ -47,7 +47,7 @@ function DashboardContent() {
   const [month, setMonth] = useState(getCurrentMonth);
   const [rows, setRows] = useState<DailyRow[]>([]);
   const [beMetrics, setBeMetrics] = useState<BreakevenMetrics | null>(null);
-  const [beConfig, setBeConfig] = useState<{ costo_rechazo: number; dias_rolling: number }>({ costo_rechazo: 13.76, dias_rolling: 30 });
+  const [beConfig, setBeConfig] = useState<{ costo_rechazo: number; dias_rolling: number; ads_label_1: string; ads_label_2: string }>({ costo_rechazo: 13.76, dias_rolling: 30, ads_label_1: "Meta Ads", ads_label_2: "TikTok Ads" });
   const [loading, setLoading] = useState(true);
 
   const [wallet, setWallet] = useState<{
@@ -205,6 +205,8 @@ function DashboardContent() {
         initialTiktokAds={adsModal.tiktokAds}
         onSave={fetchData}
         storeId={storeId || undefined}
+        label1={beConfig.ads_label_1}
+        label2={beConfig.ads_label_2}
       />
     </div>
   );

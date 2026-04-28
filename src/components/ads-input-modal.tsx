@@ -19,6 +19,8 @@ interface AdsInputModalProps {
   initialTiktokAds?: number;
   onSave: () => void;
   storeId?: string;
+  label1?: string;
+  label2?: string;
 }
 
 export function AdsInputModal({
@@ -29,6 +31,8 @@ export function AdsInputModal({
   initialTiktokAds = 0,
   onSave,
   storeId,
+  label1 = "Meta Ads",
+  label2 = "TikTok Ads",
 }: AdsInputModalProps) {
   const [metaAds, setMetaAds] = useState(String(initialMetaAds));
   const [tiktokAds, setTiktokAds] = useState(String(initialTiktokAds));
@@ -80,7 +84,7 @@ export function AdsInputModal({
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="meta">Meta Ads (EUR)</Label>
+            <Label htmlFor="meta">{label1} (EUR)</Label>
             <Input
               id="meta"
               type="number"
@@ -91,7 +95,7 @@ export function AdsInputModal({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="tiktok">TikTok Ads (EUR)</Label>
+            <Label htmlFor="tiktok">{label2} (EUR)</Label>
             <Input
               id="tiktok"
               type="number"
