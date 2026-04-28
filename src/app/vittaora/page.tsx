@@ -110,7 +110,8 @@ function VittaoraContent() {
   const totRechazados = rows.reduce((s, r) => s + r.rechazados, 0);
   const totVentas = rows.reduce((s, r) => s + r.ventas, 0);
   const totBruto = rows.reduce((s, r) => s + r.bruto, 0);
-  const totPnl = rows.reduce((s, r) => s + r.pnl_real, 0);
+  const totPnlTeorico = rows.reduce((s, r) => s + r.pnl_teorico, 0);
+  const totPnlReal = rows.reduce((s, r) => s + r.pnl_real, 0);
   const totAds = rows.reduce((s, r) => s + r.total_ads, 0);
   const tasaEntrega = totEnviados > 0 ? totEntregados / totEnviados : 0;
 
@@ -180,11 +181,21 @@ function VittaoraContent() {
         </Card>
         <Card>
           <CardHeader className="pb-1 pt-3 px-3">
-            <CardTitle className="text-xs text-muted-foreground">P&L</CardTitle>
+            <CardTitle className="text-xs text-muted-foreground">P&L Teórico</CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-3">
-            <p className={`text-2xl font-bold ${totPnl >= 0 ? "text-green-600" : "text-destructive"}`}>
-              €{fmt(totPnl)}
+            <p className={`text-2xl font-bold ${totPnlTeorico >= 0 ? "text-green-600" : "text-destructive"}`}>
+              €{fmt(totPnlTeorico)}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-1 pt-3 px-3">
+            <CardTitle className="text-xs text-muted-foreground">P&L Real</CardTitle>
+          </CardHeader>
+          <CardContent className="px-3 pb-3">
+            <p className={`text-2xl font-bold ${totPnlReal >= 0 ? "text-green-600" : "text-destructive"}`}>
+              €{fmt(totPnlReal)}
             </p>
           </CardContent>
         </Card>
@@ -211,19 +222,20 @@ function VittaoraContent() {
               <th className="text-right px-3 py-2 font-medium">Ventas</th>
               <th className="text-right px-3 py-2 font-medium">Bruto</th>
               <th className="text-right px-3 py-2 font-medium">Ads</th>
-              <th className="text-right px-3 py-2 font-medium">P&L</th>
+              <th className="text-right px-3 py-2 font-medium">P&L Teórico</th>
+              <th className="text-right px-3 py-2 font-medium">P&L Real</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={9} className="text-center py-8 text-muted-foreground">
+                <td colSpan={10} className="text-center py-8 text-muted-foreground">
                   Cargando...
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={9} className="text-center py-8 text-muted-foreground">
+                <td colSpan={10} className="text-center py-8 text-muted-foreground">
                   Sin datos. Haz clic en &quot;Sincronizar Dropi&quot; para importar pedidos.
                 </td>
               </tr>
@@ -263,6 +275,11 @@ function VittaoraContent() {
                     <td className="px-3 py-2 text-right text-muted-foreground">
                       {row.total_ads > 0 ? `€${fmt(row.total_ads)}` : "—"}
                     </td>
+                    <td className={`px-3 py-2 text-right font-medium ${row.pnl_teorico > 0 ? "text-green-600" : row.pnl_teorico < 0 ? "text-destructive" : ""}`}>
+                      {row.ventas > 0 || row.total_ads > 0
+                        ? `€${fmt(row.pnl_teorico)}`
+                        : "—"}
+                    </td>
                     <td className={`px-3 py-2 text-right font-medium ${row.pnl_real > 0 ? "text-green-600" : row.pnl_real < 0 ? "text-destructive" : ""}`}>
                       {row.ventas > 0 || row.total_ads > 0
                         ? `€${fmt(row.pnl_real)}`
@@ -288,8 +305,11 @@ function VittaoraContent() {
                   €{fmt(totBruto)}
                 </td>
                 <td className="px-3 py-2 text-right">€{fmt(totAds)}</td>
-                <td className={`px-3 py-2 text-right ${totPnl >= 0 ? "text-green-600" : "text-destructive"}`}>
-                  €{fmt(totPnl)}
+                <td className={`px-3 py-2 text-right ${totPnlTeorico >= 0 ? "text-green-600" : "text-destructive"}`}>
+                  €{fmt(totPnlTeorico)}
+                </td>
+                <td className={`px-3 py-2 text-right ${totPnlReal >= 0 ? "text-green-600" : "text-destructive"}`}>
+                  €{fmt(totPnlReal)}
                 </td>
               </tr>
             </tfoot>

@@ -16,7 +16,8 @@ export interface DropiDailyRow {
   meta_ads: number;
   tiktok_ads: number;
   total_ads: number;
-  pnl_real: number;   // bruto - total_ads
+  pnl_teorico: number; // bruto (all venta orders + return costs) - ads
+  pnl_real: number;    // only entregados + return costs - ads
   pct_margin: number;
 }
 
@@ -105,9 +106,13 @@ export async function getDropiDailyDashboard(
     const meta_ads = dayAds.meta_ads;
     const tiktok_ads = dayAds.tiktok_ads;
     const total_ads = meta_ads + tiktok_ads;
-    const pnl_real = bruto - total_ads;
+    const pnl_teorico = bruto - total_ads;
+    const pnl_real =
+      dayPedidos.filter((p) => p.es_entregado).reduce((sum, p) => sum + Number(p.neto), 0) +
+      dayPedidos.filter((p) => p.es_rechazado).reduce((sum, p) => sum + Number(p.neto), 0) -
+      total_ads;
     const tasa_entrega = enviados > 0 ? entregados / enviados : 0;
-    const pct_margin = ventas > 0 ? pnl_real / ventas : 0;
+    const pct_margin = ventas > 0 ? pnl_teorico / ventas : 0;
 
     rows.push({
       fecha,
@@ -123,6 +128,7 @@ export async function getDropiDailyDashboard(
       meta_ads,
       tiktok_ads,
       total_ads,
+      pnl_teorico: Math.round(pnl_teorico * 100) / 100,
       pnl_real: Math.round(pnl_real * 100) / 100,
       pct_margin,
     });
