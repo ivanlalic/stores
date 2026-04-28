@@ -67,9 +67,10 @@ export async function GET(request: NextRequest) {
   const walletData = await walletRes.json();
   const amounts = walletData.amounts;
   const balance = parseFloat(amounts?.amount ?? "0");
+  const fondosDisponibles = parseFloat(amounts?.withdraw_amount ?? "0");
 
   // Count our pending orders (sent but not delivered/rejected/cancelled)
-  const pendingQuery = insforge.database
+  const { count: pendientes } = await insforge.database
     .from("pedidos")
     .select("id", { count: "exact", head: true })
     .eq("store_id", storeData.id)
@@ -78,12 +79,13 @@ export async function GET(request: NextRequest) {
     .eq("es_rechazado", false)
     .eq("es_cancelado", false);
 
-  const { count: pendientes } = await pendingQuery;
   const totalPendientes = pendientes ?? 0;
-  const retirable = balance - totalPendientes * costoRechazo;
+  // fondosDisponibles already excludes Dropea's own reserves; subtract our worst-case pending
+  const retirable = fondosDisponibles - totalPendientes * costoRechazo;
 
   return NextResponse.json({
     balance,
+    fondos_disponibles: fondosDisponibles,
     total_pendientes: totalPendientes,
     costo_rechazo: costoRechazo,
     retirable,
