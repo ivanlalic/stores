@@ -52,6 +52,7 @@ function DashboardContent() {
 
   const [wallet, setWallet] = useState<{
     balance: number;
+    fondos_disponibles: number;
     total_pendientes: number;
     costo_rechazo: number;
     retirable: number;
@@ -173,7 +174,7 @@ function DashboardContent() {
                 </CardHeader>
                 <CardContent className="px-3 pb-3">
                   <p className="text-2xl font-bold">
-                    €{wallet.balance.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    €{wallet.fondos_disponibles.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                   <p className={`text-xs font-medium ${wallet.retirable >= 0 ? "text-emerald-600" : "text-red-500"}`}>
                     Retirable: €{wallet.retirable.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
