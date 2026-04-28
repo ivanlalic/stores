@@ -65,7 +65,10 @@ export function AppSidebar() {
   const activeType = activeStore?.type || (pathname.startsWith("/vittaora") ? "dropi" : "dropea");
 
   const navItems = activeType === "dropi"
-    ? [{ title: "Dashboard Diario", href: `/vittaora${currentStoreId ? `?store=${currentStoreId}` : ""}`, icon: ShoppingBag }]
+    ? [
+        { title: "Dashboard Diario", href: `/vittaora${currentStoreId ? `?store=${currentStoreId}` : ""}`, icon: ShoppingBag },
+        { title: "Stock · Catálogo", href: `/vittaora/stock${currentStoreId ? `?store=${currentStoreId}` : ""}`, icon: Boxes },
+      ]
     : [
         { title: "Dashboard Diario", href: `/dashboard${currentStoreId ? `?store=${currentStoreId}` : ""}`, icon: BarChart3 },
         { title: "Resumen Mensual", href: `/dashboard/mensual${currentStoreId ? `?store=${currentStoreId}` : ""}`, icon: CalendarDays },
