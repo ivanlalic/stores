@@ -17,17 +17,22 @@ function parseDropiDate(raw: string): string {
 const COSTO_DEVOLUCION = 6.20; // envío cobrado por Dropi en rehusado/devuelto
 
 function mapStatus(estado: string, envio: number) {
-  const s = (estado || "").toLowerCase();
-  // Rehusado = refused at door (shipped). Devuelto = returned to warehouse (shipped).
+  const s = (estado || "").toLowerCase().trim();
   const es_devuelto = s.includes("rehusado") || s.includes("devuelto");
   const es_entregado = s.includes("entregado") || s.includes("cobrado");
-  // "Rechazado" with ENVIO=0 = cancelled before dispatch → cancelado, not rechazado
   const es_rechazado = es_devuelto;
+  // "Rechazado" with ENVIO=0 = cancelled before dispatch
   const es_cancelado = !es_devuelto && (s.includes("rechazado") || s.includes("cancelado"));
   const es_enviado = envio === 1 || es_entregado || es_devuelto;
-  // Nuevo / Pendiente = unconfirmed, don't count as venta yet
-  const es_no_venta = !es_devuelto && !es_cancelado && !es_entregado && !es_enviado
-    && (s.includes("pendiente") || s === "nuevo" || s.startsWith("nuevo"));
+  // Whitelist: confirmed sale states. Everything else = no-venta.
+  // "Confirmado - Pendiente de preparación" starts with "confirmado" → IS a sale.
+  // "Pendiente de confirmación", "Pedido nuevo", "No confirmable", "Duplicado" → NOT a sale.
+  const es_venta = es_devuelto || es_entregado || es_enviado ||
+    s.startsWith("confirmado") ||
+    s.startsWith("preparado") ||
+    s === "enviado" ||
+    s.startsWith("en ruta");
+  const es_no_venta = !es_cancelado && !es_venta;
   return { es_enviado, es_entregado, es_rechazado, es_cancelado, es_no_venta };
 }
 
