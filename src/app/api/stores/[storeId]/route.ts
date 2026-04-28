@@ -25,6 +25,7 @@ export async function GET(
         dias_rolling: store.dias_rolling,
         dias_excluir: store.dias_excluir,
         has_api_key: !!store.dropea_api_key_encrypted,
+        has_dropea_credentials: !!(store.dropea_email_encrypted && store.dropea_pwd_encrypted),
         has_dropi_credentials: !!(store.dropi_email_encrypted && store.dropi_pwd_encrypted),
       },
     });
@@ -54,6 +55,8 @@ export async function PUT(
 
   if (body.name !== undefined) updates.name = body.name.trim();
   if (body.dropea_api_key) updates.dropea_api_key_encrypted = encrypt(body.dropea_api_key);
+  if (body.dropea_email) updates.dropea_email_encrypted = encrypt(body.dropea_email);
+  if (body.dropea_pwd) updates.dropea_pwd_encrypted = encrypt(body.dropea_pwd);
   if (body.dropi_email) updates.dropi_email_encrypted = encrypt(body.dropi_email);
   if (body.dropi_pwd) updates.dropi_pwd_encrypted = encrypt(body.dropi_pwd);
   if (body.fee_gestion_eur !== undefined) updates.fee_gestion_eur = body.fee_gestion_eur;

@@ -26,12 +26,15 @@ interface StoreData {
   dias_rolling: number;
   dias_excluir: number;
   has_api_key: boolean;
+  has_dropea_credentials: boolean;
   has_dropi_credentials: boolean;
 }
 
 interface StoreFormState {
   name: string;
   newApiKey: string;
+  dropeaEmail: string;
+  dropeaPassword: string;
   feeGestion: string;
   costoRechazo: string;
   diasRolling: string;
@@ -46,6 +49,8 @@ function useStoreForm(store: StoreData): [StoreFormState, (patch: Partial<StoreF
   const [state, setState] = useState<StoreFormState>({
     name: store.name,
     newApiKey: "",
+    dropeaEmail: "",
+    dropeaPassword: "",
     feeGestion: String(store.fee_gestion_eur ?? 0),
     costoRechazo: String(store.costo_rechazo ?? 13.76),
     diasRolling: String(store.dias_rolling ?? 30),
@@ -81,13 +86,15 @@ function DropeaStoreCard({
         dias_excluir: parseInt(f.diasExcluir) || 4,
       };
       if (f.newApiKey) body.dropea_api_key = f.newApiKey;
+      if (f.dropeaEmail) body.dropea_email = f.dropeaEmail;
+      if (f.dropeaPassword) body.dropea_pwd = f.dropeaPassword;
       const res = await fetch(`/api/stores/${store.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error("Error guardando");
-      setF({ message: "Guardado", newApiKey: "" });
+      setF({ message: "Guardado", newApiKey: "", dropeaEmail: "", dropeaPassword: "" });
       onSaved();
     } catch {
       setF({ message: "Error al guardar" });
@@ -136,6 +143,31 @@ function DropeaStoreCard({
             placeholder={store.has_api_key ? "******* (sin cambios)" : "AIza..."}
             value={f.newApiKey}
             onChange={(e) => setF({ newApiKey: e.target.value })}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Email Dropea (wallet)</Label>
+          {store.has_dropea_credentials && (
+            <p className="text-xs text-muted-foreground">Configurado. Deja vacío para no cambiar.</p>
+          )}
+          <Input
+            type="email"
+            autoComplete="off"
+            placeholder="correo@dropea.com"
+            value={f.dropeaEmail}
+            onChange={(e) => setF({ dropeaEmail: e.target.value })}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Contraseña Dropea (wallet)</Label>
+          <Input
+            type="password"
+            autoComplete="new-password"
+            placeholder={store.has_dropea_credentials ? "******* (sin cambios)" : "Contraseña de app.dropea.com"}
+            value={f.dropeaPassword}
+            onChange={(e) => setF({ dropeaPassword: e.target.value })}
           />
         </div>
 

@@ -8,6 +8,8 @@ export interface StoreRow {
   name: string;
   type: "dropea" | "dropi";
   dropea_api_key_encrypted: string | null;
+  dropea_email_encrypted: string | null;
+  dropea_pwd_encrypted: string | null;
   fee_gestion_eur: number;
   costo_rechazo: number;
   dias_rolling: number;
