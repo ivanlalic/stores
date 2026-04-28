@@ -213,7 +213,7 @@ export async function fetchAllOrders(
 const PRODUCTS_QUERY = `
   query GetProducts($page: Int!) {
     products(page: $page) {
-      data { id name sku stock_available image }
+      data { id name sku stock stock_available image }
       current_page
       has_more_pages
       total
@@ -226,6 +226,7 @@ export interface DropeaProduct {
   id: string;
   name: string;
   sku: string;
+  stock: number | null;
   stock_available: number;
   image: string;
 }
