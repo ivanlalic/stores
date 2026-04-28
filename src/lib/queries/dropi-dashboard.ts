@@ -12,7 +12,7 @@ export interface DropiDailyRow {
   pendientes: number;
   tasa_entrega: number;
   ventas: number;
-  bruto: number;       // neto_entregados + neto_rechazados (before ads)
+  bruto: number;       // margin on venta orders + return costs from rechazados
   meta_ads: number;
   tiktok_ads: number;
   total_ads: number;
@@ -92,21 +92,20 @@ export async function getDropiDailyDashboard(
     const cancelados = dayPedidos.filter((p) => p.es_cancelado).length;
     const pendientes = Math.max(0, enviados - entregados - rechazados);
 
-    const ventas = dayPedidos.reduce((sum, p) => sum + Number(p.venta), 0);
+    // ventas = all confirmed orders except rechazados (rehusado/devuelto)
+    // nuevo/duplicado/no-confirmable already have venta=0 stored from sync
+    const ventaOrders = dayPedidos.filter((p) => !p.es_rechazado);
+    const ventas = ventaOrders.reduce((sum, p) => sum + Number(p.venta), 0);
 
-    const netoEntregados = dayPedidos
-      .filter((p) => p.es_entregado)
-      .reduce((sum, p) => sum + Number(p.neto), 0);
-    const netoRechazados = dayPedidos
-      .filter((p) => p.es_rechazado)
-      .reduce((sum, p) => sum + Number(p.neto), 0);
-
-    const bruto = netoEntregados + netoRechazados;
+    // bruto = margin on venta orders + return costs from rechazados (neto = -6.20 each)
+    const bruto =
+      ventaOrders.filter((p) => Number(p.venta) > 0).reduce((sum, p) => sum + Number(p.neto), 0) +
+      dayPedidos.filter((p) => p.es_rechazado).reduce((sum, p) => sum + Number(p.neto), 0);
 
     const meta_ads = dayAds.meta_ads;
     const tiktok_ads = dayAds.tiktok_ads;
     const total_ads = meta_ads + tiktok_ads;
-    const pnl_real = netoEntregados + netoRechazados - total_ads;
+    const pnl_real = bruto - total_ads;
     const tasa_entrega = enviados > 0 ? entregados / enviados : 0;
     const pct_margin = ventas > 0 ? pnl_real / ventas : 0;
 
