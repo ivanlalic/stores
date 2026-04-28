@@ -55,6 +55,7 @@ function VittaoraContent() {
 
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [rows, setRows] = useState<DropiDailyRow[]>([]);
+  const [showAll, setShowAll] = useState(false);
   const [storeName, setStoreName] = useState("Vittaora");
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -240,7 +241,7 @@ function VittaoraContent() {
                 </td>
               </tr>
             ) : (
-              [...rows].reverse().map((row) => {
+              (showAll ? [...rows].reverse() : [...rows].reverse().slice(0, 5)).map((row) => {
                 const displayDate = new Date(row.fecha + "T12:00:00").toLocaleDateString(
                   "es-ES",
                   { weekday: "short", day: "numeric", month: "short" }
@@ -310,6 +311,20 @@ function VittaoraContent() {
                 </td>
                 <td className={`px-3 py-2 text-right ${totPnlReal >= 0 ? "text-green-600" : "text-destructive"}`}>
                   €{fmt(totPnlReal)}
+                </td>
+              </tr>
+            </tfoot>
+          )}
+          {rows.length > 5 && !loading && (
+            <tfoot>
+              <tr>
+                <td colSpan={10} className="text-center py-1.5">
+                  <button
+                    onClick={() => setShowAll((s) => !s)}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showAll ? "▲ Ver menos" : `▼ Ver mes completo (${rows.length} días)`}
+                  </button>
                 </td>
               </tr>
             </tfoot>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Table,
   TableBody,
@@ -103,6 +104,10 @@ function ValueCell({ value, negative, positive, bold, col }: { value: string; ne
 }
 
 export function DailyTable({ rows, onRowClick }: DailyTableProps) {
+  const [showAll, setShowAll] = useState(false);
+  const displayRows = [...rows].reverse();
+  const visibleRows = showAll ? displayRows : displayRows.slice(0, 5);
+
   const totals = rows.reduce(
     (t, r) => ({
       pedidos: t.pedidos + r.pedidos,
@@ -134,7 +139,7 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
   return (
     <TooltipProvider>
       <Card className="p-0 overflow-hidden">
-        <div className="max-h-[55vh] overflow-auto">
+        <div className="overflow-x-auto">
           <Table className="[&_td]:py-1 [&_td]:px-2 [&_th]:px-2 text-xs">
             <TableHeader className="sticky top-0 z-20">
               {/* Group header row — desktop only */}
@@ -166,7 +171,7 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((row, i) => {
+              {visibleRows.map((row, i) => {
                 const { day, weekday } = formatDate(row.fecha);
                 const isWeekend = weekday === "sáb" || weekday === "dom" || weekday === "sáb." || weekday === "dom.";
                 return (
@@ -249,6 +254,20 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
                 <TableCell className={`text-right tabular-nums ${hid("CPA Env.")}`}>{eur(totalCpaEnviado)}</TableCell>
                 <TableCell className={`text-right tabular-nums ${hid("CPA Real")}`}>{eur(totalCpaReal)}</TableCell>
               </TableRow>
+
+              {/* Expand / collapse */}
+              {rows.length > 5 && (
+                <TableRow className="hover:bg-transparent border-0">
+                  <TableCell colSpan={18} className="text-center py-1.5">
+                    <button
+                      onClick={() => setShowAll((s) => !s)}
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {showAll ? "▲ Ver menos" : `▼ Ver mes completo (${rows.length} días)`}
+                    </button>
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>
