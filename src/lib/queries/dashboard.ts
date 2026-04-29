@@ -111,10 +111,10 @@ export async function getDailyDashboard(
     const dayAds = adsMap.get(fecha) || { meta_ads: 0, tiktok_ads: 0 };
 
     if (dayPedidos.length === 0 && dayAds.meta_ads === 0 && dayAds.tiktok_ads === 0) {
-      const dateObj = new Date(fecha);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      if (dateObj > today) continue;
+      // +1 day buffer: server runs UTC, stores are in Spain/Portugal (UTC+1/+2)
+      // Without buffer, their "today" looks like "tomorrow" to the server and gets skipped
+      const tomorrowUtc = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+      if (fecha > tomorrowUtc) continue;
     }
 
     const total = dayPedidos.length;
