@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser, createServiceClient } from "@/lib/insforge/server";
 import { encrypt } from "@/lib/encryption";
-import { requireStore } from "@/lib/store-utils";
+import { requireStore, requireStoreOwner } from "@/lib/store-utils";
 
 export async function GET(
   _request: NextRequest,
@@ -45,7 +45,7 @@ export async function PUT(
   const insforge = createServiceClient();
 
   try {
-    await requireStore(insforge, storeId, user.id);
+    await requireStoreOwner(insforge, storeId, user.id);
   } catch {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
@@ -86,7 +86,7 @@ export async function DELETE(
   const insforge = createServiceClient();
 
   try {
-    await requireStore(insforge, storeId, user.id);
+    await requireStoreOwner(insforge, storeId, user.id);
   } catch {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }

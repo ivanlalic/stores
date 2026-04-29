@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/insforge/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +14,7 @@ function setAuthCookies(token: string, uid: string) {
   document.cookie = `insforge_uid=${uid}; path=/; SameSite=Lax; max-age=${maxAge}`;
 }
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isRegister, setIsRegister] = useState(false);
@@ -22,6 +23,8 @@ export default function LoginPage() {
   const [verifying, setVerifying] = useState(false);
   const [otp, setOtp] = useState("");
   const insforge = useMemo(() => createClient(), []);
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirect") ?? "/dashboard";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,14 +42,14 @@ export default function LoginPage() {
         }
         if (data?.accessToken && data.user) {
           setAuthCookies(data.accessToken, data.user.id);
-          window.location.href = "/dashboard";
+          window.location.href = redirectTo;
         }
       } else {
         const { data, error } = await insforge.auth.signInWithPassword({ email, password });
         if (error) throw error;
         if (data?.accessToken && data.user) {
           setAuthCookies(data.accessToken, data.user.id);
-          window.location.href = "/dashboard";
+          window.location.href = redirectTo;
         }
       }
     } catch (err) {
@@ -66,7 +69,7 @@ export default function LoginPage() {
       if (error) throw error;
       if (data?.accessToken && data.user) {
         setAuthCookies(data.accessToken, data.user.id);
-        window.location.href = "/dashboard";
+        window.location.href = redirectTo;
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Codigo invalido");
@@ -162,5 +165,13 @@ export default function LoginPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

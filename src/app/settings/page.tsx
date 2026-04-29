@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SyncButton } from "@/components/sync-button";
 import { createClient } from "@/lib/insforge/client";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Copy, Check } from "lucide-react";
 
 function clearAuthCookies() {
   document.cookie = "insforge_token=; path=/; max-age=0";
@@ -28,6 +28,7 @@ interface StoreData {
   has_api_key: boolean;
   has_dropea_credentials: boolean;
   has_dropi_credentials: boolean;
+  is_owner: boolean;
 }
 
 interface StoreFormState {
@@ -74,6 +75,47 @@ function DropeaStoreCard({
 }) {
   const [f, setF] = useStoreForm(store);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [inviteUrl, setInviteUrl] = useState("");
+  const [generatingInvite, setGeneratingInvite] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  async function handleGenerateInvite() {
+    setGeneratingInvite(true);
+    try {
+      const res = await fetch(`/api/stores/${store.id}/invite`, { method: "POST" });
+      if (!res.ok) throw new Error();
+      const d = await res.json();
+      setInviteUrl(d.inviteUrl);
+    } catch {
+      // silent
+    } finally {
+      setGeneratingInvite(false);
+    }
+  }
+
+  async function handleCopy() {
+    await navigator.clipboard.writeText(inviteUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  if (!store.is_owner) {
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">{store.name}</CardTitle>
+            <Badge variant="secondary">Dropea</Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            Tienda compartida — solo el propietario puede editar la configuración.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   async function handleSave() {
     setF({ saving: true, message: "" });
@@ -225,6 +267,23 @@ function DropeaStoreCard({
         <Button onClick={handleSave} disabled={f.saving} className="w-full">
           {f.saving ? "Guardando..." : `Guardar ${store.name}`}
         </Button>
+
+        <div className="border-t pt-4 space-y-2">
+          <p className="text-sm font-medium">Compartir tienda</p>
+          <p className="text-xs text-muted-foreground">Genera un enlace de invitación para dar acceso de editor.</p>
+          {!inviteUrl ? (
+            <Button variant="outline" size="sm" onClick={handleGenerateInvite} disabled={generatingInvite} className="w-full">
+              {generatingInvite ? "Generando..." : "Generar enlace de invitación"}
+            </Button>
+          ) : (
+            <div className="flex gap-2">
+              <Input readOnly value={inviteUrl} className="text-xs" />
+              <Button variant="outline" size="icon" onClick={handleCopy}>
+                {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+              </Button>
+            </div>
+          )}
+        </div>
       </CardContent>
 
       <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
@@ -256,6 +315,24 @@ function DropiStoreCard({
 }) {
   const [f, setF] = useStoreForm(store);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  if (!store.is_owner) {
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">{store.name}</CardTitle>
+            <Badge variant="secondary">Dropi</Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            Tienda compartida — solo el propietario puede editar la configuración.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   async function handleSave() {
     if (!f.dropiEmail.trim() || !f.dropiPwd.trim()) {

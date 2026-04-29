@@ -22,7 +22,12 @@ export interface StoreRow {
   updated_at: string;
 }
 
-export async function requireStore(
+export interface StoreAccess extends StoreRow {
+  isOwner: boolean;
+}
+
+// Owner only — throws 403 if not owner
+export async function requireStoreOwner(
   insforge: InsforgeClient,
   storeId: string,
   userId: string
@@ -38,6 +43,37 @@ export async function requireStore(
     throw Object.assign(new Error("Store not found or access denied"), { status: 403 });
   }
   return data as StoreRow;
+}
+
+// Owner OR member — throws 403 if neither
+export async function requireStore(
+  insforge: InsforgeClient,
+  storeId: string,
+  userId: string
+): Promise<StoreAccess> {
+  const { data: store } = await insforge.database
+    .from("stores")
+    .select("*")
+    .eq("id", storeId)
+    .maybeSingle();
+
+  if (!store) {
+    throw Object.assign(new Error("Store not found or access denied"), { status: 403 });
+  }
+  if (store.user_id === userId) {
+    return { ...(store as StoreRow), isOwner: true };
+  }
+  const { data: member } = await insforge.database
+    .from("store_members")
+    .select("user_id")
+    .eq("store_id", storeId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (!member) {
+    throw Object.assign(new Error("Store not found or access denied"), { status: 403 });
+  }
+  return { ...(store as StoreRow), isOwner: false };
 }
 
 export async function getDefaultStore(

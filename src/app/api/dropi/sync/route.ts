@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser, createServiceClient } from "@/lib/insforge/server";
 import { decrypt } from "@/lib/encryption";
+import { requireStore, getDefaultStore } from "@/lib/store-utils";
 import * as XLSX from "xlsx";
 import * as https from "https";
 import * as http from "http";
@@ -293,24 +294,12 @@ export async function POST(request: NextRequest) {
   const storeParam = request.nextUrl.searchParams.get("store_id");
 
   let store;
-  if (storeParam) {
-    const { data } = await insforge.database
-      .from("stores")
-      .select("id, user_id, dropi_email_encrypted, dropi_pwd_encrypted")
-      .eq("id", storeParam)
-      .eq("user_id", user.id)
-      .maybeSingle();
-    store = data;
-  } else {
-    const { data } = await insforge.database
-      .from("stores")
-      .select("id, user_id, dropi_email_encrypted, dropi_pwd_encrypted")
-      .eq("user_id", user.id)
-      .eq("type", "dropi")
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-    store = data;
+  try {
+    store = storeParam
+      ? await requireStore(insforge, storeParam, user.id)
+      : await getDefaultStore(insforge, user.id, "dropi");
+  } catch {
+    return NextResponse.json({ error: "Store not found or access denied" }, { status: 403 });
   }
 
   if (!store?.dropi_email_encrypted || !store?.dropi_pwd_encrypted) {

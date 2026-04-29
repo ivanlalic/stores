@@ -34,6 +34,7 @@ interface StoreItem {
   id: string;
   name: string;
   type: "dropea" | "dropi";
+  is_owner: boolean;
 }
 
 function clearAuthCookies() {
@@ -130,7 +131,9 @@ export function AppSidebar() {
                       : <TrendingUp className="size-4" />
                     }
                     <span>{s.name}</span>
-                    <span className="text-xs text-muted-foreground ml-auto capitalize">{s.type}</span>
+                    <span className="text-xs text-muted-foreground ml-auto capitalize">
+                      {s.is_owner ? s.type : "Compartida"}
+                    </span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}

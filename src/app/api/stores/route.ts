@@ -7,35 +7,57 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const insforge = createServiceClient();
-  const { data, error } = await insforge.database
+
+  // Owned stores
+  const { data: owned, error: ownedError } = await insforge.database
     .from("stores")
     .select("id, name, type, fee_gestion_eur, costo_rechazo, dias_rolling, dias_excluir, created_at")
     .eq("user_id", user.id)
     .order("created_at", { ascending: true });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (ownedError) return NextResponse.json({ error: ownedError.message }, { status: 500 });
 
-  const stores = (data || []).map((s) => ({
-    ...s,
-    has_api_key: false,
-    has_dropi_credentials: false,
-  }));
-
-  // Fetch credential presence separately
-  const { data: full } = await insforge.database
-    .from("stores")
-    .select("id, dropea_api_key_encrypted, dropea_email_encrypted, dropea_pwd_encrypted, dropi_email_encrypted, dropi_pwd_encrypted")
+  // Shared stores via store_members
+  const { data: memberships } = await insforge.database
+    .from("store_members")
+    .select("store_id")
     .eq("user_id", user.id);
 
+  const memberStoreIds = (memberships || []).map((m: { store_id: string }) => m.store_id);
+
+  const { data: shared } = memberStoreIds.length
+    ? await insforge.database
+        .from("stores")
+        .select("id, name, type, fee_gestion_eur, costo_rechazo, dias_rolling, dias_excluir, created_at")
+        .in("id", memberStoreIds)
+        .neq("user_id", user.id)
+        .order("created_at", { ascending: true })
+    : { data: [] };
+
+  const allStores = [
+    ...(owned || []).map((s) => ({ ...s, is_owner: true })),
+    ...(shared || []).map((s) => ({ ...s, is_owner: false })),
+  ];
+
+  // Fetch credential presence for ALL stores (owned + shared)
+  const allIds = allStores.map((s) => s.id);
+  const { data: full } = allIds.length
+    ? await insforge.database
+        .from("stores")
+        .select("id, dropea_api_key_encrypted, dropea_email_encrypted, dropea_pwd_encrypted, dropi_email_encrypted, dropi_pwd_encrypted")
+        .in("id", allIds)
+    : { data: [] };
+
   const credMap = new Map((full || []).map((r) => [r.id, r]));
-  for (const s of stores) {
+  const stores = allStores.map((s) => {
     const c = credMap.get(s.id);
-    if (c) {
-      (s as Record<string, unknown>).has_api_key = !!c.dropea_api_key_encrypted;
-      (s as Record<string, unknown>).has_dropea_credentials = !!(c.dropea_email_encrypted && c.dropea_pwd_encrypted);
-      (s as Record<string, unknown>).has_dropi_credentials = !!(c.dropi_email_encrypted && c.dropi_pwd_encrypted);
-    }
-  }
+    return {
+      ...s,
+      has_api_key: !!(c?.dropea_api_key_encrypted),
+      has_dropea_credentials: !!(c?.dropea_email_encrypted && c?.dropea_pwd_encrypted),
+      has_dropi_credentials: !!(c?.dropi_email_encrypted && c?.dropi_pwd_encrypted),
+    };
+  });
 
   return NextResponse.json({ stores });
 }
