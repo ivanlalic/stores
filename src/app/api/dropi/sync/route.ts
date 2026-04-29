@@ -23,15 +23,13 @@ function mapStatus(estado: string, envio: number) {
   const es_rechazado = es_devuelto;
   // "Rechazado" with ENVIO=0 = cancelled before dispatch
   const es_cancelado = !es_devuelto && (s.includes("rechazado") || s.includes("cancelado"));
-  const es_enviado = envio === 1 || es_entregado || es_devuelto;
-  // Whitelist: confirmed sale states. Everything else = no-venta.
-  // "Confirmado - Pendiente de preparación" starts with "confirmado" → IS a sale.
-  // "Pendiente de confirmación", "Pedido nuevo", "No confirmable", "Duplicado" → NOT a sale.
-  const es_venta = es_devuelto || es_entregado || es_enviado ||
+  // enviado = confirmado para adelante: confirmado, preparado, en ruta, enviado, entregado, devuelto
+  const es_enviado = envio === 1 || es_entregado || es_devuelto ||
     s.startsWith("confirmado") ||
     s.startsWith("preparado") ||
     s === "enviado" ||
     s.startsWith("en ruta");
+  const es_venta = es_enviado;
   const es_no_venta = !es_cancelado && !es_venta;
   return { es_enviado, es_entregado, es_rechazado, es_cancelado, es_no_venta };
 }
