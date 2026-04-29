@@ -33,7 +33,11 @@ function mapOrder(order: DropeaOrder, userId: string, storeId: string) {
   const status = order.status || "";
   const zeroRevenue = shouldZeroRevenue(status);
 
-  const fecha = order.created_at ? order.created_at.split(" ")[0] : null;
+  // Dropea created_at is UTC; convert to Spain local time before extracting date
+  const fecha = order.created_at
+    ? new Date(order.created_at.replace(" ", "T") + "Z")
+        .toLocaleDateString("en-CA", { timeZone: "Europe/Madrid" })
+    : null;
 
   return {
     user_id: userId,
