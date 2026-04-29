@@ -219,7 +219,8 @@ function VittaoraContent() {
               <th className="text-right px-3 py-2 font-medium">Pedidos</th>
               <th className="text-right px-3 py-2 font-medium">Enviados</th>
               <th className="text-right px-3 py-2 font-medium">%Enviados</th>
-              <th className="text-right px-3 py-2 font-medium">Rechazados</th>
+              <th className="text-right px-3 py-2 font-medium">Entregados</th>
+              <th className="text-right px-3 py-2 font-medium">%Entregados</th>
               <th className="text-right px-3 py-2 font-medium">Ventas</th>
               <th className="text-right px-3 py-2 font-medium">Bruto</th>
               <th className="text-right px-3 py-2 font-medium">Ads</th>
@@ -230,13 +231,13 @@ function VittaoraContent() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={10} className="text-center py-8 text-muted-foreground">
+                <td colSpan={11} className="text-center py-8 text-muted-foreground">
                   Cargando...
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={10} className="text-center py-8 text-muted-foreground">
+                <td colSpan={11} className="text-center py-8 text-muted-foreground">
                   Sin datos. Haz clic en &quot;Sincronizar Dropi&quot; para importar pedidos.
                 </td>
               </tr>
@@ -248,6 +249,9 @@ function VittaoraContent() {
                 );
                 const pctEnviados = row.pedidos > 0
                   ? Math.round(row.enviados / row.pedidos * 100) + "%"
+                  : "—";
+                const pctEntregados = row.enviados > 0
+                  ? (row.tasa_entrega * 100).toFixed(1) + "%"
                   : "—";
                 return (
                   <tr
@@ -266,7 +270,8 @@ function VittaoraContent() {
                     <td className="px-3 py-2 text-right">{row.pedidos}</td>
                     <td className="px-3 py-2 text-right">{row.enviados}</td>
                     <td className="px-3 py-2 text-right">{pctEnviados}</td>
-                    <td className="px-3 py-2 text-right text-destructive">{row.rechazados || ""}</td>
+                    <td className="px-3 py-2 text-right">{row.entregados || ""}</td>
+                    <td className={`px-3 py-2 text-right ${row.tasa_entrega < 0.6 ? "text-destructive" : row.tasa_entrega >= 0.8 ? "text-green-600" : ""}`}>{pctEntregados}</td>
                     <td className="px-3 py-2 text-right">
                       {row.ventas > 0 ? `€${fmt(row.ventas)}` : "—"}
                     </td>
@@ -300,7 +305,10 @@ function VittaoraContent() {
                 <td className="px-3 py-2 text-right">
                   {totPedidos > 0 ? Math.round(totEnviados / totPedidos * 100) + "%" : "—"}
                 </td>
-                <td className="px-3 py-2 text-right text-destructive">{totRechazados || ""}</td>
+                <td className="px-3 py-2 text-right">{totEntregados || ""}</td>
+                <td className={`px-3 py-2 text-right ${tasaEntrega < 0.6 ? "text-destructive" : tasaEntrega >= 0.8 ? "text-green-600" : ""}`}>
+                  {totEnviados > 0 ? (tasaEntrega * 100).toFixed(1) + "%" : "—"}
+                </td>
                 <td className="px-3 py-2 text-right">€{fmt(totVentas)}</td>
                 <td className={`px-3 py-2 text-right ${totBruto >= 0 ? "text-green-600" : "text-destructive"}`}>
                   €{fmt(totBruto)}
@@ -318,7 +326,7 @@ function VittaoraContent() {
           {rows.length > 5 && !loading && (
             <tfoot>
               <tr>
-                <td colSpan={10} className="text-center py-1.5">
+                <td colSpan={11} className="text-center py-1.5">
                   <button
                     onClick={() => setShowAll((s) => !s)}
                     className="text-xs text-muted-foreground hover:text-foreground transition-colors"
