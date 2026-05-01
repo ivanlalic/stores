@@ -12,8 +12,8 @@ export default function DashboardLayout({
       <Suspense fallback={null}>
         <AppSidebar />
       </Suspense>
-      <SidebarInset>
-        <main className="flex-1 p-3 sm:p-4 min-w-0 overflow-x-hidden">{children}</main>
+      <SidebarInset className="min-w-0">
+        <div className="flex-1 p-3 sm:p-4">{children}</div>
       </SidebarInset>
     </SidebarProvider>
   );
