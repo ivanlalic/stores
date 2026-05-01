@@ -90,7 +90,7 @@ export function SyncButton({ onComplete, className, showQuickSync = true, storeI
 
   return (
     <>
-      <div className={`shrink-0 ${className ?? ""}`}>
+      <div className={className}>
         <div className="flex items-center gap-1.5">
           {showQuickSync && (
             <TooltipProvider>
