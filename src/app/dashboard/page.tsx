@@ -122,7 +122,7 @@ function DashboardContent() {
         >
           <ChevronLeft className="size-4" />
         </Button>
-        <h2 className="text-base sm:text-lg font-semibold min-w-[140px] sm:min-w-[160px] text-center tracking-tight">
+        <h2 className="text-base sm:text-lg font-semibold min-w-[100px] sm:min-w-[130px] text-center tracking-tight">
           {monthLabel(month)}
         </h2>
         <Button
