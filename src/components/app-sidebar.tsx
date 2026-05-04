@@ -68,6 +68,7 @@ export function AppSidebar() {
   const navItems = activeType === "dropi"
     ? [
         { title: "Dashboard Diario", href: `/vittaora${currentStoreId ? `?store=${currentStoreId}` : ""}`, icon: ShoppingBag },
+        { title: "Resumen Mensual", href: `/vittaora/mensual${currentStoreId ? `?store=${currentStoreId}` : ""}`, icon: CalendarDays },
         { title: "Stock · Catálogo", href: `/vittaora/stock${currentStoreId ? `?store=${currentStoreId}` : ""}`, icon: Boxes },
       ]
     : [
