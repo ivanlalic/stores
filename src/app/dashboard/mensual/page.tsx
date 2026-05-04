@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { MonthlyTable } from "@/components/monthly-table";
 import { MonthlyChart } from "@/components/monthly-chart";
 import { SyncButton } from "@/components/sync-button";
+import { ExportMonthlyButton } from "@/components/export-monthly-button";
 import { CalendarDays } from "lucide-react";
 import type { MonthlyRow } from "@/lib/queries/dashboard";
 
@@ -12,6 +13,7 @@ function MensualContent() {
   const searchParams = useSearchParams();
   const storeId = searchParams.get("store") || "";
   const [rows, setRows] = useState<MonthlyRow[]>([]);
+  const [storeName, setStoreName] = useState("");
   const [loading, setLoading] = useState(true);
 
   async function fetchData() {
@@ -21,6 +23,7 @@ function MensualContent() {
       const res = await fetch(`/api/dashboard?type=monthly${storeParam}`);
       const data = await res.json();
       setRows(data.rows || []);
+      setStoreName(data.storeName || "");
     } catch {
       // handle error
     } finally {
@@ -45,7 +48,10 @@ function MensualContent() {
             <p className="text-xs text-muted-foreground">Resumen acumulado por mes</p>
           </div>
         </div>
-        <SyncButton onComplete={fetchData} storeId={storeId || undefined} />
+        <div className="flex items-center gap-2">
+          <ExportMonthlyButton rows={rows} storeName={storeName} />
+          <SyncButton onComplete={fetchData} storeId={storeId || undefined} />
+        </div>
       </div>
 
       {loading ? (
