@@ -50,7 +50,7 @@ const columnInfo: Record<string, string> = {
   "%Ent": "Tasa de entrega: Entregados / Enviados",
   "Ventas": "Ventas: suma del precio de venta de los pedidos enviados",
   "Bruto": "Bruto: suma del neto (venta - costo producto) de los enviados",
-  "Ads": "Ads: gasto en Meta Ads + TikTok Ads",
+  "Ads": "Ads: gasto base en Meta Ads + TikTok Ads (sin comisión agencia)",
   "Gest.": "Gestión: costo de envío por pedido × cantidad de enviados",
   "Gastos": "Gastos: Ads + Gestión",
   "P&L Teo.": "P&L Teórico: Bruto - Gastos (asume que todos se entregan)",
@@ -211,8 +211,8 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
                     <ValueCell col="Ventas" value={eur(row.ventas)} />
                     {/* Bruto — hidden mobile */}
                     <ValueCell col="Bruto" value={eur(row.bruto)} />
-                    {/* Ads — hidden mobile */}
-                    <ValueCell col="Ads" value={eur(row.total_ads)} />
+                    {/* Ads — hidden mobile, shows base without commission */}
+                    <ValueCell col="Ads" value={eur(row.total_ads - row.total_commission)} />
                     {/* Comis. — hidden mobile */}
                     <ValueCell col="Comis." value={row.total_commission > 0 ? eur(row.total_commission) : "—"} />
                     {/* Gest. — hidden mobile */}
@@ -249,7 +249,7 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
                 <TableCell className={`text-right tabular-nums border-r border-border/40 ${hid("%Ent")}`}>{pct(totalTasaEntrega)}</TableCell>
                 <TableCell className="text-right tabular-nums">{eur(totals.ventas)}</TableCell>
                 <TableCell className={`text-right tabular-nums ${hid("Bruto")}`}>{eur(totals.bruto)}</TableCell>
-                <TableCell className={`text-right tabular-nums ${hid("Ads")}`}>{eur(totals.total_ads)}</TableCell>
+                <TableCell className={`text-right tabular-nums ${hid("Ads")}`}>{eur(totals.total_ads - totals.total_commission)}</TableCell>
                 <TableCell className={`text-right tabular-nums ${hid("Comis.")}`}>{totals.total_commission > 0 ? eur(totals.total_commission) : "—"}</TableCell>
                 <TableCell className={`text-right tabular-nums ${hid("Gest.")}`}>{eur(totals.gestion)}</TableCell>
                 <TableCell className={`text-right tabular-nums border-r border-border/40 ${hid("Gastos")}`}>{eur(totals.gastos)}</TableCell>

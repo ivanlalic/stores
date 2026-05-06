@@ -153,20 +153,21 @@ export function GastosCard({ rows, className }: KpiCardsProps & { className?: st
   const totalGestion = rows.reduce((s, r) => s + r.gestion, 0);
   const totalGastos = rows.reduce((s, r) => s + r.gastos, 0);
   const totalComision = rows.reduce((s, r) => s + r.total_commission, 0);
+  const totalBaseAds = totalAds - totalComision;
 
   return (
     <Card className={className}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 px-3 pt-3 sm:px-4 sm:pt-4">
         <CardTitle className="text-xs font-medium flex items-center gap-1">
           Gastos
-          <InfoTip text="Ads + fee de gestión por envío. El total es lo que sale del bolsillo antes de contar ingresos." />
+          <InfoTip text="Ads base + comisión agencia + fee de gestión por envío." />
         </CardTitle>
         <TrendingDown className="size-3.5 text-muted-foreground" />
       </CardHeader>
       <CardContent className="px-3 pb-3 sm:px-4 sm:pb-4">
         <div className="text-base sm:text-lg font-bold tracking-tight">{formatEur(totalGastos)}</div>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Ads: <span className="font-medium text-foreground">{formatEur(totalAds)}</span>
+          Ads: <span className="font-medium text-foreground">{formatEur(totalBaseAds)}</span>
         </p>
         {totalComision > 0 && (
           <p className="text-xs text-muted-foreground">
