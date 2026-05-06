@@ -65,7 +65,9 @@ function VittaoraContent() {
     fecha: string;
     meta: number;
     tiktok: number;
-  }>({ open: false, fecha: "", meta: 0, tiktok: 0 });
+    metaFee: number;
+    tiktokFee: number;
+  }>({ open: false, fecha: "", meta: 0, tiktok: 0, metaFee: 0, tiktokFee: 0 });
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -263,6 +265,8 @@ function VittaoraContent() {
                         fecha: row.fecha,
                         meta: row.meta_ads,
                         tiktok: row.tiktok_ads,
+                        metaFee: row.meta_agency_fee_pct,
+                        tiktokFee: row.tiktok_agency_fee_pct,
                       })
                     }
                   >
@@ -346,6 +350,8 @@ function VittaoraContent() {
         fecha={adsModal.fecha}
         initialMetaAds={adsModal.meta}
         initialTiktokAds={adsModal.tiktok}
+        initialMetaFeePct={adsModal.metaFee}
+        initialTiktokFeePct={adsModal.tiktokFee}
         onSave={loadData}
         storeId={storeId || undefined}
       />

@@ -152,6 +152,7 @@ export function GastosCard({ rows, className }: KpiCardsProps & { className?: st
   const totalAds = rows.reduce((s, r) => s + r.total_ads, 0);
   const totalGestion = rows.reduce((s, r) => s + r.gestion, 0);
   const totalGastos = rows.reduce((s, r) => s + r.gastos, 0);
+  const totalComision = rows.reduce((s, r) => s + r.total_commission, 0);
 
   return (
     <Card className={className}>
@@ -167,6 +168,11 @@ export function GastosCard({ rows, className }: KpiCardsProps & { className?: st
         <p className="text-xs text-muted-foreground mt-0.5">
           Ads: <span className="font-medium text-foreground">{formatEur(totalAds)}</span>
         </p>
+        {totalComision > 0 && (
+          <p className="text-xs text-muted-foreground">
+            Comisión agencia: <span className="font-medium text-foreground">{formatEur(totalComision)}</span>
+          </p>
+        )}
         <p className="text-xs text-muted-foreground">
           Gest: <span className="font-medium text-foreground">{formatEur(totalGestion)}</span>
         </p>

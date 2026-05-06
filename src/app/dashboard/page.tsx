@@ -83,7 +83,9 @@ function DashboardContent() {
     fecha: string;
     metaAds: number;
     tiktokAds: number;
-  }>({ open: false, fecha: "", metaAds: 0, tiktokAds: 0 });
+    metaFee: number;
+    tiktokFee: number;
+  }>({ open: false, fecha: "", metaAds: 0, tiktokAds: 0, metaFee: 0, tiktokFee: 0 });
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -105,8 +107,8 @@ function DashboardContent() {
     fetchData();
   }, [fetchData]);
 
-  function handleRowClick(fecha: string, metaAds: number, tiktokAds: number) {
-    setAdsModal({ open: true, fecha, metaAds, tiktokAds });
+  function handleRowClick(fecha: string, metaAds: number, tiktokAds: number, metaFee: number, tiktokFee: number) {
+    setAdsModal({ open: true, fecha, metaAds, tiktokAds, metaFee, tiktokFee });
   }
 
   return (
@@ -203,6 +205,8 @@ function DashboardContent() {
         fecha={adsModal.fecha}
         initialMetaAds={adsModal.metaAds}
         initialTiktokAds={adsModal.tiktokAds}
+        initialMetaFeePct={adsModal.metaFee}
+        initialTiktokFeePct={adsModal.tiktokFee}
         onSave={fetchData}
         storeId={storeId || undefined}
         label1={beConfig.ads_label_1}

@@ -21,7 +21,7 @@ import type { DailyRow } from "@/lib/queries/dashboard";
 
 interface DailyTableProps {
   rows: DailyRow[];
-  onRowClick: (fecha: string, metaAds: number, tiktokAds: number) => void;
+  onRowClick: (fecha: string, metaAds: number, tiktokAds: number, metaFee: number, tiktokFee: number) => void;
 }
 
 function formatDate(fecha: string) {
@@ -58,14 +58,15 @@ const columnInfo: Record<string, string> = {
   "%Vtas": "Margen: P&L Real / Ventas",
   "CPA Env.": "CPA Enviado: Ads / Enviados",
   "CPA Real": "CPA Real: Ads / Entregados",
+  "Comis.": "Comisión agencia: parte del gasto de Ads que corresponde a la comisión de la agencia publicitaria",
 };
 
 // Columns hidden on mobile (< sm)
-const mobileHidden = new Set(["Ped.", "Ent.", "Pend.", "Rech.", "Canc.", "%Ent", "Bruto", "Ads", "Gest.", "Gastos", "CPA Env.", "CPA Real"]);
+const mobileHidden = new Set(["Ped.", "Ent.", "Pend.", "Rech.", "Canc.", "%Ent", "Bruto", "Ads", "Comis.", "Gest.", "Gastos", "CPA Env.", "CPA Real"]);
 
 const columnGroups = [
   { label: "Pedidos", cols: ["Dia", "Ped.", "Env.", "Ent.", "Pend.", "Rech.", "Canc.", "%Ent"] },
-  { label: "Finanzas", cols: ["Ventas", "Bruto", "Ads", "Gest.", "Gastos"] },
+  { label: "Finanzas", cols: ["Ventas", "Bruto", "Ads", "Comis.", "Gest.", "Gastos"] },
   { label: "Resultado", cols: ["P&L Teo.", "P&L Real", "%Vtas"] },
   { label: "CPA", cols: ["CPA Env.", "CPA Real"] },
 ];
@@ -119,6 +120,7 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
       ventas: t.ventas + r.ventas,
       bruto: t.bruto + r.bruto,
       total_ads: t.total_ads + r.total_ads,
+      total_commission: t.total_commission + r.total_commission,
       gestion: t.gestion + r.gestion,
       gastos: t.gastos + r.gastos,
       pnl_teorico: t.pnl_teorico + r.pnl_teorico,
@@ -127,7 +129,7 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
     {
       pedidos: 0, enviados: 0, entregados: 0, rechazados: 0,
       cancelados: 0, pendientes: 0, ventas: 0, bruto: 0,
-      total_ads: 0, gestion: 0, gastos: 0, pnl_teorico: 0, pnl_real: 0,
+      total_ads: 0, total_commission: 0, gestion: 0, gastos: 0, pnl_teorico: 0, pnl_real: 0,
     }
   );
 
@@ -180,7 +182,7 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
                     className={`cursor-pointer transition-colors hover:bg-primary/5 ${
                       i % 2 === 0 ? "bg-background" : "bg-muted/20"
                     } ${isWeekend ? "bg-muted/30" : ""}`}
-                    onClick={() => onRowClick(row.fecha, row.meta_ads, row.tiktok_ads)}
+                    onClick={() => onRowClick(row.fecha, row.meta_ads, row.tiktok_ads, row.meta_agency_fee_pct, row.tiktok_agency_fee_pct)}
                   >
                     {/* Dia — always visible */}
                     <TableCell className="font-medium sticky left-0 bg-inherit z-10">
@@ -211,6 +213,8 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
                     <ValueCell col="Bruto" value={eur(row.bruto)} />
                     {/* Ads — hidden mobile */}
                     <ValueCell col="Ads" value={eur(row.total_ads)} />
+                    {/* Comis. — hidden mobile */}
+                    <ValueCell col="Comis." value={row.total_commission > 0 ? eur(row.total_commission) : "—"} />
                     {/* Gest. — hidden mobile */}
                     <ValueCell col="Gest." value={eur(row.gestion)} />
                     {/* Gastos — hidden mobile */}
@@ -246,6 +250,7 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
                 <TableCell className="text-right tabular-nums">{eur(totals.ventas)}</TableCell>
                 <TableCell className={`text-right tabular-nums ${hid("Bruto")}`}>{eur(totals.bruto)}</TableCell>
                 <TableCell className={`text-right tabular-nums ${hid("Ads")}`}>{eur(totals.total_ads)}</TableCell>
+                <TableCell className={`text-right tabular-nums ${hid("Comis.")}`}>{totals.total_commission > 0 ? eur(totals.total_commission) : "—"}</TableCell>
                 <TableCell className={`text-right tabular-nums ${hid("Gest.")}`}>{eur(totals.gestion)}</TableCell>
                 <TableCell className={`text-right tabular-nums border-r border-border/40 ${hid("Gastos")}`}>{eur(totals.gastos)}</TableCell>
                 <ValueCell col="P&L Teo." value={eur(totals.pnl_teorico)} negative={totals.pnl_teorico < 0} positive={totals.pnl_teorico > 0} bold />
@@ -258,7 +263,7 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
               {/* Expand / collapse */}
               {rows.length > 5 && (
                 <TableRow className="hover:bg-transparent border-0">
-                  <TableCell colSpan={18} className="text-center py-1.5">
+                  <TableCell colSpan={19} className="text-center py-1.5">
                     <button
                       onClick={() => setShowAll((s) => !s)}
                       className="text-xs text-muted-foreground hover:text-foreground transition-colors"

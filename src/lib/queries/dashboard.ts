@@ -16,6 +16,9 @@ export interface DailyRow {
   meta_ads: number;
   tiktok_ads: number;
   total_ads: number;
+  meta_agency_fee_pct: number;
+  tiktok_agency_fee_pct: number;
+  total_commission: number;
   gestion: number;
   gastos: number;
   pnl_teorico: number;
@@ -88,11 +91,13 @@ export async function getDailyDashboard(
     .gte("fecha", startDate)
     .lte("fecha", endDate);
 
-  const adsMap = new Map<string, { meta_ads: number; tiktok_ads: number }>();
+  const adsMap = new Map<string, { meta_ads: number; tiktok_ads: number; meta_agency_fee_pct: number; tiktok_agency_fee_pct: number }>();
   (ads || []).forEach((a) => {
     adsMap.set(a.fecha, {
       meta_ads: Number(a.meta_ads) || 0,
       tiktok_ads: Number(a.tiktok_ads) || 0,
+      meta_agency_fee_pct: Number(a.meta_agency_fee_pct) || 0,
+      tiktok_agency_fee_pct: Number(a.tiktok_agency_fee_pct) || 0,
     });
   });
 
@@ -108,7 +113,7 @@ export async function getDailyDashboard(
   for (let d = 1; d <= new Date(year, m, 0).getDate(); d++) {
     const fecha = `${year}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     const dayPedidos = dayMap.get(fecha) || [];
-    const dayAds = adsMap.get(fecha) || { meta_ads: 0, tiktok_ads: 0 };
+    const dayAds = adsMap.get(fecha) || { meta_ads: 0, tiktok_ads: 0, meta_agency_fee_pct: 0, tiktok_agency_fee_pct: 0 };
 
     if (dayPedidos.length === 0 && dayAds.meta_ads === 0 && dayAds.tiktok_ads === 0) {
       // Add 2h offset (Spain/Portugal max UTC+2) so server UTC never skips their "today"
@@ -140,6 +145,11 @@ export async function getDailyDashboard(
 
     const meta_ads = dayAds.meta_ads;
     const tiktok_ads = dayAds.tiktok_ads;
+    const meta_agency_fee_pct = dayAds.meta_agency_fee_pct;
+    const tiktok_agency_fee_pct = dayAds.tiktok_agency_fee_pct;
+    const meta_commission = meta_agency_fee_pct > 0 ? meta_ads * (meta_agency_fee_pct / 100) / (1 + meta_agency_fee_pct / 100) : 0;
+    const tiktok_commission = tiktok_agency_fee_pct > 0 ? tiktok_ads * (tiktok_agency_fee_pct / 100) / (1 + tiktok_agency_fee_pct / 100) : 0;
+    const total_commission = meta_commission + tiktok_commission;
     const total_ads = meta_ads + tiktok_ads;
     const gestion = enviados * feeGestionEur;
     const gastos = total_ads + gestion;
@@ -164,6 +174,9 @@ export async function getDailyDashboard(
       meta_ads,
       tiktok_ads,
       total_ads,
+      meta_agency_fee_pct,
+      tiktok_agency_fee_pct,
+      total_commission: Math.round(total_commission * 100) / 100,
       gestion: Math.round(gestion * 100) / 100,
       gastos: Math.round(gastos * 100) / 100,
       pnl_teorico: Math.round(pnl_teorico * 100) / 100,

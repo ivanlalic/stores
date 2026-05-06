@@ -44,7 +44,7 @@ export async function PUT(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await request.json();
-  const { fecha, meta_ads, tiktok_ads, store_id: storeParam } = body;
+  const { fecha, meta_ads, tiktok_ads, meta_agency_fee_pct, tiktok_agency_fee_pct, store_id: storeParam } = body;
 
   if (!fecha) return NextResponse.json({ error: "Missing fecha" }, { status: 400 });
 
@@ -71,6 +71,8 @@ export async function PUT(request: NextRequest) {
       fecha,
       meta_ads: meta_ads ?? 0,
       tiktok_ads: tiktok_ads ?? 0,
+      meta_agency_fee_pct: meta_agency_fee_pct ?? 0,
+      tiktok_agency_fee_pct: tiktok_agency_fee_pct ?? 0,
     },
     { onConflict: "store_id,fecha" }
   );

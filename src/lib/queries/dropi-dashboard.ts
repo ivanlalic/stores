@@ -41,12 +41,15 @@ export interface DropiDailyRow {
   pendientes: number;
   tasa_entrega: number;
   ventas: number;
-  bruto: number;       // margin on venta orders + return costs from rechazados
+  bruto: number;
   meta_ads: number;
   tiktok_ads: number;
   total_ads: number;
-  pnl_teorico: number; // bruto (all venta orders + return costs) - ads
-  pnl_real: number;    // only entregados + return costs - ads
+  meta_agency_fee_pct: number;
+  tiktok_agency_fee_pct: number;
+  total_commission: number;
+  pnl_teorico: number;
+  pnl_real: number;
   pct_margin: number;
 }
 
@@ -86,11 +89,13 @@ export async function getDropiDailyDashboard(
     .gte("fecha", startDate)
     .lte("fecha", endDate);
 
-  const adsMap = new Map<string, { meta_ads: number; tiktok_ads: number }>();
+  const adsMap = new Map<string, { meta_ads: number; tiktok_ads: number; meta_agency_fee_pct: number; tiktok_agency_fee_pct: number }>();
   (ads || []).forEach((a) => {
     adsMap.set(a.fecha, {
       meta_ads: Number(a.meta_ads) || 0,
       tiktok_ads: Number(a.tiktok_ads) || 0,
+      meta_agency_fee_pct: Number(a.meta_agency_fee_pct) || 0,
+      tiktok_agency_fee_pct: Number(a.tiktok_agency_fee_pct) || 0,
     });
   });
 
@@ -106,7 +111,7 @@ export async function getDropiDailyDashboard(
   for (let d = 1; d <= new Date(year, m, 0).getDate(); d++) {
     const fecha = `${year}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     const dayPedidos = dayMap.get(fecha) || [];
-    const dayAds = adsMap.get(fecha) || { meta_ads: 0, tiktok_ads: 0 };
+    const dayAds = adsMap.get(fecha) || { meta_ads: 0, tiktok_ads: 0, meta_agency_fee_pct: 0, tiktok_agency_fee_pct: 0 };
 
     if (dayPedidos.length === 0 && dayAds.meta_ads === 0 && dayAds.tiktok_ads === 0) {
       const dateObj = new Date(fecha);
@@ -134,6 +139,11 @@ export async function getDropiDailyDashboard(
 
     const meta_ads = dayAds.meta_ads;
     const tiktok_ads = dayAds.tiktok_ads;
+    const meta_agency_fee_pct = dayAds.meta_agency_fee_pct;
+    const tiktok_agency_fee_pct = dayAds.tiktok_agency_fee_pct;
+    const meta_commission = meta_agency_fee_pct > 0 ? meta_ads * (meta_agency_fee_pct / 100) / (1 + meta_agency_fee_pct / 100) : 0;
+    const tiktok_commission = tiktok_agency_fee_pct > 0 ? tiktok_ads * (tiktok_agency_fee_pct / 100) / (1 + tiktok_agency_fee_pct / 100) : 0;
+    const total_commission = meta_commission + tiktok_commission;
     const total_ads = meta_ads + tiktok_ads;
     const pnl_teorico = bruto - total_ads;
     const pnl_real =
@@ -157,6 +167,9 @@ export async function getDropiDailyDashboard(
       meta_ads,
       tiktok_ads,
       total_ads,
+      meta_agency_fee_pct,
+      tiktok_agency_fee_pct,
+      total_commission: Math.round(total_commission * 100) / 100,
       pnl_teorico: Math.round(pnl_teorico * 100) / 100,
       pnl_real: Math.round(pnl_real * 100) / 100,
       pct_margin,
