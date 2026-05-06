@@ -52,7 +52,7 @@ const columnInfo: Record<string, string> = {
   "Bruto": "Bruto: suma del neto (venta - costo producto) de los enviados",
   "Ads": "Ads: gasto base en Meta Ads + TikTok Ads (sin comisión agencia)",
   "Gest.": "Gestión: costo de envío por pedido × cantidad de enviados",
-  "Gastos": "Gastos: Ads + Gestión",
+  "Gastos": "Gastos: Ads base + Comisión agencia + Gestión",
   "P&L Teo.": "P&L Teórico: Bruto - Gastos (asume que todos se entregan)",
   "P&L Real": "P&L Real: Neto entregados + Neto rechazados - Gastos",
   "%Vtas": "Margen: P&L Real / Ventas",
