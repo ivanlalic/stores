@@ -69,7 +69,13 @@ export async function GET(request: NextRequest) {
   const balance = parseFloat(amounts?.amount ?? "0");
   const fondosDisponibles = parseFloat(amounts?.withdraw_amount ?? "0");
 
-  // Count our pending orders (sent but not delivered/rejected/cancelled)
+  // Count pending orders (sent but not resolved) from current month + previous month only.
+  // Orders older than 2 months are assumed resolved (delivered or returned).
+  const now = new Date();
+  const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    .toISOString()
+    .split("T")[0];
+
   const { count: pendientes } = await insforge.database
     .from("pedidos")
     .select("id", { count: "exact", head: true })
@@ -77,7 +83,8 @@ export async function GET(request: NextRequest) {
     .eq("es_enviado", true)
     .eq("es_entregado", false)
     .eq("es_rechazado", false)
-    .eq("es_cancelado", false);
+    .eq("es_cancelado", false)
+    .gte("fecha", prevMonthStart);
 
   const totalPendientes = pendientes ?? 0;
   // fondosDisponibles already excludes Dropea's own reserves; subtract our worst-case pending
