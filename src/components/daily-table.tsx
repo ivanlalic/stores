@@ -59,14 +59,15 @@ const columnInfo: Record<string, string> = {
   "CPA Env.": "CPA Enviado: Ads / Enviados",
   "CPA Real": "CPA Real: Ads / Entregados",
   "Comis.": "Comisión agencia: parte del gasto de Ads que corresponde a la comisión de la agencia publicitaria",
+  "%G": "Gastos ÷ Ventas — qué porcentaje de la facturación se va en gastos",
 };
 
 // Columns hidden on mobile (< sm)
-const mobileHidden = new Set(["Ped.", "Ent.", "Pend.", "Rech.", "Canc.", "%Ent", "Bruto", "Ads", "Comis.", "Gest.", "Gastos", "CPA Env.", "CPA Real"]);
+const mobileHidden = new Set(["Ped.", "Ent.", "Pend.", "Rech.", "Canc.", "%Ent", "Bruto", "Ads", "Comis.", "Gest.", "Gastos", "%G", "CPA Env.", "CPA Real"]);
 
 const columnGroups = [
   { label: "Pedidos", cols: ["Dia", "Ped.", "Env.", "Ent.", "Pend.", "Rech.", "Canc.", "%Ent"] },
-  { label: "Finanzas", cols: ["Ventas", "Bruto", "Ads", "Comis.", "Gest.", "Gastos"] },
+  { label: "Finanzas", cols: ["Ventas", "Bruto", "Ads", "Comis.", "Gest.", "Gastos", "%G"] },
   { label: "Resultado", cols: ["P&L Teo.", "P&L Real", "%Vtas"] },
   { label: "CPA", cols: ["CPA Env.", "CPA Real"] },
 ];
@@ -135,6 +136,7 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
 
   const totalTasaEntrega = totals.enviados > 0 ? totals.entregados / totals.enviados : 0;
   const totalPctMargin = totals.ventas > 0 ? totals.pnl_real / totals.ventas : 0;
+  const totalPctGastos = totals.ventas > 0 ? totals.gastos / totals.ventas : 0;
   const totalCpaEnviado = totals.enviados > 0 ? totals.total_ads / totals.enviados : 0;
   const totalCpaReal = totals.entregados > 0 ? totals.total_ads / totals.entregados : 0;
 
@@ -176,6 +178,7 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
               {visibleRows.map((row, i) => {
                 const { day, weekday } = formatDate(row.fecha);
                 const isWeekend = weekday === "sáb" || weekday === "dom" || weekday === "sáb." || weekday === "dom.";
+                const pctGastos = row.ventas > 0 ? row.gastos / row.ventas : 0;
                 return (
                   <TableRow
                     key={row.fecha}
@@ -218,7 +221,9 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
                     {/* Gest. — hidden mobile */}
                     <ValueCell col="Gest." value={eur(row.gestion)} />
                     {/* Gastos — hidden mobile */}
-                    <TableCell className={`text-right tabular-nums border-r border-border/40 ${hid("Gastos")}`}>{eur(row.gastos)}</TableCell>
+                    <TableCell className={`text-right tabular-nums ${hid("Gastos")}`}>{eur(row.gastos)}</TableCell>
+                    {/* %G — hidden mobile */}
+                    <TableCell className={`text-right tabular-nums text-muted-foreground border-r border-border/40 ${hid("%G")}`}>{pct(pctGastos)}</TableCell>
                     {/* P&L Teo. — visible */}
                     <ValueCell col="P&L Teo." value={eur(row.pnl_teorico)} negative={row.pnl_teorico < 0} positive={row.pnl_teorico > 0} />
                     {/* P&L Real — visible */}
@@ -252,7 +257,8 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
                 <TableCell className={`text-right tabular-nums ${hid("Ads")}`}>{eur(totals.total_ads - totals.total_commission)}</TableCell>
                 <TableCell className={`text-right tabular-nums ${hid("Comis.")}`}>{totals.total_commission > 0 ? eur(totals.total_commission) : "—"}</TableCell>
                 <TableCell className={`text-right tabular-nums ${hid("Gest.")}`}>{eur(totals.gestion)}</TableCell>
-                <TableCell className={`text-right tabular-nums border-r border-border/40 ${hid("Gastos")}`}>{eur(totals.gastos)}</TableCell>
+                <TableCell className={`text-right tabular-nums ${hid("Gastos")}`}>{eur(totals.gastos)}</TableCell>
+                <TableCell className={`text-right tabular-nums text-muted-foreground border-r border-border/40 ${hid("%G")}`}>{pct(totalPctGastos)}</TableCell>
                 <ValueCell col="P&L Teo." value={eur(totals.pnl_teorico)} negative={totals.pnl_teorico < 0} positive={totals.pnl_teorico > 0} bold />
                 <ValueCell col="P&L Real" value={eur(totals.pnl_real)} negative={totals.pnl_real < 0} positive={totals.pnl_real > 0} bold />
                 <TableCell className="text-right tabular-nums border-r border-border/40">{pct(totalPctMargin)}</TableCell>
