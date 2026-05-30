@@ -22,6 +22,8 @@ import type { DailyRow } from "@/lib/queries/dashboard";
 interface DailyTableProps {
   rows: DailyRow[];
   onRowClick: (fecha: string, metaAds: number, tiktokAds: number, metaFee: number, tiktokFee: number) => void;
+  label1?: string;
+  label2?: string;
 }
 
 function formatDate(fecha: string) {
@@ -51,6 +53,7 @@ const columnInfo: Record<string, string> = {
   "Ventas": "Ventas: suma del precio de venta de los pedidos enviados",
   "Bruto": "Bruto: suma del neto (venta - costo producto) de los enviados",
   "Ads": "Ads: gasto base en Meta Ads + TikTok Ads (sin comisión agencia)",
+  "Ads Tot.": "Ads Tot.: gasto base total consolidado en publicidad (sin comisiones)",
   "Gest.": "Gestión: costo de envío por pedido × cantidad de enviados",
   "Gastos": "Gastos: Ads base + Comisión agencia + Gestión",
   "P&L Teo.": "P&L Teórico: Bruto - Gastos (asume que todos se entregan)",
@@ -65,72 +68,93 @@ const columnInfo: Record<string, string> = {
 // Columns hidden on mobile (< sm)
 const mobileHidden = new Set(["Ped.", "Ent.", "Pend.", "Rech.", "Canc.", "%Ent", "Bruto", "Ads", "Comis.", "Gest.", "Gastos", "%G", "CPA Env.", "CPA Real"]);
 
-const columnGroups = [
-  { label: "Pedidos", cols: ["Dia", "Ped.", "Env.", "Ent.", "Pend.", "Rech.", "Canc.", "%Ent"] },
-  { label: "Finanzas", cols: ["Ventas", "Bruto", "Ads", "Comis.", "Gest.", "Gastos", "%G"] },
-  { label: "Resultado", cols: ["P&L Teo.", "P&L Real", "%Vtas"] },
-  { label: "CPA", cols: ["CPA Env.", "CPA Real"] },
-];
-
-function InfoHeader({ label }: { label: string }) {
-  const info = columnInfo[label];
-  if (!info) return <span>{label}</span>;
-
-  return (
-    <Tooltip>
-      <TooltipTrigger className="inline-flex items-center gap-0.5 cursor-help whitespace-nowrap">
-        {label}
-        <Info className="size-3 opacity-30" />
-      </TooltipTrigger>
-      <TooltipContent side="top" className="max-w-xs">
-        {info}
-      </TooltipContent>
-    </Tooltip>
-  );
-}
-
-function hid(col: string) {
-  return mobileHidden.has(col) ? "hidden sm:table-cell" : "";
-}
-
-function ValueCell({ value, negative, positive, bold, col }: { value: string; negative?: boolean; positive?: boolean; bold?: boolean; col: string }) {
-  return (
-    <TableCell
-      className={`text-right tabular-nums ${hid(col)} ${bold ? "font-semibold" : ""} ${
-        negative ? "text-red-600 font-medium" : positive ? "text-emerald-600 font-medium" : ""
-      }`}
-    >
-      {value}
-    </TableCell>
-  );
-}
-
-export function DailyTable({ rows, onRowClick }: DailyTableProps) {
+export function DailyTable({ rows, onRowClick, label1 = "Meta Ads", label2 = "TikTok Ads" }: DailyTableProps) {
   const [showAll, setShowAll] = useState(false);
+  const [showAdsBreakdown, setShowAdsBreakdown] = useState(false);
+
   const displayRows = [...rows].reverse();
   const visibleRows = showAll ? displayRows : displayRows.slice(0, 5);
 
+  function hid(col: string) {
+    if (col === label1 || col === label2 || col === "Ads Tot.") return "hidden sm:table-cell";
+    return mobileHidden.has(col) ? "hidden sm:table-cell" : "";
+  }
+
+  function InfoHeader({ label }: { label: string }) {
+    const info = columnInfo[label] || `Gasto base en el canal publicitario ${label}`;
+    if (!info) return <span>{label}</span>;
+
+    return (
+      <Tooltip>
+        <TooltipTrigger className="inline-flex items-center gap-0.5 cursor-help whitespace-nowrap">
+          {label}
+          <Info className="size-3 opacity-30" />
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs">
+          {info}
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  function ValueCell({ value, negative, positive, bold, col }: { value: string; negative?: boolean; positive?: boolean; bold?: boolean; col: string }) {
+    return (
+      <TableCell
+        className={`text-right tabular-nums ${hid(col)} ${bold ? "font-semibold" : ""} ${
+          negative ? "text-red-600 font-medium" : positive ? "text-emerald-600 font-medium" : ""
+        }`}
+      >
+        {value}
+      </TableCell>
+    );
+  }
+
+  const dynamicCols = showAdsBreakdown
+    ? ["Ventas", "Bruto", label1, label2, "Ads Tot.", "Comis.", "Gest.", "Gastos", "%G"]
+    : ["Ventas", "Bruto", "Ads", "Comis.", "Gest.", "Gastos", "%G"];
+
+  const columnGroups = [
+    { label: "Pedidos", cols: ["Dia", "Ped.", "Env.", "Ent.", "Pend.", "Rech.", "Canc.", "%Ent"] },
+    { label: "Finanzas", cols: dynamicCols },
+    { label: "Resultado", cols: ["P&L Teo.", "P&L Real", "%Vtas"] },
+    { label: "CPA", cols: ["CPA Env.", "CPA Real"] },
+  ];
+
   const totals = rows.reduce(
-    (t, r) => ({
-      pedidos: t.pedidos + r.pedidos,
-      enviados: t.enviados + r.enviados,
-      entregados: t.entregados + r.entregados,
-      rechazados: t.rechazados + r.rechazados,
-      cancelados: t.cancelados + r.cancelados,
-      pendientes: t.pendientes + r.pendientes,
-      ventas: t.ventas + r.ventas,
-      bruto: t.bruto + r.bruto,
-      total_ads: t.total_ads + r.total_ads,
-      total_commission: t.total_commission + r.total_commission,
-      gestion: t.gestion + r.gestion,
-      gastos: t.gastos + r.gastos,
-      pnl_teorico: t.pnl_teorico + r.pnl_teorico,
-      pnl_real: t.pnl_real + r.pnl_real,
-    }),
+    (t, r) => {
+      const meta_commission = r.meta_agency_fee_pct > 0 
+        ? r.meta_ads * (r.meta_agency_fee_pct / 100) / (1 + r.meta_agency_fee_pct / 100) 
+        : 0;
+      const tiktok_commission = r.tiktok_agency_fee_pct > 0 
+        ? r.tiktok_ads * (r.tiktok_agency_fee_pct / 100) / (1 + r.tiktok_agency_fee_pct / 100) 
+        : 0;
+      const metaBase = r.meta_ads - meta_commission;
+      const tiktokBase = r.tiktok_ads - tiktok_commission;
+
+      return {
+        pedidos: t.pedidos + r.pedidos,
+        enviados: t.enviados + r.enviados,
+        entregados: t.entregados + r.entregados,
+        rechazados: t.rechazados + r.rechazados,
+        cancelados: t.cancelados + r.cancelados,
+        pendientes: t.pendientes + r.pendientes,
+        ventas: t.ventas + r.ventas,
+        bruto: t.bruto + r.bruto,
+        total_ads: t.total_ads + r.total_ads,
+        total_commission: t.total_commission + r.total_commission,
+        gestion: t.gestion + r.gestion,
+        gastos: t.gastos + r.gastos,
+        pnl_teorico: t.pnl_teorico + r.pnl_teorico,
+        pnl_real: t.pnl_real + r.pnl_real,
+        metaBase: t.metaBase + metaBase,
+        tiktokBase: t.tiktokBase + tiktokBase,
+      };
+    },
     {
       pedidos: 0, enviados: 0, entregados: 0, rechazados: 0,
       cancelados: 0, pendientes: 0, ventas: 0, bruto: 0,
       total_ads: 0, total_commission: 0, gestion: 0, gastos: 0, pnl_teorico: 0, pnl_real: 0,
+      metaBase: 0, tiktokBase: 0,
     }
   );
 
@@ -168,7 +192,25 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
                         hi === 0 && gi > 0 ? "border-l border-border/40" : ""
                       } py-2.5 bg-muted/80 ${hid(h)}`}
                     >
-                      <InfoHeader label={h} />
+                      {h === "Ads" ? (
+                        <button
+                          onClick={() => setShowAdsBreakdown(true)}
+                          className="inline-flex items-center gap-1 hover:text-foreground cursor-pointer font-semibold"
+                        >
+                          Ads
+                          <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/20 hover:bg-primary/20 transition-colors font-medium text-xs">+ Desglosar</span>
+                        </button>
+                      ) : h === "Ads Tot." ? (
+                        <button
+                          onClick={() => setShowAdsBreakdown(false)}
+                          className="inline-flex items-center gap-1 hover:text-foreground cursor-pointer font-semibold"
+                        >
+                          Ads Tot.
+                          <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/20 hover:bg-primary/20 transition-colors font-medium text-xs">- Colapsar</span>
+                        </button>
+                      ) : (
+                        <InfoHeader label={h} />
+                      )}
                     </TableHead>
                   ))
                 )}
@@ -179,6 +221,16 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
                 const { day, weekday } = formatDate(row.fecha);
                 const isWeekend = weekday === "sáb" || weekday === "dom" || weekday === "sáb." || weekday === "dom.";
                 const pctGastos = row.ventas > 0 ? row.gastos / row.ventas : 0;
+
+                const meta_commission = row.meta_agency_fee_pct > 0 
+                  ? row.meta_ads * (row.meta_agency_fee_pct / 100) / (1 + row.meta_agency_fee_pct / 100) 
+                  : 0;
+                const tiktok_commission = row.tiktok_agency_fee_pct > 0 
+                  ? row.tiktok_ads * (row.tiktok_agency_fee_pct / 100) / (1 + row.tiktok_agency_fee_pct / 100) 
+                  : 0;
+                const metaBase = row.meta_ads - meta_commission;
+                const tiktokBase = row.tiktok_ads - tiktok_commission;
+
                 return (
                   <TableRow
                     key={row.fecha}
@@ -214,8 +266,18 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
                     <ValueCell col="Ventas" value={eur(row.ventas)} />
                     {/* Bruto — hidden mobile */}
                     <ValueCell col="Bruto" value={eur(row.bruto)} />
-                    {/* Ads — hidden mobile, shows base without commission */}
-                    <ValueCell col="Ads" value={eur(row.total_ads - row.total_commission)} />
+                    
+                    {/* Ads Columns */}
+                    {!showAdsBreakdown ? (
+                      <ValueCell col="Ads" value={eur(row.total_ads - row.total_commission)} />
+                    ) : (
+                      <>
+                        <ValueCell col={label1} value={eur(metaBase)} />
+                        <ValueCell col={label2} value={eur(tiktokBase)} />
+                        <ValueCell col="Ads Tot." value={eur(row.total_ads - row.total_commission)} />
+                      </>
+                    )}
+
                     {/* Comis. — hidden mobile */}
                     <ValueCell col="Comis." value={row.total_commission > 0 ? eur(row.total_commission) : "—"} />
                     {/* Gest. — hidden mobile */}
@@ -254,7 +316,18 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
                 <TableCell className={`text-right tabular-nums border-r border-border/40 ${hid("%Ent")}`}>{pct(totalTasaEntrega)}</TableCell>
                 <TableCell className="text-right tabular-nums">{eur(totals.ventas)}</TableCell>
                 <TableCell className={`text-right tabular-nums ${hid("Bruto")}`}>{eur(totals.bruto)}</TableCell>
-                <TableCell className={`text-right tabular-nums ${hid("Ads")}`}>{eur(totals.total_ads - totals.total_commission)}</TableCell>
+                
+                {/* Ads Columns Totals */}
+                {!showAdsBreakdown ? (
+                  <TableCell className={`text-right tabular-nums ${hid("Ads")}`}>{eur(totals.total_ads - totals.total_commission)}</TableCell>
+                ) : (
+                  <>
+                    <TableCell className={`text-right tabular-nums ${hid(label1)}`}>{eur(totals.metaBase)}</TableCell>
+                    <TableCell className={`text-right tabular-nums ${hid(label2)}`}>{eur(totals.tiktokBase)}</TableCell>
+                    <TableCell className={`text-right tabular-nums ${hid("Ads Tot.")}`}>{eur(totals.total_ads - totals.total_commission)}</TableCell>
+                  </>
+                )}
+
                 <TableCell className={`text-right tabular-nums ${hid("Comis.")}`}>{totals.total_commission > 0 ? eur(totals.total_commission) : "—"}</TableCell>
                 <TableCell className={`text-right tabular-nums ${hid("Gest.")}`}>{eur(totals.gestion)}</TableCell>
                 <TableCell className={`text-right tabular-nums ${hid("Gastos")}`}>{eur(totals.gastos)}</TableCell>
@@ -269,7 +342,7 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
               {/* Expand / collapse */}
               {rows.length > 5 && (
                 <TableRow className="hover:bg-transparent border-0">
-                  <TableCell colSpan={19} className="text-center py-1.5">
+                  <TableCell colSpan={showAdsBreakdown ? 22 : 20} className="text-center py-1.5">
                     <button
                       onClick={() => setShowAll((s) => !s)}
                       className="text-xs text-muted-foreground hover:text-foreground transition-colors"

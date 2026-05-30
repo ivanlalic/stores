@@ -195,7 +195,12 @@ function DashboardContent() {
           <ChartStrip rows={rows} />
 
           {/* Table */}
-          <DailyTable rows={rows} onRowClick={handleRowClick} />
+          <DailyTable
+            rows={rows}
+            onRowClick={handleRowClick}
+            label1={beConfig.ads_label_1}
+            label2={beConfig.ads_label_2}
+          />
         </>
       )}
 
