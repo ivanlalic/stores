@@ -153,7 +153,7 @@ function DashboardContent() {
       ) : (
         <>
           {/* All KPI cards — 5+2, single row on 2xl ultrawide */}
-          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
             <VentasCard rows={rows} />
             <PnlCard rows={rows} costoRechazo={beConfig.costo_rechazo} />
             <TasaEntregaCard rows={rows} />
