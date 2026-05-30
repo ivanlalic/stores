@@ -48,6 +48,7 @@ function DashboardContent() {
   const [rows, setRows] = useState<DailyRow[]>([]);
   const [beMetrics, setBeMetrics] = useState<BreakevenMetrics | null>(null);
   const [beConfig, setBeConfig] = useState<{ costo_rechazo: number; dias_rolling: number; ads_label_1: string; ads_label_2: string }>({ costo_rechazo: 13.76, dias_rolling: 30, ads_label_1: "Meta Ads", ads_label_2: "TikTok Ads" });
+  const [storeName, setStoreName] = useState("");
   const [loading, setLoading] = useState(true);
 
   const [wallet, setWallet] = useState<{
@@ -96,6 +97,7 @@ function DashboardContent() {
       setRows(data.rows || []);
       setBeMetrics(data.breakevenMetrics || null);
       if (data.breakevenConfig) setBeConfig(data.breakevenConfig);
+      if (data.storeName) setStoreName(data.storeName);
     } catch {
       // handle error
     } finally {
@@ -114,7 +116,7 @@ function DashboardContent() {
   return (
     <div className="space-y-3 sm:space-y-4">
       {/* Header bar */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 relative">
         <SidebarTrigger className="size-8 shrink-0" />
         <Button
           variant="outline"
@@ -136,6 +138,21 @@ function DashboardContent() {
         >
           <ChevronRight className="size-4" />
         </Button>
+
+        {/* Center: Active Store Badge */}
+        {storeName && (
+          <div className="absolute left-1/2 -translate-x-1/2 hidden md:flex items-center gap-2 px-3 py-1 bg-accent/40 rounded-full border border-border/80 shadow-sm backdrop-blur-sm">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="font-bold text-xs tracking-tight text-foreground">{storeName}</span>
+            <span className="text-[9px] font-semibold text-muted-foreground uppercase bg-background px-1.5 py-0.5 rounded border border-border/60">
+              Dropea
+            </span>
+          </div>
+        )}
+
         <div className="flex-1" />
         <SyncButton onComplete={fetchData} storeId={storeId || undefined} />
       </div>

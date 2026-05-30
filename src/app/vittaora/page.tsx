@@ -120,7 +120,7 @@ function VittaoraContent() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex items-center justify-between flex-wrap gap-3 relative">
         <div className="flex items-center gap-2">
           <SidebarTrigger className="size-8 shrink-0" />
           <div>
@@ -128,6 +128,20 @@ function VittaoraContent() {
             <p className="text-xs text-muted-foreground">Dropi · Portugal</p>
           </div>
         </div>
+
+        {/* Center: Active Store Badge */}
+        {storeName && (
+          <div className="absolute left-1/2 -translate-x-1/2 hidden lg:flex items-center gap-2 px-3 py-1 bg-accent/40 rounded-full border border-border/80 shadow-sm backdrop-blur-sm">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
+            </span>
+            <span className="font-bold text-xs tracking-tight text-foreground">{storeName}</span>
+            <span className="text-[9px] font-semibold text-muted-foreground uppercase bg-background px-1.5 py-0.5 rounded border border-border/60">
+              Dropi
+            </span>
+          </div>
+        )}
         <div className="flex items-center gap-3 flex-wrap">
           <MonthSelector month={month} onChange={setMonth} />
           <Button

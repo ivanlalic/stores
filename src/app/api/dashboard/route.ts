@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
 
   if (type === "monthly") {
     const rows = await getMonthlyDashboard(insforge, store.id, breakevenConfig.fee_gestion_eur);
-    return NextResponse.json({ rows, breakevenConfig });
+    return NextResponse.json({ rows, breakevenConfig, storeName: store.name });
   }
 
   if (type === "productos") {
@@ -51,5 +51,5 @@ export async function GET(request: NextRequest) {
     `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
   const rows = await getDailyDashboard(insforge, store.id, currentMonth, breakevenConfig.fee_gestion_eur);
   const breakevenMetrics = await getBreakevenMetrics(insforge, store.id, rows, breakevenConfig);
-  return NextResponse.json({ rows, month: currentMonth, breakevenConfig, breakevenMetrics });
+  return NextResponse.json({ rows, month: currentMonth, breakevenConfig, breakevenMetrics, storeName: store.name });
 }

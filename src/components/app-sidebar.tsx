@@ -121,23 +121,37 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {stores.map((s) => (
-                <SidebarMenuItem key={s.id}>
-                  <SidebarMenuButton
-                    render={<Link href={storeHref(s)} />}
-                    isActive={isStoreActive(s)}
-                  >
-                    {s.type === "dropi"
-                      ? <ShoppingBag className="size-4" />
-                      : <TrendingUp className="size-4" />
-                    }
-                    <span>{s.name}</span>
-                    <span className="text-xs text-muted-foreground ml-auto capitalize">
-                      {s.is_owner ? s.type : "Compartida"}
-                    </span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {stores.map((s) => {
+                const active = isStoreActive(s);
+                return (
+                  <SidebarMenuItem key={s.id}>
+                    <SidebarMenuButton
+                      render={<Link href={storeHref(s)} />}
+                      isActive={active}
+                      className={`relative transition-all duration-300 ${
+                        active
+                          ? "bg-accent/80 border-l-2 border-primary text-foreground font-semibold shadow-sm backdrop-blur-sm"
+                          : "hover:bg-accent/40"
+                      }`}
+                    >
+                      {active ? (
+                        <span className="relative flex h-2 w-2 shrink-0 mr-1.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                      ) : s.type === "dropi" ? (
+                        <ShoppingBag className="size-4 shrink-0 text-muted-foreground" />
+                      ) : (
+                        <TrendingUp className="size-4 shrink-0 text-muted-foreground" />
+                      )}
+                      <span className="truncate">{s.name}</span>
+                      <span className="text-[10px] text-muted-foreground ml-auto capitalize bg-background/50 px-1 py-0.2 rounded border border-border/40">
+                        {s.is_owner ? s.type : "Compartida"}
+                      </span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
               {stores.length === 0 && (
                 <SidebarMenuItem>
                   <div className="px-2 py-1.5 text-xs text-muted-foreground">Cargando...</div>
