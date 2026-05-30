@@ -75,7 +75,15 @@ function DropeaStoreCard({
 }) {
   const [f, setF] = useStoreForm(store);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const [inviteUrl, setInviteUrl] = useState("");
+
+  useEffect(() => {
+    if (!confirmDelete) {
+      setDeleteError("");
+    }
+  }, [confirmDelete]);
   const [generatingInvite, setGeneratingInvite] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -146,8 +154,22 @@ function DropeaStoreCard({
   }
 
   async function handleDelete() {
-    const res = await fetch(`/api/stores/${store.id}`, { method: "DELETE" });
-    if (res.ok) onDeleted();
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      const res = await fetch(`/api/stores/${store.id}`, { method: "DELETE" });
+      if (res.ok) {
+        setConfirmDelete(false);
+        onDeleted();
+      } else {
+        const data = await res.json();
+        setDeleteError(data.error || "No se pudo eliminar la tienda. Asegúrate de que no haya dependencias.");
+      }
+    } catch {
+      setDeleteError("Error de conexión al eliminar la tienda.");
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
@@ -294,9 +316,16 @@ function DropeaStoreCard({
           <p className="text-sm text-muted-foreground">
             ¿Eliminar <strong>{store.name}</strong>? Esta acción no se puede deshacer. Los pedidos sincronizados se perderán.
           </p>
+          {deleteError && (
+            <p className="text-xs text-destructive bg-destructive/10 p-2 rounded border border-destructive/20 mt-2">
+              {deleteError}
+            </p>
+          )}
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setConfirmDelete(false)}>Cancelar</Button>
-            <Button variant="destructive" onClick={handleDelete}>Eliminar</Button>
+            <Button variant="outline" onClick={() => setConfirmDelete(false)} disabled={deleting}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting ? "Eliminando..." : "Eliminar"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -315,6 +344,14 @@ function DropiStoreCard({
 }) {
   const [f, setF] = useStoreForm(store);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  useEffect(() => {
+    if (!confirmDelete) {
+      setDeleteError("");
+    }
+  }, [confirmDelete]);
 
   if (!store.is_owner) {
     return (
@@ -379,8 +416,22 @@ function DropiStoreCard({
   }
 
   async function handleDelete() {
-    const res = await fetch(`/api/stores/${store.id}`, { method: "DELETE" });
-    if (res.ok) onDeleted();
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      const res = await fetch(`/api/stores/${store.id}`, { method: "DELETE" });
+      if (res.ok) {
+        setConfirmDelete(false);
+        onDeleted();
+      } else {
+        const data = await res.json();
+        setDeleteError(data.error || "No se pudo eliminar la tienda. Asegúrate de que no haya dependencias.");
+      }
+    } catch {
+      setDeleteError("Error de conexión al eliminar la tienda.");
+    } finally {
+      setDeleting(false);
+    }
   }
 
   const webhookUrl = `https://stores-steel.vercel.app/api/dropi/webhook`;
@@ -464,9 +515,16 @@ function DropiStoreCard({
           <p className="text-sm text-muted-foreground">
             ¿Eliminar <strong>{store.name}</strong>? Esta acción no se puede deshacer.
           </p>
+          {deleteError && (
+            <p className="text-xs text-destructive bg-destructive/10 p-2 rounded border border-destructive/20 mt-2">
+              {deleteError}
+            </p>
+          )}
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setConfirmDelete(false)}>Cancelar</Button>
-            <Button variant="destructive" onClick={handleDelete}>Eliminar</Button>
+            <Button variant="outline" onClick={() => setConfirmDelete(false)} disabled={deleting}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting ? "Eliminando..." : "Eliminar"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
