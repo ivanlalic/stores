@@ -78,6 +78,7 @@ export async function POST(request: NextRequest) {
     cpa_promedio,
     tasa_entrega_manual,
     costo_rechazo = 14.00,
+    costo_fulfillment_proveedor = 0.00,
   } = body;
 
   if (!store_id) return NextResponse.json({ error: "store_id is required" }, { status: 400 });
@@ -94,6 +95,7 @@ export async function POST(request: NextRequest) {
     cpa_promedio: Number(cpa_promedio) || 0,
     tasa_entrega_manual: tasa_entrega_manual !== null && tasa_entrega_manual !== undefined ? Number(tasa_entrega_manual) : null,
     costo_rechazo: Number(costo_rechazo) || 14.00,
+    costo_fulfillment_proveedor: Number(costo_fulfillment_proveedor) || 0.00,
     updated_at: new Date().toISOString(),
   };
 

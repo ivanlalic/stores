@@ -14,6 +14,7 @@ interface Simulation {
   cpa_promedio: number;
   tasa_entrega_manual: number | null;
   costo_rechazo: number;
+  costo_fulfillment_proveedor: number;
 }
 
 function SimuladorContent() {
@@ -33,6 +34,7 @@ function SimuladorContent() {
   const [cpaPromedio, setCpaPromedio] = useState(5.00);
   const [tasaEntrega, setTasaEntrega] = useState(0.75); // 75%
   const [costoRechazo, setCostoRechazo] = useState(14.00);
+  const [costoFulfillment, setCostoFulfillment] = useState(0.00);
 
   // Auto/Manual Rate Status
   const [isAutoTasa, setIsAutoTasa] = useState(false);
@@ -156,6 +158,7 @@ function SimuladorContent() {
       setCpaPromedio(5.00);
       setTasaEntrega(0.75);
       setCostoRechazo(14.00);
+      setCostoFulfillment(0.00);
       setIsAutoTasa(false);
       return;
     }
@@ -169,6 +172,7 @@ function SimuladorContent() {
       setCostoEnvioCod(Number(sim.costo_envio_cod));
       setCpaPromedio(Number(sim.cpa_promedio));
       setCostoRechazo(Number(sim.costo_rechazo));
+      setCostoFulfillment(Number(sim.costo_fulfillment_proveedor) || 0.00);
 
       if (sim.tasa_entrega_manual !== null) {
         setIsAutoTasa(false);
@@ -199,6 +203,7 @@ function SimuladorContent() {
           cpa_promedio: cpaPromedio,
           tasa_entrega_manual: isAutoTasa ? null : tasaEntrega,
           costo_rechazo: costoRechazo,
+          costo_fulfillment_proveedor: costoFulfillment,
         }),
       });
 
@@ -241,6 +246,7 @@ function SimuladorContent() {
           setCpaPromedio(5.00);
           setTasaEntrega(0.75);
           setCostoRechazo(14.00);
+          setCostoFulfillment(0.00);
           setIsAutoTasa(false);
           setSelectedId("");
           setIsFormOpen(false); // Close edit form on selection deletion
@@ -260,7 +266,7 @@ function SimuladorContent() {
   // Helper for rendering metrics on the comparative list
   function calculateSimStats(s: Simulation) {
     const precio = Number(s.precio_venta);
-    const costoTotal = Number(s.costo_unitario) * Number(s.unidades_por_venta);
+    const costoTotal = (Number(s.costo_unitario) * Number(s.unidades_por_venta)) + (Number(s.costo_fulfillment_proveedor) || 0);
     const envio = Number(s.costo_envio_cod);
     const cpa = Number(s.cpa_promedio);
     const rechazo = Number(s.costo_rechazo);
@@ -283,7 +289,7 @@ function SimuladorContent() {
 
   // 5. Mathematical Calculations (useMemo)
   const stats = useMemo(() => {
-    const costoProductoTotal = costoUnitario * unidades;
+    const costoProductoTotal = (costoUnitario * unidades) + costoFulfillment;
     const margenDelivered = precioVenta - costoProductoTotal - costoEnvioCod - cpaPromedio;
     const lossRejected = costoRechazo + cpaPromedio;
 
@@ -320,6 +326,7 @@ function SimuladorContent() {
       const envCOD = isSelected ? costoEnvioCod : Number(s.costo_envio_cod);
       const cpaVal = isSelected ? cpaPromedio : Number(s.cpa_promedio);
       const rechazoCost = isSelected ? costoRechazo : Number(s.costo_rechazo);
+      const fulfillmentCost = isSelected ? costoFulfillment : (Number(s.costo_fulfillment_proveedor) || 0);
       
       const tasa = isSelected 
         ? tasaEntrega 
@@ -327,7 +334,7 @@ function SimuladorContent() {
         ? Number(s.tasa_entrega_manual) 
         : 0.75;
       
-      const costoTotal = costoUnit * unitsNum;
+      const costoTotal = (costoUnit * unitsNum) + fulfillmentCost;
       const profitDelivered = precio - costoTotal - envCOD - cpaVal;
       const lossRejected = rechazoCost + cpaVal;
       const expectedProfit = (tasa * profitDelivered) - ((1 - tasa) * lossRejected);
@@ -513,9 +520,9 @@ function SimuladorContent() {
                     </div>
 
                     {/* Price & Cost Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                       <div>
-                        <label className="block text-xs font-semibold text-muted-foreground mb-1">Precio de Venta (€)</label>
+                        <label className="block text-[10px] sm:text-xs font-semibold text-muted-foreground mb-1">Precio de Venta (€)</label>
                         <input
                           type="number"
                           step="0.01"
@@ -525,7 +532,7 @@ function SimuladorContent() {
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-muted-foreground mb-1">Costo Unitario Producto (€)</label>
+                        <label className="block text-[10px] sm:text-xs font-semibold text-muted-foreground mb-1">Costo Unitario (€)</label>
                         <input
                           type="number"
                           step="0.01"
@@ -535,12 +542,22 @@ function SimuladorContent() {
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-muted-foreground mb-1">Unidades en Oferta</label>
+                        <label className="block text-[10px] sm:text-xs font-semibold text-muted-foreground mb-1">Unidades</label>
                         <input
                           type="number"
                           min="1"
                           value={unidades}
                           onChange={(e) => setUnidades(Number(e.target.value))}
+                          className="w-full text-sm border rounded px-3 py-1.5 bg-background focus:ring-1 focus:ring-primary focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] sm:text-xs font-semibold text-muted-foreground mb-1">Fulfillment Prov. (€)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={costoFulfillment}
+                          onChange={(e) => setCostoFulfillment(Number(e.target.value))}
                           className="w-full text-sm border rounded px-3 py-1.5 bg-background focus:ring-1 focus:ring-primary focus:outline-none"
                         />
                       </div>
@@ -807,6 +824,7 @@ function SimuladorContent() {
                       <th className="py-2.5 px-3 text-right">Precio Venta</th>
                       <th className="py-2.5 px-3 text-right">Costo Unitario</th>
                       <th className="py-2.5 px-3 text-center">Unidades</th>
+                      <th className="py-2.5 px-3 text-right">Fulfillment Prov.</th>
                       <th className="py-2.5 px-3 text-right">Costo Total</th>
                       <th className="py-2.5 px-3 text-right">Costo Envío + COD</th>
                       <th className="py-2.5 px-3 text-right">CPA Promedio</th>
@@ -869,6 +887,7 @@ function SimuladorContent() {
                           <td className="py-3 px-3 text-right font-medium">{item.precio.toFixed(2)}€</td>
                           <td className="py-3 px-3 text-right text-muted-foreground">{item.costoUnit.toFixed(2)}€</td>
                           <td className="py-3 px-3 text-center text-muted-foreground">{item.unitsNum}x</td>
+                          <td className="py-3 px-3 text-right text-muted-foreground">{(isSelected ? costoFulfillment : (Number(s.costo_fulfillment_proveedor) || 0)).toFixed(2)}€</td>
                           <td className="py-3 px-3 text-right text-muted-foreground">{item.costoTotal.toFixed(2)}€</td>
                           <td className="py-3 px-3 text-right text-muted-foreground">{item.envCOD.toFixed(2)}€</td>
                           <td className="py-3 px-3 text-right text-muted-foreground">{item.cpaVal.toFixed(2)}€</td>
@@ -969,6 +988,7 @@ function SimuladorContent() {
                       <td className="py-3 px-3 text-right text-muted-foreground">-</td>
                       <td className="py-3 px-3 text-right text-muted-foreground">-</td>
                       <td className="py-3 px-3 text-center text-muted-foreground">-</td>
+                      <td className="py-3 px-3 text-right text-muted-foreground">-</td>
                       <td className="py-3 px-3 text-right text-muted-foreground">-</td>
                       <td className="py-3 px-3 text-right text-muted-foreground">-</td>
                       <td className="py-3 px-3 text-right text-muted-foreground">-</td>
