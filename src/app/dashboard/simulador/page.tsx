@@ -47,6 +47,24 @@ function SimuladorContent() {
   const [rowScaleSettings, setRowScaleSettings] = useState<Record<string, { mode: "pedidos" | "presupuesto"; value: number }>>({});
   const [isFormOpen, setIsFormOpen] = useState(false);
 
+  // Sorting state
+  const [sortBy, setSortBy] = useState<"nombre" | "expectedProfit" | "roi" | "dailyProfit">("nombre");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+
+  function handleSort(field: "nombre" | "expectedProfit" | "roi" | "dailyProfit") {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(field);
+      setSortOrder("desc"); // Default to descending because users want higher values first!
+    }
+  }
+
+  function getSortIcon(field: "nombre" | "expectedProfit" | "roi" | "dailyProfit") {
+    if (sortBy !== field) return " ↕️";
+    return sortOrder === "asc" ? " ▲" : " ▼";
+  }
+
   // Sync scale settings with localStorage
   useEffect(() => {
     const saved = localStorage.getItem("simulador_row_scale_settings");
@@ -291,6 +309,139 @@ function SimuladorContent() {
       marginStatus,
     };
   }, [precioVenta, costoUnitario, unidades, costoEnvioCod, cpaPromedio, tasaEntrega, costoRechazo]);
+
+  // Sorted and calculated simulations list for rendering and sorting
+  const sortedSimulations = useMemo(() => {
+    const computed = simulations.map((s) => {
+      const isSelected = s.id === selectedId;
+      const precio = isSelected ? precioVenta : Number(s.precio_venta);
+      const costoUnit = isSelected ? costoUnitario : Number(s.costo_unitario);
+      const unitsNum = isSelected ? unidades : Number(s.unidades_por_venta);
+      const envCOD = isSelected ? costoEnvioCod : Number(s.costo_envio_cod);
+      const cpaVal = isSelected ? cpaPromedio : Number(s.cpa_promedio);
+      const rechazoCost = isSelected ? costoRechazo : Number(s.costo_rechazo);
+      
+      const tasa = isSelected 
+        ? tasaEntrega 
+        : s.tasa_entrega_manual !== null 
+        ? Number(s.tasa_entrega_manual) 
+        : 0.75;
+      
+      const costoTotal = costoUnit * unitsNum;
+      const profitDelivered = precio - costoTotal - envCOD - cpaVal;
+      const lossRejected = rechazoCost + cpaVal;
+      const expectedProfit = (tasa * profitDelivered) - ((1 - tasa) * lossRejected);
+      const breakevenCpa = tasa * (precio - costoTotal - envCOD) - (1 - tasa) * rechazoCost;
+
+      const tasaFormatted = isSelected
+        ? `${Math.round(tasa * 100)}%`
+        : s.tasa_entrega_manual !== null
+        ? `${Math.round(tasa * 100)}%`
+        : "Auto (75%) 🔄";
+
+      // Calculate Scaling Volume (individual per row)
+      const setting = rowScaleSettings[s.id] || { mode: "pedidos", value: 10 };
+      let projectedOrders = 0;
+      let projectedAdsSpend = 0;
+      
+      if (setting.mode === "pedidos") {
+        projectedOrders = setting.value;
+        projectedAdsSpend = setting.value * cpaVal;
+      } else {
+        projectedAdsSpend = setting.value;
+        projectedOrders = cpaVal > 0 ? setting.value / cpaVal : 0;
+      }
+      
+      const projectedDailyProfit = projectedOrders * expectedProfit;
+      const adsRoi = projectedAdsSpend > 0 ? (projectedDailyProfit / projectedAdsSpend) * 100 : 0;
+
+      return {
+        simulation: s,
+        id: s.id,
+        nombre: isSelected ? nombre : s.nombre,
+        precio,
+        costoUnit,
+        unitsNum,
+        envCOD,
+        cpaVal,
+        rechazoCost,
+        tasa,
+        costoTotal,
+        profitDelivered,
+        lossRejected,
+        expectedProfit,
+        breakevenCpa,
+        tasaFormatted,
+        projectedOrders,
+        projectedAdsSpend,
+        projectedDailyProfit,
+        adsRoi,
+      };
+    });
+
+    return [...computed].sort((a, b) => {
+      let valA: any;
+      let valB: any;
+
+      if (sortBy === "nombre") {
+        valA = a.nombre.toLowerCase();
+        valB = b.nombre.toLowerCase();
+      } else if (sortBy === "expectedProfit") {
+        valA = a.expectedProfit;
+        valB = b.expectedProfit;
+      } else if (sortBy === "roi") {
+        valA = a.adsRoi;
+        valB = b.adsRoi;
+      } else if (sortBy === "dailyProfit") {
+        valA = a.projectedDailyProfit;
+        valB = b.projectedDailyProfit;
+      } else {
+        return 0;
+      }
+
+      if (valA < valB) return sortOrder === "asc" ? -1 : 1;
+      if (valA > valB) return sortOrder === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [
+    simulations,
+    selectedId,
+    precioVenta,
+    costoUnitario,
+    unidades,
+    costoEnvioCod,
+    cpaPromedio,
+    tasaEntrega,
+    costoRechazo,
+    nombre,
+    rowScaleSettings,
+    sortBy,
+    sortOrder,
+  ]);
+
+  // Aggregated totals of projected volumes
+  const totals = useMemo(() => {
+    let totalAdsSpend = 0;
+    let totalDailyProfit = 0;
+    let totalOrders = 0;
+
+    sortedSimulations.forEach((item) => {
+      totalAdsSpend += item.projectedAdsSpend;
+      totalDailyProfit += item.projectedDailyProfit;
+      totalOrders += item.projectedOrders;
+    });
+
+    const totalMonthlyProfit = totalDailyProfit * 30;
+    const overallRoi = totalAdsSpend > 0 ? (totalDailyProfit / totalAdsSpend) * 100 : 0;
+
+    return {
+      totalAdsSpend,
+      totalDailyProfit,
+      totalMonthlyProfit,
+      totalOrders,
+      overallRoi,
+    };
+  }, [sortedSimulations]);
 
   if (!storeId) {
     return (
@@ -643,8 +794,16 @@ function SimuladorContent() {
               <div className="overflow-x-auto">
                 <table className="w-full text-xs text-left border-collapse">
                   <thead>
-                    <tr className="border-b bg-muted/40 font-semibold text-muted-foreground">
-                      <th className="py-2.5 px-3">Producto / Oferta</th>
+                    <tr className="border-b bg-muted/40 font-semibold text-muted-foreground select-none">
+                      <th 
+                        className="py-2.5 px-3 cursor-pointer hover:bg-muted/60 transition-all font-bold"
+                        onClick={() => handleSort("nombre")}
+                        title="Ordenar por Nombre"
+                      >
+                        <div className="flex items-center gap-1">
+                          Producto / Oferta{getSortIcon("nombre")}
+                        </div>
+                      </th>
                       <th className="py-2.5 px-3 text-right">Precio Venta</th>
                       <th className="py-2.5 px-3 text-right">Costo Unitario</th>
                       <th className="py-2.5 px-3 text-center">Unidades</th>
@@ -655,64 +814,46 @@ function SimuladorContent() {
                       <th className="py-2.5 px-3 text-right">CPA Límite</th>
                       <th className="py-2.5 px-3 text-right text-emerald-600 font-semibold bg-emerald-50/5">Si se Entrega</th>
                       <th className="py-2.5 px-3 text-right text-destructive font-semibold bg-destructive/5">Si se Rechaza</th>
-                      <th className="py-2.5 px-3 text-right border-r font-bold">Resultado / Envío</th>
+                      <th 
+                        className="py-2.5 px-3 text-right border-r font-black cursor-pointer hover:bg-muted/60 transition-all"
+                        onClick={() => handleSort("expectedProfit")}
+                        title="Ordenar por Resultado / Envío"
+                      >
+                        <div className="flex items-center justify-end gap-1">
+                          Resultado / Envío{getSortIcon("expectedProfit")}
+                        </div>
+                      </th>
                       
                       {/* Projection Headers */}
                       <th className="py-2.5 px-3 text-center bg-muted/20 text-primary font-bold">Simulado: Pedidos</th>
                       <th className="py-2.5 px-3 text-right bg-muted/20 text-primary font-bold">Simulado: Gasto Ads</th>
-                      <th className="py-2.5 px-3 text-right bg-muted/20 text-primary font-bold">Ganancia Diaria</th>
+                      <th 
+                        className="py-2.5 px-3 text-right bg-muted/20 text-primary font-black cursor-pointer hover:bg-muted/30 transition-all"
+                        onClick={() => handleSort("dailyProfit")}
+                        title="Ordenar por Ganancia Diaria"
+                      >
+                        <div className="flex items-center justify-end gap-1">
+                          Ganancia Diaria{getSortIcon("dailyProfit")}
+                        </div>
+                      </th>
                       <th className="py-2.5 px-3 text-right bg-muted/20 text-primary font-bold">Ganancia Mensual (30d)</th>
-                      <th className="py-2.5 px-3 text-center bg-muted/20 text-primary font-bold">ROI Ads</th>
+                      <th 
+                        className="py-2.5 px-3 text-center bg-muted/20 text-primary font-black cursor-pointer hover:bg-muted/30 transition-all"
+                        onClick={() => handleSort("roi")}
+                        title="Ordenar por ROI de Ads"
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          ROI Ads{getSortIcon("roi")}
+                        </div>
+                      </th>
                       
                       <th className="py-2.5 px-3 text-center">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {simulations.map((s) => {
-                      const rowStats = calculateSimStats(s);
+                    {sortedSimulations.map((item) => {
+                      const s = item.simulation;
                       const isSelected = s.id === selectedId;
-
-                      // If this row is selected (being edited), use the live form state variables instead of DB values!
-                      const precio = isSelected ? precioVenta : Number(s.precio_venta);
-                      const costoUnit = isSelected ? costoUnitario : Number(s.costo_unitario);
-                      const unitsNum = isSelected ? unidades : Number(s.unidades_por_venta);
-                      const envCOD = isSelected ? costoEnvioCod : Number(s.costo_envio_cod);
-                      const cpaVal = isSelected ? cpaPromedio : Number(s.cpa_promedio);
-                      const rechazoCost = isSelected ? costoRechazo : Number(s.costo_rechazo);
-                      
-                      const tasa = isSelected 
-                        ? tasaEntrega 
-                        : s.tasa_entrega_manual !== null 
-                        ? Number(s.tasa_entrega_manual) 
-                        : 0.75;
-                      
-                      const costoTotal = costoUnit * unitsNum;
-                      const profitDelivered = precio - costoTotal - envCOD - cpaVal;
-                      const lossRejected = rechazoCost + cpaVal;
-                      const expectedProfit = (tasa * profitDelivered) - ((1 - tasa) * lossRejected);
-                      const breakevenCpa = tasa * (precio - costoTotal - envCOD) - (1 - tasa) * rechazoCost;
-
-                      const tasaFormatted = isSelected
-                        ? `${Math.round(tasa * 100)}%`
-                        : s.tasa_entrega_manual !== null
-                        ? `${Math.round(tasa * 100)}%`
-                        : "Auto (75%) 🔄";
-
-                      // Calculate Scaling Volume (individual per row)
-                      const setting = rowScaleSettings[s.id] || { mode: "pedidos", value: 10 };
-                      let projectedOrders = 0;
-                      let projectedAdsSpend = 0;
-                      
-                      if (setting.mode === "pedidos") {
-                        projectedOrders = setting.value;
-                        projectedAdsSpend = setting.value * cpaVal;
-                      } else {
-                        projectedAdsSpend = setting.value;
-                        projectedOrders = cpaVal > 0 ? setting.value / cpaVal : 0;
-                      }
-                      
-                      const projectedDailyProfit = projectedOrders * expectedProfit;
-                      const adsRoi = projectedAdsSpend > 0 ? (projectedDailyProfit / projectedAdsSpend) * 100 : 0;
 
                       return (
                         <tr
@@ -723,22 +864,22 @@ function SimuladorContent() {
                           }`}
                         >
                           <td className="py-3 px-3 text-card-foreground font-medium truncate max-w-[150px]">
-                            {isSelected ? nombre : s.nombre}
+                            {item.nombre}
                           </td>
-                          <td className="py-3 px-3 text-right font-medium">{precio.toFixed(2)}€</td>
-                          <td className="py-3 px-3 text-right text-muted-foreground">{costoUnit.toFixed(2)}€</td>
-                          <td className="py-3 px-3 text-center text-muted-foreground">{unitsNum}x</td>
-                          <td className="py-3 px-3 text-right text-muted-foreground">{costoTotal.toFixed(2)}€</td>
-                          <td className="py-3 px-3 text-right text-muted-foreground">{envCOD.toFixed(2)}€</td>
-                          <td className="py-3 px-3 text-right text-muted-foreground">{cpaVal.toFixed(2)}€</td>
-                          <td className="py-3 px-3 text-center font-semibold text-primary">{tasaFormatted}</td>
-                          <td className="py-3 px-3 text-right font-bold text-card-foreground">{breakevenCpa.toFixed(2)}€</td>
-                          <td className="py-3 px-3 text-right text-emerald-600 font-semibold bg-emerald-50/5">+{profitDelivered.toFixed(2)}€</td>
-                          <td className="py-3 px-3 text-right text-destructive font-semibold bg-destructive/5">-{lossRejected.toFixed(2)}€</td>
+                          <td className="py-3 px-3 text-right font-medium">{item.precio.toFixed(2)}€</td>
+                          <td className="py-3 px-3 text-right text-muted-foreground">{item.costoUnit.toFixed(2)}€</td>
+                          <td className="py-3 px-3 text-center text-muted-foreground">{item.unitsNum}x</td>
+                          <td className="py-3 px-3 text-right text-muted-foreground">{item.costoTotal.toFixed(2)}€</td>
+                          <td className="py-3 px-3 text-right text-muted-foreground">{item.envCOD.toFixed(2)}€</td>
+                          <td className="py-3 px-3 text-right text-muted-foreground">{item.cpaVal.toFixed(2)}€</td>
+                          <td className="py-3 px-3 text-center font-semibold text-primary">{item.tasaFormatted}</td>
+                          <td className="py-3 px-3 text-right font-bold text-card-foreground">{item.breakevenCpa.toFixed(2)}€</td>
+                          <td className="py-3 px-3 text-right text-emerald-600 font-semibold bg-emerald-50/5">+{item.profitDelivered.toFixed(2)}€</td>
+                          <td className="py-3 px-3 text-right text-destructive font-semibold bg-destructive/5">-{item.lossRejected.toFixed(2)}€</td>
                           <td className={`py-3 px-3 text-right font-black border-r ${
-                            expectedProfit > 0 ? "text-emerald-600 bg-emerald-50/5" : "text-destructive bg-destructive/5"
+                            item.expectedProfit > 0 ? "text-emerald-600 bg-emerald-50/5" : "text-destructive bg-destructive/5"
                           }`}>
-                            {expectedProfit > 0 ? "+" : ""}{expectedProfit.toFixed(2)}€
+                            {item.expectedProfit > 0 ? "+" : ""}{item.expectedProfit.toFixed(2)}€
                           </td>
 
                           {/* Projected scaling volume (with direct inputs per row) */}
@@ -748,7 +889,7 @@ function SimuladorContent() {
                                 type="number"
                                 min="0"
                                 step="1"
-                                value={projectedOrders % 1 === 0 ? projectedOrders : Number(projectedOrders.toFixed(1))}
+                                value={item.projectedOrders % 1 === 0 ? item.projectedOrders : Number(item.projectedOrders.toFixed(1))}
                                 onChange={(e) => {
                                   const val = Math.max(0, Number(e.target.value));
                                   updateRowScale(s.id, "pedidos", val);
@@ -765,7 +906,7 @@ function SimuladorContent() {
                                 type="number"
                                 min="0"
                                 step="1"
-                                value={projectedAdsSpend % 1 === 0 ? projectedAdsSpend : Number(projectedAdsSpend.toFixed(2))}
+                                value={item.projectedAdsSpend % 1 === 0 ? item.projectedAdsSpend : Number(item.projectedAdsSpend.toFixed(2))}
                                 onChange={(e) => {
                                   const val = Math.max(0, Number(e.target.value));
                                   updateRowScale(s.id, "presupuesto", val);
@@ -777,24 +918,24 @@ function SimuladorContent() {
                           </td>
 
                           <td className={`py-3 px-3 text-right font-bold bg-muted/5 ${
-                            projectedDailyProfit > 0 ? "text-emerald-600 bg-emerald-50/5" : "text-destructive bg-destructive/5"
+                            item.projectedDailyProfit > 0 ? "text-emerald-600 bg-emerald-50/5" : "text-destructive bg-destructive/5"
                           }`}>
-                            {projectedDailyProfit > 0 ? "+" : ""}{projectedDailyProfit.toFixed(2)}€
+                            {item.projectedDailyProfit > 0 ? "+" : ""}{item.projectedDailyProfit.toFixed(2)}€
                           </td>
                           <td className={`py-3 px-3 text-right font-black bg-muted/5 ${
-                            projectedDailyProfit > 0 ? "text-emerald-600 bg-emerald-50/5" : "text-destructive bg-destructive/5"
+                            item.projectedDailyProfit > 0 ? "text-emerald-600 bg-emerald-50/5" : "text-destructive bg-destructive/5"
                           }`}>
-                            {projectedDailyProfit * 30 > 0 ? "+" : ""}{(projectedDailyProfit * 30).toFixed(2)}€
+                            {item.projectedDailyProfit * 30 > 0 ? "+" : ""}{(item.projectedDailyProfit * 30).toFixed(2)}€
                           </td>
                           <td className="py-3 px-3 text-center bg-muted/5">
                             <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                              adsRoi > 0
+                              item.adsRoi > 0
                                 ? "bg-emerald-100 text-emerald-800"
-                                : adsRoi === 0
+                                : item.adsRoi === 0
                                 ? "bg-muted text-muted-foreground"
                                 : "bg-destructive/10 text-destructive"
                             }`}>
-                              {adsRoi > 0 ? "+" : ""}{adsRoi.toFixed(1)}% ROI
+                              {item.adsRoi > 0 ? "+" : ""}{item.adsRoi.toFixed(1)}% ROI
                             </span>
                           </td>
 
@@ -821,6 +962,52 @@ function SimuladorContent() {
                         </tr>
                       );
                     })}
+
+                    {/* Sum/Totals Row */}
+                    <tr className="bg-primary/5 font-extrabold border-t-2 border-double border-primary/20">
+                      <td className="py-3 px-3 text-primary font-bold text-xs">TOTAL SIMULADO</td>
+                      <td className="py-3 px-3 text-right text-muted-foreground">-</td>
+                      <td className="py-3 px-3 text-right text-muted-foreground">-</td>
+                      <td className="py-3 px-3 text-center text-muted-foreground">-</td>
+                      <td className="py-3 px-3 text-right text-muted-foreground">-</td>
+                      <td className="py-3 px-3 text-right text-muted-foreground">-</td>
+                      <td className="py-3 px-3 text-right text-muted-foreground">-</td>
+                      <td className="py-3 px-3 text-center text-muted-foreground">-</td>
+                      <td className="py-3 px-3 text-right text-muted-foreground">-</td>
+                      <td className="py-3 px-3 text-right text-muted-foreground">-</td>
+                      <td className="py-3 px-3 text-right text-muted-foreground">-</td>
+                      <td className="py-3 px-3 text-right text-muted-foreground border-r font-medium">-</td>
+                      
+                      {/* Projected scaling totals */}
+                      <td className="py-3 px-3 text-center text-primary bg-primary/10 font-bold">
+                        {totals.totalOrders % 1 === 0 ? totals.totalOrders : totals.totalOrders.toFixed(1)} /día
+                      </td>
+                      <td className="py-3 px-3 text-right text-primary font-black bg-primary/10">
+                        {totals.totalAdsSpend.toFixed(2)}€
+                      </td>
+                      <td className={`py-3 px-3 text-right font-black bg-primary/10 ${
+                        totals.totalDailyProfit > 0 ? "text-emerald-600" : "text-destructive"
+                      }`}>
+                        {totals.totalDailyProfit > 0 ? "+" : ""}{totals.totalDailyProfit.toFixed(2)}€
+                      </td>
+                      <td className={`py-3 px-3 text-right font-black bg-primary/10 ${
+                        totals.totalMonthlyProfit > 0 ? "text-emerald-600" : "text-destructive"
+                      }`}>
+                        {totals.totalMonthlyProfit > 0 ? "+" : ""}{totals.totalMonthlyProfit.toFixed(2)}€
+                      </td>
+                      <td className="py-3 px-3 text-center bg-primary/10">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black ${
+                          totals.overallRoi > 0
+                            ? "bg-emerald-600 text-white"
+                            : totals.overallRoi === 0
+                            ? "bg-muted text-muted-foreground"
+                            : "bg-destructive text-white"
+                        }`}>
+                          {totals.overallRoi > 0 ? "+" : ""}{totals.overallRoi.toFixed(1)}% ROI
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-center text-muted-foreground">-</td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
