@@ -76,6 +76,7 @@ export function AppSidebar() {
         { title: "Resumen Mensual", href: `/dashboard/mensual${currentStoreId ? `?store=${currentStoreId}` : ""}`, icon: CalendarDays },
         { title: "Productos", href: `/dashboard/productos${currentStoreId ? `?store=${currentStoreId}` : ""}`, icon: Package },
         { title: "Stock · Catálogo", href: `/dashboard/stock${currentStoreId ? `?store=${currentStoreId}` : ""}`, icon: Boxes },
+        { title: "Simulador COD", href: `/dashboard/simulador${currentStoreId ? `?store=${currentStoreId}` : ""}`, icon: TrendingUp },
       ];
 
   async function handleLogout() {
