@@ -43,13 +43,23 @@ function SimuladorContent() {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
   const [feedbackMsg, setFeedbackMsg] = useState("");
 
-  // 1. Fetch saved simulations
+  // 1. Fetch saved simulations & Store configuration (for default rejection cost)
   async function fetchSimulations() {
     if (!storeId) return;
     try {
+      // Fetch simulations
       const res = await fetch(`/api/simulaciones?store_id=${storeId}`);
       const data = await res.json();
       setSimulations(data.simulations || []);
+
+      // Fetch store config to pull dynamic rejection cost
+      const storeRes = await fetch("/api/stores");
+      const storeData = await storeRes.json();
+      const foundStore = (storeData.stores || []).find((s: any) => s.id === storeId);
+      if (foundStore && foundStore.costo_rechazo !== undefined) {
+        const cost = Number(foundStore.costo_rechazo);
+        setCostoRechazo(isNaN(cost) ? 14.00 : cost);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -597,11 +607,13 @@ function SimuladorContent() {
                     <tr className="border-b bg-muted/40 font-semibold text-muted-foreground">
                       <th className="py-2.5 px-3">Producto / Oferta</th>
                       <th className="py-2.5 px-3 text-right">Precio Venta</th>
-                      <th className="py-2.5 px-3 text-right">Costo Producto (Orden)</th>
-                      <th className="py-2.5 px-3 text-right">Costo Envío</th>
-                      <th className="py-2.5 px-3 text-right">CPA Anuncios</th>
+                      <th className="py-2.5 px-3 text-right">Costo Unitario</th>
+                      <th className="py-2.5 px-3 text-center">Unidades</th>
+                      <th className="py-2.5 px-3 text-right">Costo Total</th>
+                      <th className="py-2.5 px-3 text-right">Costo Envío + COD</th>
+                      <th className="py-2.5 px-3 text-right">CPA Promedio</th>
                       <th className="py-2.5 px-3 text-center">Tasa Entrega</th>
-                      <th className="py-2.5 px-3 text-right">CPA Límite (Breakeven)</th>
+                      <th className="py-2.5 px-3 text-right">CPA Límite</th>
                       <th className="py-2.5 px-3 text-right">Resultado Medio / Envío</th>
                     </tr>
                   </thead>
@@ -617,11 +629,13 @@ function SimuladorContent() {
                             isSelected ? "bg-primary/5 font-semibold" : ""
                           }`}
                         >
-                          <td className="py-3 px-3 text-card-foreground font-medium truncate max-w-[200px]">
+                          <td className="py-3 px-3 text-card-foreground font-medium truncate max-w-[150px]">
                             {s.nombre}
                           </td>
                           <td className="py-3 px-3 text-right font-medium">{Number(s.precio_venta).toFixed(2)}€</td>
-                          <td className="py-3 px-3 text-right text-muted-foreground">{rowStats.costoTotal.toFixed(2)}€ <span className="text-[10px]">({s.unidades_por_venta}x)</span></td>
+                          <td className="py-3 px-3 text-right text-muted-foreground">{Number(s.costo_unitario).toFixed(2)}€</td>
+                          <td className="py-3 px-3 text-center text-muted-foreground">{s.unidades_por_venta}x</td>
+                          <td className="py-3 px-3 text-right text-muted-foreground">{rowStats.costoTotal.toFixed(2)}€</td>
                           <td className="py-3 px-3 text-right text-muted-foreground">{Number(s.costo_envio_cod).toFixed(2)}€</td>
                           <td className="py-3 px-3 text-right text-muted-foreground">{Number(s.cpa_promedio).toFixed(2)}€</td>
                           <td className="py-3 px-3 text-center font-semibold text-primary">{rowStats.tasaFormatted}</td>
