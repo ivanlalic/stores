@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import { TrendingUp, Trash2, Save, Sparkles, AlertCircle, Info, Percent } from "lucide-react";
+import { TrendingUp, Trash2, Save, Sparkles, AlertCircle, Info, Percent, Edit2 } from "lucide-react";
 
 interface Simulation {
   id: string;
@@ -45,6 +45,7 @@ function SimuladorContent() {
 
   // Daily Scaling Volume Simulator states (individual per row)
   const [rowScaleSettings, setRowScaleSettings] = useState<Record<string, { mode: "pedidos" | "presupuesto"; value: number }>>({});
+  const [isFormOpen, setIsFormOpen] = useState(false);
 
   // Sync scale settings with localStorage
   useEffect(() => {
@@ -126,6 +127,7 @@ function SimuladorContent() {
   // Handle selecting a simulation from list
   function handleSelectChange(id: string) {
     setSelectedId(id);
+    setIsFormOpen(true); // Automatically open the form when editing or creating!
     if (!id) {
       // Reset form to defaults
       setNombre("CC Cream - Base de Maquillaje");
@@ -186,6 +188,7 @@ function SimuladorContent() {
       if (res.ok) {
         setSaveStatus("success");
         setFeedbackMsg("¡Guardado correctamente!");
+        setIsFormOpen(false); // Automatically collapse form on success
         fetchSimulations();
         if (data.simulation) {
           setSelectedId(data.simulation.id);
@@ -222,6 +225,7 @@ function SimuladorContent() {
           setCostoRechazo(14.00);
           setIsAutoTasa(false);
           setSelectedId("");
+          setIsFormOpen(false); // Close edit form on selection deletion
         }
         fetchSimulations();
       }
@@ -318,322 +322,322 @@ function SimuladorContent() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            
-            {/* Column Left: Controls */}
-            <div className="lg:col-span-7 bg-card border rounded-xl p-5 space-y-5">
-              <div className="flex items-center justify-between gap-3 border-b pb-4">
-                <h3 className="font-semibold text-sm text-card-foreground">Configuración de Producto</h3>
+          {isFormOpen && (
+            <div className="bg-card border rounded-xl p-5 shadow-sm relative overflow-hidden transition-all duration-300 mb-6">
+              <div className="flex items-center justify-between border-b pb-3.5 mb-5">
                 <div className="flex items-center gap-2">
-                  <select
-                    value={selectedId}
-                    onChange={(e) => handleSelectChange(e.target.value)}
-                    className="text-xs border rounded px-2.5 py-1.5 bg-background font-medium focus:ring-1 focus:ring-primary focus:outline-none"
-                  >
-                    <option value="">➕ Nueva Simulación</option>
-                    {simulations.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        📁 {s.nombre}
-                      </option>
-                    ))}
-                  </select>
-                  {selectedId && (
-                    <button
-                      onClick={handleDelete}
-                      className="p-1.5 text-xs text-destructive hover:bg-destructive/10 rounded border border-transparent hover:border-destructive/20 transition-all"
-                      title="Eliminar simulación"
-                    >
-                      <Trash2 className="size-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Inputs Block */}
-              <div className="space-y-4">
-                {/* Product Name */}
-                <div>
-                  <label className="block text-xs font-semibold text-muted-foreground mb-1.5">Nombre del Producto o Oferta</label>
-                  <input
-                    type="text"
-                    value={nombre}
-                    onChange={(e) => setNombre(e.target.value)}
-                    placeholder="CC Cream - Oferta 4x"
-                    className="w-full text-sm border rounded px-3 py-2 bg-background focus:ring-1 focus:ring-primary focus:outline-none"
-                  />
-                </div>
-
-                {/* Price & Cost Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Precio de Venta (€)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={precioVenta}
-                      onChange={(e) => setPrecioVenta(Number(e.target.value))}
-                      className="w-full text-sm border rounded px-3 py-1.5 bg-background focus:ring-1 focus:ring-primary focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Costo Unitario Producto (€)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={costoUnitario}
-                      onChange={(e) => setCostoUnitario(Number(e.target.value))}
-                      className="w-full text-sm border rounded px-3 py-1.5 bg-background focus:ring-1 focus:ring-primary focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Unidades en Oferta</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={unidades}
-                      onChange={(e) => setUnidades(Number(e.target.value))}
-                      className="w-full text-sm border rounded px-3 py-1.5 bg-background focus:ring-1 focus:ring-primary focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                {/* Logistic Fees & Ads */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Costo Envío + COD (€)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={costoEnvioCod}
-                      onChange={(e) => setCostoEnvioCod(Number(e.target.value))}
-                      className="w-full text-sm border rounded px-3 py-1.5 bg-background focus:ring-1 focus:ring-primary focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-muted-foreground mb-1">CPA Promedio (Meta/TikTok) (€)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={cpaPromedio}
-                      onChange={(e) => setCpaPromedio(Number(e.target.value))}
-                      className="w-full text-sm border rounded px-3 py-1.5 bg-background focus:ring-1 focus:ring-primary focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-muted-foreground mb-1">Costo si es Rechazado (€)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={costoRechazo}
-                      onChange={(e) => setCostoRechazo(Number(e.target.value))}
-                      className="w-full text-sm border rounded px-3 py-1.5 bg-background focus:ring-1 focus:ring-primary focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                {/* Delivery Rate Block */}
-                <div className="border border-dashed rounded-xl p-4 bg-muted/20 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Percent className="size-4 text-primary" />
-                      <span className="text-xs font-bold text-card-foreground">Tasa de Entrega del Producto</span>
-                    </div>
-                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={isAutoTasa}
-                        onChange={(e) => setIsAutoTasa(e.target.checked)}
-                        className="rounded border-gray-300 text-primary focus:ring-primary focus:ring-1"
-                      />
-                      Usar historial real de la DB
-                    </label>
-                  </div>
-
-                  {isAutoTasa ? (
-                    <div className="text-xs text-muted-foreground space-y-1.5">
-                      {autoTasaLoading ? (
-                        <div className="flex items-center gap-2">
-                          <div className="size-3.5 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
-                          <span>Analizando pedidos en base de datos...</span>
-                        </div>
-                      ) : realStats && realStats.tasa_entrega !== null ? (
-                        <div className="flex flex-col gap-1 bg-primary/5 border border-primary/10 rounded-lg p-2.5">
-                          <span className="font-semibold text-primary">✓ ¡Tasa cargada automáticamente!</span>
-                          <span>Se encontraron <strong>{realStats.total_pedidos}</strong> pedidos con el nombre <i>"{nombre}"</i>.</span>
-                          <span>Tasa de entrega calculada: <strong>{(tasaEntrega * 100).toFixed(1)}%</strong></span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1.5 text-amber-600 bg-amber-50 border border-amber-100 rounded-lg p-2.5">
-                          <AlertCircle className="size-4 shrink-0" />
-                          <span>No se encontraron pedidos con el término <i>"{nombre}"</i> para calcular la tasa. Introdúcela a mano desactivando el check.</span>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
-                        <span>Ajustar Manualmente:</span>
-                        <span className="text-primary font-bold">{(tasaEntrega * 100).toFixed(0)}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0.10"
-                        max="1.00"
-                        step="0.01"
-                        value={tasaEntrega}
-                        onChange={(e) => setTasaEntrega(Number(e.target.value))}
-                        className="w-full h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary focus:outline-none"
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Save Button */}
-              <div className="flex items-center justify-between border-t pt-4">
-                <div className="text-xs font-medium">
-                  {saveStatus === "success" && <span className="text-emerald-600 font-semibold">✓ {feedbackMsg}</span>}
-                  {saveStatus === "error" && <span className="text-destructive font-semibold">❌ {feedbackMsg}</span>}
+                  <Sparkles className="size-4.5 text-primary" />
+                  <h3 className="font-bold text-xs text-card-foreground">
+                    {selectedId ? `⚙️ Editar Parámetros de: ${nombre}` : "➕ Nueva Simulación de Oferta"}
+                  </h3>
                 </div>
                 <button
-                  onClick={handleSave}
-                  disabled={saveStatus === "saving" || !nombre.trim()}
-                  className="flex items-center gap-2 bg-primary text-primary-foreground font-semibold px-4.5 py-2 text-xs rounded-lg hover:bg-primary/95 transition-all shadow-sm disabled:opacity-50"
+                  type="button"
+                  onClick={() => {
+                    setIsFormOpen(false);
+                    setSelectedId("");
+                  }}
+                  className="text-xs font-semibold text-muted-foreground hover:text-card-foreground px-2 py-1 border rounded hover:bg-muted/40 transition-all shadow-sm"
                 >
-                  <Save className="size-4" />
-                  {saveStatus === "saving" ? "Guardando..." : "Guardar Simulación"}
+                  ✕ Colapsar Panel
                 </button>
               </div>
-            </div>
 
-            {/* Column Right: Analyst Results */}
-            <div className="lg:col-span-5 flex flex-col gap-6">
-              
-              {/* Main Verdict Card */}
-              <div className={`border rounded-xl p-6 shadow-sm relative overflow-hidden transition-all duration-300 bg-gradient-to-br ${
-                stats.marginStatus === "profitable"
-                  ? "from-emerald-50/50 to-emerald-100/10 border-emerald-200"
-                  : stats.marginStatus === "tight"
-                  ? "from-amber-50/50 to-amber-100/10 border-amber-200"
-                  : "from-destructive/5 to-destructive/10 border-destructive/20"
-              }`}>
-                {/* Decorative background element */}
-                <div className="absolute -top-12 -right-12 size-36 rounded-full opacity-10 bg-primary/20 blur-xl" />
-
-                <div className="flex items-center gap-1.5 mb-4">
-                  <Sparkles className={`size-4 ${
-                    stats.marginStatus === "profitable"
-                      ? "text-emerald-600 animate-pulse"
-                      : stats.marginStatus === "tight"
-                      ? "text-amber-600 animate-pulse"
-                      : "text-destructive"
-                  }`} />
-                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Análisis de Rentabilidad
-                  </span>
-                </div>
-
-                <h4 className="text-sm font-bold text-card-foreground truncate mb-1">
-                  {nombre || "Producto sin nombre"}
-                </h4>
-                <p className="text-xs text-muted-foreground mb-4">
-                  Simulación sobre 1 solo paquete enviado
-                </p>
-
-                {/* expected profit value */}
-                <div className="mb-5">
-                  <div className="text-xs text-muted-foreground font-medium">Beneficio Neto Esperado:</div>
-                  <div className={`text-3xl font-black tracking-tight ${
-                    stats.expectedProfit > 0 ? "text-emerald-600" : "text-destructive"
-                  }`}>
-                    {stats.expectedProfit > 0 ? "+" : ""}{stats.expectedProfit.toFixed(2)}€
-                    <span className="text-xs font-semibold text-muted-foreground ml-1.5">/ envío</span>
-                  </div>
-                </div>
-
-                {/* Status Badge */}
-                <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold shadow-sm ${
-                  stats.marginStatus === "profitable"
-                    ? "bg-emerald-600 text-white"
-                    : stats.marginStatus === "tight"
-                    ? "bg-amber-500 text-white"
-                    : "bg-destructive text-white"
-                }`}>
-                  {stats.marginStatus === "profitable" && "🟢 PRODUCTO RENTABLE"}
-                  {stats.marginStatus === "tight" && "🟡 MARGEN MUY AJUSTADO"}
-                  {stats.marginStatus === "loss" && "🔴 PRODUCTO A PÉRDIDAS"}
-                </div>
-
-                {/* Scenario breakdown */}
-                <div className="mt-6 border-t pt-4.5 space-y-2.5">
-                  <div className="flex justify-between items-center text-xs font-semibold text-muted-foreground">
-                    <span>Si se entrega ({(tasaEntrega * 100).toFixed(0)}% de probabilidad)</span>
-                    <span className="text-emerald-600 font-bold">+{stats.margenDelivered.toFixed(2)}€</span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs font-semibold text-muted-foreground">
-                    <span>Si se rechaza ({((1 - tasaEntrega) * 100).toFixed(0)}% de probabilidad)</span>
-                    <span className="text-destructive font-bold">-{stats.lossRejected.toFixed(2)}€</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* CPA and meta limits card */}
-              <div className="bg-card border rounded-xl p-5 space-y-4 shadow-sm">
-                <div className="flex items-center gap-1.5">
-                  <Info className="size-4.5 text-primary" />
-                  <h4 className="text-xs font-bold text-card-foreground">Análisis de Publicidad (Meta Ads)</h4>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-muted/30 border rounded-lg p-2.5 space-y-0.5">
-                      <span className="block text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">CPA Actual</span>
-                      <span className="text-base font-extrabold text-card-foreground">{cpaPromedio.toFixed(2)}€</span>
-                    </div>
-                    <div className="bg-muted/30 border rounded-lg p-2.5 space-y-0.5">
-                      <span className="block text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">CPA de Equilibrio</span>
-                      <span className="text-base font-extrabold text-card-foreground">{stats.breakevenCpa.toFixed(2)}€</span>
-                    </div>
-                  </div>
-
-                  {/* CPA Cushion Alert */}
-                  <div className={`rounded-xl p-3 border text-xs flex gap-2.5 items-start ${
-                    stats.breakevenCpa > cpaPromedio
-                      ? "bg-emerald-50/50 border-emerald-100 text-emerald-800"
-                      : "bg-destructive/5 border-destructive/10 text-destructive"
-                  }`}>
-                    <AlertCircle className="size-4 shrink-0 mt-0.5" />
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                {/* Column Left: Controls */}
+                <div className="lg:col-span-7 space-y-5">
+                  {/* Inputs Block */}
+                  <div className="space-y-4">
+                    {/* Product Name */}
                     <div>
-                      {stats.breakevenCpa > cpaPromedio ? (
-                        <div>
-                          <span className="font-bold block">✓ Colchón de CPA positivo (+{(stats.breakevenCpa - cpaPromedio).toFixed(2)}€)</span>
-                          <span>Meta te permite aumentar el CPA hasta los <strong>{stats.breakevenCpa.toFixed(2)}€</strong> antes de empezar a perder dinero. Tienes un colchón saludable para escalar anuncios.</span>
+                      <label className="block text-xs font-semibold text-muted-foreground mb-1.5">Nombre del Producto o Oferta</label>
+                      <input
+                        type="text"
+                        value={nombre}
+                        onChange={(e) => setNombre(e.target.value)}
+                        placeholder="CC Cream - Oferta 4x"
+                        className="w-full text-sm border rounded px-3 py-2 bg-background focus:ring-1 focus:ring-primary focus:outline-none"
+                      />
+                    </div>
+
+                    {/* Price & Cost Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-muted-foreground mb-1">Precio de Venta (€)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={precioVenta}
+                          onChange={(e) => setPrecioVenta(Number(e.target.value))}
+                          className="w-full text-sm border rounded px-3 py-1.5 bg-background focus:ring-1 focus:ring-primary focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-muted-foreground mb-1">Costo Unitario Producto (€)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={costoUnitario}
+                          onChange={(e) => setCostoUnitario(Number(e.target.value))}
+                          className="w-full text-sm border rounded px-3 py-1.5 bg-background focus:ring-1 focus:ring-primary focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-muted-foreground mb-1">Unidades en Oferta</label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={unidades}
+                          onChange={(e) => setUnidades(Number(e.target.value))}
+                          className="w-full text-sm border rounded px-3 py-1.5 bg-background focus:ring-1 focus:ring-primary focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Logistic Fees & Ads */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-muted-foreground mb-1">Costo Envío + COD (€)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={costoEnvioCod}
+                          onChange={(e) => setCostoEnvioCod(Number(e.target.value))}
+                          className="w-full text-sm border rounded px-3 py-1.5 bg-background focus:ring-1 focus:ring-primary focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-muted-foreground mb-1">CPA Promedio (Meta/TikTok) (€)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={cpaPromedio}
+                          onChange={(e) => setCpaPromedio(Number(e.target.value))}
+                          className="w-full text-sm border rounded px-3 py-1.5 bg-background focus:ring-1 focus:ring-primary focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-muted-foreground mb-1">Costo si es Devuelto (€)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={costoRechazo}
+                          onChange={(e) => setCostoRechazo(Number(e.target.value))}
+                          className="w-full text-sm border rounded px-3 py-1.5 bg-background focus:ring-1 focus:ring-primary focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Delivery Rate Block */}
+                    <div className="border border-dashed rounded-xl p-4 bg-muted/20 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Percent className="size-4 text-primary" />
+                          <span className="text-xs font-bold text-card-foreground">Tasa de Entrega del Producto</span>
+                        </div>
+                        <label className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={isAutoTasa}
+                            onChange={(e) => setIsAutoTasa(e.target.checked)}
+                            className="rounded border-gray-300 text-primary focus:ring-primary focus:ring-1"
+                          />
+                          Usar historial real de la DB
+                        </label>
+                      </div>
+
+                      {isAutoTasa ? (
+                        <div className="text-xs text-muted-foreground space-y-1.5">
+                          {autoTasaLoading ? (
+                            <div className="flex items-center gap-2">
+                              <div className="size-3.5 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+                              <span>Analizando pedidos en base de datos...</span>
+                            </div>
+                          ) : realStats && realStats.tasa_entrega !== null ? (
+                            <div className="flex flex-col gap-1 bg-primary/5 border border-primary/10 rounded-lg p-2.5">
+                              <span className="font-semibold text-primary">✓ ¡Tasa cargada automáticamente!</span>
+                              <span>Se encontraron <strong>{realStats.total_pedidos}</strong> pedidos con el nombre <i>"{nombre}"</i>.</span>
+                              <span>Tasa de entrega calculada: <strong>{(tasaEntrega * 100).toFixed(1)}%</strong></span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 text-amber-600 bg-amber-50 border border-amber-100 rounded-lg p-2.5">
+                              <AlertCircle className="size-4 shrink-0" />
+                              <span>No se encontraron pedidos con el término <i>"{nombre}"</i> para calcular la tasa. Introdúcela a mano desactivando el check.</span>
+                            </div>
+                          )}
                         </div>
                       ) : (
-                        <div>
-                          <span className="font-bold block">⚠️ Alerta: ¡CPA de Equilibrio Superado!</span>
-                          <span>Estás pagando en Meta un CPA de <strong>{cpaPromedio.toFixed(2)}€</strong>, pero tu límite de rentabilidad es de <strong>{stats.breakevenCpa.toFixed(2)}€</strong>. Estás perdiendo dinero con este producto. ¡Debes bajar el CPA o subir la tasa de entrega!</span>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
+                            <span>Ajustar Manualmente:</span>
+                            <span className="text-primary font-bold">{(tasaEntrega * 100).toFixed(0)}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0.10"
+                            max="1.00"
+                            step="0.01"
+                            value={tasaEntrega}
+                            onChange={(e) => setTasaEntrega(Number(e.target.value))}
+                            className="w-full h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary focus:outline-none"
+                          />
                         </div>
                       )}
                     </div>
                   </div>
+
+                  {/* Save Button */}
+                  <div className="flex items-center justify-between border-t pt-4">
+                    <div className="text-xs font-medium">
+                      {saveStatus === "success" && <span className="text-emerald-600 font-semibold">✓ {feedbackMsg}</span>}
+                      {saveStatus === "error" && <span className="text-destructive font-semibold">❌ {feedbackMsg}</span>}
+                    </div>
+                    <button
+                      onClick={handleSave}
+                      disabled={saveStatus === "saving" || !nombre.trim()}
+                      className="flex items-center gap-2 bg-primary text-primary-foreground font-semibold px-4.5 py-2 text-xs rounded-lg hover:bg-primary/95 transition-all shadow-sm disabled:opacity-50"
+                    >
+                      <Save className="size-4" />
+                      {saveStatus === "saving" ? "Guardando..." : "Guardar Simulación"}
+                    </button>
+                  </div>
                 </div>
+
+                {/* Column Right: Analyst Results */}
+                <div className="lg:col-span-5 flex flex-col gap-6">
+                  
+                  {/* Main Verdict Card */}
+                  <div className={`border rounded-xl p-6 shadow-sm relative overflow-hidden transition-all duration-300 bg-gradient-to-br ${
+                    stats.marginStatus === "profitable"
+                      ? "from-emerald-50/50 to-emerald-100/10 border-emerald-200"
+                      : stats.marginStatus === "tight"
+                      ? "from-amber-50/50 to-amber-100/10 border-amber-200"
+                      : "from-destructive/5 to-destructive/10 border-destructive/20"
+                  }`}>
+                    <div className="absolute -top-12 -right-12 size-36 rounded-full opacity-10 bg-primary/20 blur-xl" />
+
+                    <div className="flex items-center gap-1.5 mb-4">
+                      <Sparkles className={`size-4 ${
+                        stats.marginStatus === "profitable"
+                          ? "text-emerald-600 animate-pulse"
+                          : stats.marginStatus === "tight"
+                          ? "text-amber-600 animate-pulse"
+                          : "text-destructive"
+                      }`} />
+                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        Análisis de Rentabilidad
+                      </span>
+                    </div>
+
+                    <h4 className="text-sm font-bold text-card-foreground truncate mb-1">
+                      {nombre || "Producto sin nombre"}
+                    </h4>
+                    <p className="text-xs text-muted-foreground mb-4">
+                      Simulación sobre 1 solo paquete enviado
+                    </p>
+
+                    <div className="mb-5">
+                      <div className="text-xs text-muted-foreground font-medium">Beneficio Neto Esperado:</div>
+                      <div className={`text-3xl font-black tracking-tight ${
+                        stats.expectedProfit > 0 ? "text-emerald-600" : "text-destructive"
+                      }`}>
+                        {stats.expectedProfit > 0 ? "+" : ""}{stats.expectedProfit.toFixed(2)}€
+                        <span className="text-xs font-semibold text-muted-foreground ml-1.5">/ envío</span>
+                      </div>
+                    </div>
+
+                    <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold shadow-sm ${
+                      stats.marginStatus === "profitable"
+                        ? "bg-emerald-600 text-white"
+                        : stats.marginStatus === "tight"
+                        ? "bg-amber-500 text-white"
+                        : "bg-destructive text-white"
+                    }`}>
+                      {stats.marginStatus === "profitable" && "🟢 PRODUCTO RENTABLE"}
+                      {stats.marginStatus === "tight" && "🟡 MARGEN MUY AJUSTADO"}
+                      {stats.marginStatus === "loss" && "🔴 PRODUCTO A PÉRDIDAS"}
+                    </div>
+
+                    <div className="mt-6 border-t pt-4.5 space-y-2.5">
+                      <div className="flex justify-between items-center text-xs font-semibold text-muted-foreground">
+                        <span>Si se entrega ({(tasaEntrega * 100).toFixed(0)}% de probabilidad)</span>
+                        <span className="text-emerald-600 font-bold">+{stats.margenDelivered.toFixed(2)}€</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs font-semibold text-muted-foreground">
+                        <span>Si se devuelve o rechaza ({((1 - tasaEntrega) * 100).toFixed(0)}% de probabilidad)</span>
+                        <span className="text-destructive font-bold">-{stats.lossRejected.toFixed(2)}€</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* CPA and meta limits card */}
+                  <div className="bg-card border rounded-xl p-5 space-y-4 shadow-sm">
+                    <div className="flex items-center gap-1.5">
+                      <Info className="size-4.5 text-primary" />
+                      <h4 className="text-xs font-bold text-card-foreground">Análisis de Publicidad (Meta Ads)</h4>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-muted/30 border rounded-lg p-2.5 space-y-0.5">
+                          <span className="block text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">CPA Actual</span>
+                          <span className="text-base font-extrabold text-card-foreground">{cpaPromedio.toFixed(2)}€</span>
+                        </div>
+                        <div className="bg-muted/30 border rounded-lg p-2.5 space-y-0.5">
+                          <span className="block text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">CPA de Equilibrio</span>
+                          <span className="text-base font-extrabold text-card-foreground">{stats.breakevenCpa.toFixed(2)}€</span>
+                        </div>
+                      </div>
+
+                      <div className={`rounded-xl p-3 border text-xs flex gap-2.5 items-start ${
+                        stats.breakevenCpa > cpaPromedio
+                          ? "bg-emerald-50/50 border-emerald-100 text-emerald-800"
+                          : "bg-destructive/5 border-destructive/10 text-destructive"
+                      }`}>
+                        <AlertCircle className="size-4 shrink-0 mt-0.5" />
+                        <div>
+                          {stats.breakevenCpa > cpaPromedio ? (
+                            <div>
+                              <span className="font-bold block">✓ Colchón de CPA positivo (+{(stats.breakevenCpa - cpaPromedio).toFixed(2)}€)</span>
+                              <span>Meta te permite aumentar el CPA hasta los <strong>{stats.breakevenCpa.toFixed(2)}€</strong> antes de empezar a perder dinero. Tienes un colchón saludable para escalar anuncios.</span>
+                            </div>
+                          ) : (
+                            <div>
+                              <span className="font-bold block">⚠️ Alerta: ¡CPA de Equilibrio Superado!</span>
+                              <span>Estás pagando en Meta un CPA de <strong>{cpaPromedio.toFixed(2)}€</strong>, pero tu límite de rentabilidad es de <strong>{stats.breakevenCpa.toFixed(2)}€</strong>. Estás perdiendo dinero con este producto. ¡Debes bajar el CPA o subir la tasa de entrega!</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+
               </div>
-
             </div>
-
-          </div>
+          )}
 
           {/* Comparative Table */}
           {simulations.length > 0 && (
             <div className="bg-card border rounded-xl p-5 shadow-sm mt-6 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-3.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3.5">
                 <div>
                   <h3 className="font-bold text-xs text-card-foreground">📋 Comparativa de Productos Simulados</h3>
                   <p className="text-[10px] text-muted-foreground mt-0.5">
                     Haz clic en una fila para editar sus variables base, o **escribe directamente** en las columnas "Simulado" de cada fila para proyectar diferentes volúmenes independientes.
                   </p>
                 </div>
+                {!isFormOpen && (
+                  <button
+                    onClick={() => handleSelectChange("")}
+                    className="flex items-center gap-1.5 bg-primary text-primary-foreground font-semibold px-3.5 py-2 text-xs rounded-lg hover:bg-primary/95 transition-all shadow-sm shrink-0 self-start sm:self-center"
+                  >
+                    <Sparkles className="size-3.5 animate-pulse" />
+                    ➕ Nueva Oferta / Simulación
+                  </button>
+                )}
               </div>
               
               <div className="overflow-x-auto">
@@ -649,7 +653,9 @@ function SimuladorContent() {
                       <th className="py-2.5 px-3 text-right">CPA Promedio</th>
                       <th className="py-2.5 px-3 text-center">Tasa Entrega</th>
                       <th className="py-2.5 px-3 text-right">CPA Límite</th>
-                      <th className="py-2.5 px-3 text-right border-r">Resultado / Envío</th>
+                      <th className="py-2.5 px-3 text-right text-emerald-600 font-semibold bg-emerald-50/5">Si se Entrega</th>
+                      <th className="py-2.5 px-3 text-right text-destructive font-semibold bg-destructive/5">Si se Rechaza</th>
+                      <th className="py-2.5 px-3 text-right border-r font-bold">Resultado / Envío</th>
                       
                       {/* Projection Headers */}
                       <th className="py-2.5 px-3 text-center bg-muted/20 text-primary font-bold">Simulado: Pedidos</th>
@@ -666,22 +672,46 @@ function SimuladorContent() {
                       const rowStats = calculateSimStats(s);
                       const isSelected = s.id === selectedId;
 
-                      // Calculate Scaling Volume (individual per row)
-                      const cpa = Number(s.cpa_promedio);
-                      const setting = rowScaleSettings[s.id] || { mode: "pedidos", value: 10 };
+                      // If this row is selected (being edited), use the live form state variables instead of DB values!
+                      const precio = isSelected ? precioVenta : Number(s.precio_venta);
+                      const costoUnit = isSelected ? costoUnitario : Number(s.costo_unitario);
+                      const unitsNum = isSelected ? unidades : Number(s.unidades_por_venta);
+                      const envCOD = isSelected ? costoEnvioCod : Number(s.costo_envio_cod);
+                      const cpaVal = isSelected ? cpaPromedio : Number(s.cpa_promedio);
+                      const rechazoCost = isSelected ? costoRechazo : Number(s.costo_rechazo);
                       
+                      const tasa = isSelected 
+                        ? tasaEntrega 
+                        : s.tasa_entrega_manual !== null 
+                        ? Number(s.tasa_entrega_manual) 
+                        : 0.75;
+                      
+                      const costoTotal = costoUnit * unitsNum;
+                      const profitDelivered = precio - costoTotal - envCOD - cpaVal;
+                      const lossRejected = rechazoCost + cpaVal;
+                      const expectedProfit = (tasa * profitDelivered) - ((1 - tasa) * lossRejected);
+                      const breakevenCpa = tasa * (precio - costoTotal - envCOD) - (1 - tasa) * rechazoCost;
+
+                      const tasaFormatted = isSelected
+                        ? `${Math.round(tasa * 100)}%`
+                        : s.tasa_entrega_manual !== null
+                        ? `${Math.round(tasa * 100)}%`
+                        : "Auto (75%) 🔄";
+
+                      // Calculate Scaling Volume (individual per row)
+                      const setting = rowScaleSettings[s.id] || { mode: "pedidos", value: 10 };
                       let projectedOrders = 0;
                       let projectedAdsSpend = 0;
                       
                       if (setting.mode === "pedidos") {
                         projectedOrders = setting.value;
-                        projectedAdsSpend = setting.value * cpa;
+                        projectedAdsSpend = setting.value * cpaVal;
                       } else {
                         projectedAdsSpend = setting.value;
-                        projectedOrders = cpa > 0 ? setting.value / cpa : 0;
+                        projectedOrders = cpaVal > 0 ? setting.value / cpaVal : 0;
                       }
                       
-                      const projectedDailyProfit = projectedOrders * rowStats.expectedProfit;
+                      const projectedDailyProfit = projectedOrders * expectedProfit;
                       const adsRoi = projectedAdsSpend > 0 ? (projectedDailyProfit / projectedAdsSpend) * 100 : 0;
 
                       return (
@@ -693,20 +723,22 @@ function SimuladorContent() {
                           }`}
                         >
                           <td className="py-3 px-3 text-card-foreground font-medium truncate max-w-[150px]">
-                            {s.nombre}
+                            {isSelected ? nombre : s.nombre}
                           </td>
-                          <td className="py-3 px-3 text-right font-medium">{Number(s.precio_venta).toFixed(2)}€</td>
-                          <td className="py-3 px-3 text-right text-muted-foreground">{Number(s.costo_unitario).toFixed(2)}€</td>
-                          <td className="py-3 px-3 text-center text-muted-foreground">{s.unidades_por_venta}x</td>
-                          <td className="py-3 px-3 text-right text-muted-foreground">{rowStats.costoTotal.toFixed(2)}€</td>
-                          <td className="py-3 px-3 text-right text-muted-foreground">{Number(s.costo_envio_cod).toFixed(2)}€</td>
-                          <td className="py-3 px-3 text-right text-muted-foreground">{Number(s.cpa_promedio).toFixed(2)}€</td>
-                          <td className="py-3 px-3 text-center font-semibold text-primary">{rowStats.tasaFormatted}</td>
-                          <td className="py-3 px-3 text-right font-bold text-card-foreground">{rowStats.breakevenCpa.toFixed(2)}€</td>
+                          <td className="py-3 px-3 text-right font-medium">{precio.toFixed(2)}€</td>
+                          <td className="py-3 px-3 text-right text-muted-foreground">{costoUnit.toFixed(2)}€</td>
+                          <td className="py-3 px-3 text-center text-muted-foreground">{unitsNum}x</td>
+                          <td className="py-3 px-3 text-right text-muted-foreground">{costoTotal.toFixed(2)}€</td>
+                          <td className="py-3 px-3 text-right text-muted-foreground">{envCOD.toFixed(2)}€</td>
+                          <td className="py-3 px-3 text-right text-muted-foreground">{cpaVal.toFixed(2)}€</td>
+                          <td className="py-3 px-3 text-center font-semibold text-primary">{tasaFormatted}</td>
+                          <td className="py-3 px-3 text-right font-bold text-card-foreground">{breakevenCpa.toFixed(2)}€</td>
+                          <td className="py-3 px-3 text-right text-emerald-600 font-semibold bg-emerald-50/5">+{profitDelivered.toFixed(2)}€</td>
+                          <td className="py-3 px-3 text-right text-destructive font-semibold bg-destructive/5">-{lossRejected.toFixed(2)}€</td>
                           <td className={`py-3 px-3 text-right font-black border-r ${
-                            rowStats.expectedProfit > 0 ? "text-emerald-600 bg-emerald-50/5" : "text-destructive bg-destructive/5"
+                            expectedProfit > 0 ? "text-emerald-600 bg-emerald-50/5" : "text-destructive bg-destructive/5"
                           }`}>
-                            {rowStats.expectedProfit > 0 ? "+" : ""}{rowStats.expectedProfit.toFixed(2)}€
+                            {expectedProfit > 0 ? "+" : ""}{expectedProfit.toFixed(2)}€
                           </td>
 
                           {/* Projected scaling volume (with direct inputs per row) */}
@@ -766,16 +798,24 @@ function SimuladorContent() {
                             </span>
                           </td>
 
-                          <td className="py-3 px-3 text-center">
+                          <td className="py-3 px-3 text-center flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
+                              onClick={() => {
+                                handleSelectChange(s.id);
+                              }}
+                              className="p-1 text-primary hover:bg-primary/10 rounded transition-all"
+                              title="Editar variables base"
+                            >
+                              <Edit2 className="size-4" />
+                            </button>
+                            <button
+                              onClick={() => {
                                 handleDeleteFromTable(s.id);
                               }}
                               className="p-1 text-destructive hover:bg-destructive/10 rounded border border-transparent hover:border-destructive/20 transition-all"
                               title="Eliminar simulación"
                             >
-                              <Trash2 className="size-4 mx-auto" />
+                              <Trash2 className="size-4" />
                             </button>
                           </td>
                         </tr>
