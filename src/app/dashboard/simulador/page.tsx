@@ -176,33 +176,40 @@ function SimuladorContent() {
     }
   }
 
-  // 4. Delete simulation
-  async function handleDelete() {
-    if (!selectedId || !storeId) return;
+  // 4. Delete simulation by ID
+  async function handleDeleteFromTable(id: string) {
+    if (!id || !storeId) return;
     if (!confirm("¿Seguro que deseas eliminar esta simulación?")) return;
 
     try {
-      const res = await fetch(`/api/simulaciones?id=${selectedId}&store_id=${storeId}`, {
+      const res = await fetch(`/api/simulaciones?id=${id}&store_id=${storeId}`, {
         method: "DELETE",
       });
 
       if (res.ok) {
-        setNombre("CC Cream - Base de Maquillaje");
-        setPrecioVenta(29.90);
-        setCostoUnitario(2.25);
-        setUnidades(4);
-        setCostoEnvioCod(7.40);
-        setCpaPromedio(5.00);
-        setTasaEntrega(0.75);
-        setCostoRechazo(14.00);
-        setIsAutoTasa(false);
-        setSelectedId("");
+        if (selectedId === id) {
+          setNombre("CC Cream - Base de Maquillaje");
+          setPrecioVenta(29.90);
+          setCostoUnitario(2.25);
+          setUnidades(4);
+          setCostoEnvioCod(7.40);
+          setCpaPromedio(5.00);
+          setTasaEntrega(0.75);
+          setCostoRechazo(14.00);
+          setIsAutoTasa(false);
+          setSelectedId("");
+        }
         fetchSimulations();
       }
     } catch (e) {
       console.error(e);
     }
   }
+
+  async function handleDelete() {
+    await handleDeleteFromTable(selectedId);
+  }
+
 
   // Helper for rendering metrics on the comparative list
   function calculateSimStats(s: Simulation) {
@@ -615,6 +622,7 @@ function SimuladorContent() {
                       <th className="py-2.5 px-3 text-center">Tasa Entrega</th>
                       <th className="py-2.5 px-3 text-right">CPA Límite</th>
                       <th className="py-2.5 px-3 text-right">Resultado Medio / Envío</th>
+                      <th className="py-2.5 px-3 text-center">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -644,6 +652,18 @@ function SimuladorContent() {
                             rowStats.expectedProfit > 0 ? "text-emerald-600" : "text-destructive"
                           }`}>
                             {rowStats.expectedProfit > 0 ? "+" : ""}{rowStats.expectedProfit.toFixed(2)}€
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteFromTable(s.id);
+                              }}
+                              className="p-1 text-destructive hover:bg-destructive/10 rounded border border-transparent hover:border-destructive/20 transition-all"
+                              title="Eliminar simulación"
+                            >
+                              <Trash2 className="size-4 mx-auto" />
+                            </button>
                           </td>
                         </tr>
                       );
