@@ -43,9 +43,28 @@ function SimuladorContent() {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
   const [feedbackMsg, setFeedbackMsg] = useState("");
 
-  // Daily Scaling Volume Simulator states
-  const [scaleMode, setScaleMode] = useState<"pedidos" | "presupuesto">("pedidos");
-  const [scaleValue, setScaleValue] = useState<number>(10);
+  // Daily Scaling Volume Simulator states (individual per row)
+  const [rowScaleSettings, setRowScaleSettings] = useState<Record<string, { mode: "pedidos" | "presupuesto"; value: number }>>({});
+
+  // Sync scale settings with localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("simulador_row_scale_settings");
+    if (saved) {
+      try {
+        setRowScaleSettings(JSON.parse(saved));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, []);
+
+  function updateRowScale(id: string, mode: "pedidos" | "presupuesto", value: number) {
+    setRowScaleSettings((prev) => {
+      const updated = { ...prev, [id]: { mode, value } };
+      localStorage.setItem("simulador_row_scale_settings", JSON.stringify(updated));
+      return updated;
+    });
+  }
 
 
   // 1. Fetch saved simulations & Store configuration (for default rejection cost)
@@ -611,65 +630,9 @@ function SimuladorContent() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-3.5">
                 <div>
                   <h3 className="font-bold text-xs text-card-foreground">📋 Comparativa de Productos Simulados</h3>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Haz clic en una fila para cargarla y editarla en el simulador</p>
-                </div>
-              </div>
-
-              {/* Daily Scaling Volume Simulator Controls */}
-              <div className="p-4 bg-muted/20 border border-dashed rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div className="space-y-0.5">
-                  <h4 className="text-xs font-bold text-card-foreground">📈 Simulador de Escalamiento / Volumen Diario</h4>
-                  <p className="text-[11px] text-muted-foreground">
-                    Modela el volumen de ventas o inversión diaria para ver los resultados estimados en toda tu cartera de productos.
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    Haz clic en una fila para editar sus variables base, o **escribe directamente** en las columnas "Simulado" de cada fila para proyectar diferentes volúmenes independientes.
                   </p>
-                </div>
-                
-                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-                  {/* Selector Mode */}
-                  <div className="inline-flex rounded-lg border bg-background p-0.5 text-xs font-semibold shadow-sm">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setScaleMode("pedidos");
-                        if (scaleValue === 50) setScaleValue(10);
-                      }}
-                      className={`px-3 py-1 rounded-md transition-all ${
-                        scaleMode === "pedidos"
-                          ? "bg-primary text-primary-foreground font-bold"
-                          : "text-muted-foreground hover:text-card-foreground"
-                      }`}
-                    >
-                      📦 Pedidos / Día
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setScaleMode("presupuesto");
-                        if (scaleValue === 10) setScaleValue(50);
-                      }}
-                      className={`px-3 py-1 rounded-md transition-all ${
-                        scaleMode === "presupuesto"
-                          ? "bg-primary text-primary-foreground font-bold"
-                          : "text-muted-foreground hover:text-card-foreground"
-                      }`}
-                    >
-                      💸 Presupuesto / Día
-                    </button>
-                  </div>
-
-                  {/* Input value */}
-                  <div className="flex items-center gap-2 bg-background border rounded-lg px-2.5 py-1 shadow-sm w-32 md:w-36">
-                    <input
-                      type="number"
-                      min="1"
-                      value={scaleValue}
-                      onChange={(e) => setScaleValue(Math.max(1, Number(e.target.value)))}
-                      className="w-full text-xs font-bold bg-transparent border-none outline-none text-right focus:ring-0 focus:outline-none"
-                    />
-                    <span className="text-[10px] text-muted-foreground font-bold uppercase shrink-0">
-                      {scaleMode === "pedidos" ? "peds" : "€/día"}
-                    </span>
-                  </div>
                 </div>
               </div>
               
@@ -691,8 +654,9 @@ function SimuladorContent() {
                       {/* Projection Headers */}
                       <th className="py-2.5 px-3 text-center bg-muted/20 text-primary font-bold">Simulado: Pedidos</th>
                       <th className="py-2.5 px-3 text-right bg-muted/20 text-primary font-bold">Simulado: Gasto Ads</th>
-                      <th className="py-2.5 px-3 text-right bg-muted/20 text-primary font-bold">Simulado: Ganancia</th>
-                      <th className="py-2.5 px-3 text-center bg-muted/20 text-primary font-bold">Simulado: ROI Ads</th>
+                      <th className="py-2.5 px-3 text-right bg-muted/20 text-primary font-bold">Ganancia Diaria</th>
+                      <th className="py-2.5 px-3 text-right bg-muted/20 text-primary font-bold">Ganancia Mensual (30d)</th>
+                      <th className="py-2.5 px-3 text-center bg-muted/20 text-primary font-bold">ROI Ads</th>
                       
                       <th className="py-2.5 px-3 text-center">Acciones</th>
                     </tr>
@@ -702,17 +666,19 @@ function SimuladorContent() {
                       const rowStats = calculateSimStats(s);
                       const isSelected = s.id === selectedId;
 
-                      // Calculate Scaling Volume
+                      // Calculate Scaling Volume (individual per row)
                       const cpa = Number(s.cpa_promedio);
+                      const setting = rowScaleSettings[s.id] || { mode: "pedidos", value: 10 };
+                      
                       let projectedOrders = 0;
                       let projectedAdsSpend = 0;
                       
-                      if (scaleMode === "pedidos") {
-                        projectedOrders = scaleValue;
-                        projectedAdsSpend = scaleValue * cpa;
+                      if (setting.mode === "pedidos") {
+                        projectedOrders = setting.value;
+                        projectedAdsSpend = setting.value * cpa;
                       } else {
-                        projectedAdsSpend = scaleValue;
-                        projectedOrders = cpa > 0 ? scaleValue / cpa : 0;
+                        projectedAdsSpend = setting.value;
+                        projectedOrders = cpa > 0 ? setting.value / cpa : 0;
                       }
                       
                       const projectedDailyProfit = projectedOrders * rowStats.expectedProfit;
@@ -743,17 +709,50 @@ function SimuladorContent() {
                             {rowStats.expectedProfit > 0 ? "+" : ""}{rowStats.expectedProfit.toFixed(2)}€
                           </td>
 
-                          {/* Projected scaling volume */}
-                          <td className="py-3 px-3 text-center font-semibold text-card-foreground bg-muted/5">
-                            {projectedOrders.toFixed(1)}/día
+                          {/* Projected scaling volume (with direct inputs per row) */}
+                          <td className="py-2.5 px-3 bg-muted/5 text-center" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-center gap-1">
+                              <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                value={projectedOrders % 1 === 0 ? projectedOrders : Number(projectedOrders.toFixed(1))}
+                                onChange={(e) => {
+                                  const val = Math.max(0, Number(e.target.value));
+                                  updateRowScale(s.id, "pedidos", val);
+                                }}
+                                className="w-16 text-center text-xs font-bold border rounded px-1.5 py-0.5 bg-background focus:ring-1 focus:ring-primary focus:outline-none"
+                              />
+                              <span className="text-[10px] text-muted-foreground font-semibold">/día</span>
+                            </div>
                           </td>
-                          <td className="py-3 px-3 text-right text-card-foreground bg-muted/5">
-                            {projectedAdsSpend.toFixed(2)}€
+
+                          <td className="py-2.5 px-3 bg-muted/5 text-center" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-center gap-1">
+                              <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                value={projectedAdsSpend % 1 === 0 ? projectedAdsSpend : Number(projectedAdsSpend.toFixed(2))}
+                                onChange={(e) => {
+                                  const val = Math.max(0, Number(e.target.value));
+                                  updateRowScale(s.id, "presupuesto", val);
+                                }}
+                                className="w-20 text-center text-xs font-bold border rounded px-1.5 py-0.5 bg-background focus:ring-1 focus:ring-primary focus:outline-none"
+                              />
+                              <span className="text-[10px] text-muted-foreground font-semibold">€</span>
+                            </div>
                           </td>
+
                           <td className={`py-3 px-3 text-right font-bold bg-muted/5 ${
                             projectedDailyProfit > 0 ? "text-emerald-600 bg-emerald-50/5" : "text-destructive bg-destructive/5"
                           }`}>
                             {projectedDailyProfit > 0 ? "+" : ""}{projectedDailyProfit.toFixed(2)}€
+                          </td>
+                          <td className={`py-3 px-3 text-right font-black bg-muted/5 ${
+                            projectedDailyProfit > 0 ? "text-emerald-600 bg-emerald-50/5" : "text-destructive bg-destructive/5"
+                          }`}>
+                            {projectedDailyProfit * 30 > 0 ? "+" : ""}{(projectedDailyProfit * 30).toFixed(2)}€
                           </td>
                           <td className="py-3 px-3 text-center bg-muted/5">
                             <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${
