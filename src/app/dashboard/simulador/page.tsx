@@ -43,6 +43,11 @@ function SimuladorContent() {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
   const [feedbackMsg, setFeedbackMsg] = useState("");
 
+  // Daily Scaling Volume Simulator states
+  const [scaleMode, setScaleMode] = useState<"pedidos" | "presupuesto">("pedidos");
+  const [scaleValue, setScaleValue] = useState<number>(10);
+
+
   // 1. Fetch saved simulations & Store configuration (for default rejection cost)
   async function fetchSimulations() {
     if (!storeId) return;
@@ -603,9 +608,69 @@ function SimuladorContent() {
           {/* Comparative Table */}
           {simulations.length > 0 && (
             <div className="bg-card border rounded-xl p-5 shadow-sm mt-6 space-y-4">
-              <div className="flex items-center justify-between border-b pb-3">
-                <h3 className="font-bold text-xs text-card-foreground">📋 Comparativa de Productos Simulados</h3>
-                <span className="text-[10px] bg-muted px-2 py-1 rounded font-medium text-muted-foreground">Haz clic en una fila para cargarla y editarla en el simulador</span>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-3.5">
+                <div>
+                  <h3 className="font-bold text-xs text-card-foreground">📋 Comparativa de Productos Simulados</h3>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Haz clic en una fila para cargarla y editarla en el simulador</p>
+                </div>
+              </div>
+
+              {/* Daily Scaling Volume Simulator Controls */}
+              <div className="p-4 bg-muted/20 border border-dashed rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="space-y-0.5">
+                  <h4 className="text-xs font-bold text-card-foreground">📈 Simulador de Escalamiento / Volumen Diario</h4>
+                  <p className="text-[11px] text-muted-foreground">
+                    Modela el volumen de ventas o inversión diaria para ver los resultados estimados en toda tu cartera de productos.
+                  </p>
+                </div>
+                
+                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                  {/* Selector Mode */}
+                  <div className="inline-flex rounded-lg border bg-background p-0.5 text-xs font-semibold shadow-sm">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setScaleMode("pedidos");
+                        if (scaleValue === 50) setScaleValue(10);
+                      }}
+                      className={`px-3 py-1 rounded-md transition-all ${
+                        scaleMode === "pedidos"
+                          ? "bg-primary text-primary-foreground font-bold"
+                          : "text-muted-foreground hover:text-card-foreground"
+                      }`}
+                    >
+                      📦 Pedidos / Día
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setScaleMode("presupuesto");
+                        if (scaleValue === 10) setScaleValue(50);
+                      }}
+                      className={`px-3 py-1 rounded-md transition-all ${
+                        scaleMode === "presupuesto"
+                          ? "bg-primary text-primary-foreground font-bold"
+                          : "text-muted-foreground hover:text-card-foreground"
+                      }`}
+                    >
+                      💸 Presupuesto / Día
+                    </button>
+                  </div>
+
+                  {/* Input value */}
+                  <div className="flex items-center gap-2 bg-background border rounded-lg px-2.5 py-1 shadow-sm w-32 md:w-36">
+                    <input
+                      type="number"
+                      min="1"
+                      value={scaleValue}
+                      onChange={(e) => setScaleValue(Math.max(1, Number(e.target.value)))}
+                      className="w-full text-xs font-bold bg-transparent border-none outline-none text-right focus:ring-0 focus:outline-none"
+                    />
+                    <span className="text-[10px] text-muted-foreground font-bold uppercase shrink-0">
+                      {scaleMode === "pedidos" ? "peds" : "€/día"}
+                    </span>
+                  </div>
+                </div>
               </div>
               
               <div className="overflow-x-auto">
@@ -621,7 +686,14 @@ function SimuladorContent() {
                       <th className="py-2.5 px-3 text-right">CPA Promedio</th>
                       <th className="py-2.5 px-3 text-center">Tasa Entrega</th>
                       <th className="py-2.5 px-3 text-right">CPA Límite</th>
-                      <th className="py-2.5 px-3 text-right">Resultado Medio / Envío</th>
+                      <th className="py-2.5 px-3 text-right border-r">Resultado / Envío</th>
+                      
+                      {/* Projection Headers */}
+                      <th className="py-2.5 px-3 text-center bg-muted/20 text-primary font-bold">Simulado: Pedidos</th>
+                      <th className="py-2.5 px-3 text-right bg-muted/20 text-primary font-bold">Simulado: Gasto Ads</th>
+                      <th className="py-2.5 px-3 text-right bg-muted/20 text-primary font-bold">Simulado: Ganancia</th>
+                      <th className="py-2.5 px-3 text-center bg-muted/20 text-primary font-bold">Simulado: ROI Ads</th>
+                      
                       <th className="py-2.5 px-3 text-center">Acciones</th>
                     </tr>
                   </thead>
@@ -629,6 +701,23 @@ function SimuladorContent() {
                     {simulations.map((s) => {
                       const rowStats = calculateSimStats(s);
                       const isSelected = s.id === selectedId;
+
+                      // Calculate Scaling Volume
+                      const cpa = Number(s.cpa_promedio);
+                      let projectedOrders = 0;
+                      let projectedAdsSpend = 0;
+                      
+                      if (scaleMode === "pedidos") {
+                        projectedOrders = scaleValue;
+                        projectedAdsSpend = scaleValue * cpa;
+                      } else {
+                        projectedAdsSpend = scaleValue;
+                        projectedOrders = cpa > 0 ? scaleValue / cpa : 0;
+                      }
+                      
+                      const projectedDailyProfit = projectedOrders * rowStats.expectedProfit;
+                      const adsRoi = projectedAdsSpend > 0 ? (projectedDailyProfit / projectedAdsSpend) * 100 : 0;
+
                       return (
                         <tr
                           key={s.id}
@@ -648,11 +737,36 @@ function SimuladorContent() {
                           <td className="py-3 px-3 text-right text-muted-foreground">{Number(s.cpa_promedio).toFixed(2)}€</td>
                           <td className="py-3 px-3 text-center font-semibold text-primary">{rowStats.tasaFormatted}</td>
                           <td className="py-3 px-3 text-right font-bold text-card-foreground">{rowStats.breakevenCpa.toFixed(2)}€</td>
-                          <td className={`py-3 px-3 text-right font-black ${
-                            rowStats.expectedProfit > 0 ? "text-emerald-600" : "text-destructive"
+                          <td className={`py-3 px-3 text-right font-black border-r ${
+                            rowStats.expectedProfit > 0 ? "text-emerald-600 bg-emerald-50/5" : "text-destructive bg-destructive/5"
                           }`}>
                             {rowStats.expectedProfit > 0 ? "+" : ""}{rowStats.expectedProfit.toFixed(2)}€
                           </td>
+
+                          {/* Projected scaling volume */}
+                          <td className="py-3 px-3 text-center font-semibold text-card-foreground bg-muted/5">
+                            {projectedOrders.toFixed(1)}/día
+                          </td>
+                          <td className="py-3 px-3 text-right text-card-foreground bg-muted/5">
+                            {projectedAdsSpend.toFixed(2)}€
+                          </td>
+                          <td className={`py-3 px-3 text-right font-bold bg-muted/5 ${
+                            projectedDailyProfit > 0 ? "text-emerald-600 bg-emerald-50/5" : "text-destructive bg-destructive/5"
+                          }`}>
+                            {projectedDailyProfit > 0 ? "+" : ""}{projectedDailyProfit.toFixed(2)}€
+                          </td>
+                          <td className="py-3 px-3 text-center bg-muted/5">
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                              adsRoi > 0
+                                ? "bg-emerald-100 text-emerald-800"
+                                : adsRoi === 0
+                                ? "bg-muted text-muted-foreground"
+                                : "bg-destructive/10 text-destructive"
+                            }`}>
+                              {adsRoi > 0 ? "+" : ""}{adsRoi.toFixed(1)}% ROI
+                            </span>
+                          </td>
+
                           <td className="py-3 px-3 text-center">
                             <button
                               onClick={(e) => {
