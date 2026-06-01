@@ -36,12 +36,9 @@ function SimuladorContent() {
   const [costoRechazo, setCostoRechazo] = useState(14.00);
   const [costoFulfillment, setCostoFulfillment] = useState(0.00);
 
-  // Budget Optimizer and AI Strategy Copilot
+  // Budget Optimizer
   const [budget, setBudget] = useState(100.00);
   const [strategy, setStrategy] = useState<"roi" | "diversified" | "volume">("roi");
-  const [aiRecommendation, setAiRecommendation] = useState<string>("");
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiError, setAiError] = useState("");
 
   // Auto/Manual Rate Status
   const [isAutoTasa, setIsAutoTasa] = useState(false);
@@ -523,31 +520,7 @@ function SimuladorContent() {
     };
   }, [sortedSimulations, budget, strategy]);
 
-  async function handleFetchAiRecommendation() {
-    setAiLoading(true);
-    setAiError("");
-    setAiRecommendation("");
-    try {
-      const res = await fetch("/api/simulaciones/recomendacion", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          budget,
-          simulations: sortedSimulations,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setAiRecommendation(data.recommendation);
-      } else {
-        throw new Error(data.error || "Error al obtener recomendación");
-      }
-    } catch (e) {
-      setAiError(e instanceof Error ? e.message : "Error desconocido");
-    } finally {
-      setAiLoading(false);
-    }
-  }
+
 
   // Aggregated totals of projected volumes
   const totals = useMemo(() => {
@@ -1209,19 +1182,10 @@ function SimuladorContent() {
                       </select>
                     </div>
 
-                    <div className="pt-2 border-t space-y-3">
+                    <div className="pt-2 border-t">
                       <div className="text-[10px] text-muted-foreground leading-relaxed">
                         * El optimizador matemático **excluye** automáticamente los productos a pérdidas o con ROI negativo para proteger tu capital de anuncios.
                       </div>
-                      
-                      <button
-                        onClick={handleFetchAiRecommendation}
-                        disabled={aiLoading}
-                        className="w-full flex items-center justify-center gap-2 bg-primary/10 text-primary border border-primary/20 font-bold px-4 py-2.5 text-xs rounded-lg hover:bg-primary/15 transition-all shadow-sm disabled:opacity-50"
-                      >
-                        <Sparkles className="size-4 animate-pulse text-primary" />
-                        {aiLoading ? "Consultando al Copiloto..." : "✨ Preguntar al Copiloto de IA"}
-                      </button>
                     </div>
                   </div>
 
@@ -1294,50 +1258,6 @@ function SimuladorContent() {
                     </div>
                   </div>
                 </div>
-
-                {/* AI strategic report overlay */}
-                {(aiLoading || aiRecommendation || aiError) && (
-                  <div className="border-t pt-5 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-bold text-card-foreground uppercase tracking-wider flex items-center gap-1.5">
-                        <Sparkles className="size-4 text-primary animate-pulse" />
-                        Informe Estratégico del Copiloto IA
-                      </h4>
-                      {aiRecommendation && (
-                        <button
-                          onClick={() => setAiRecommendation("")}
-                          className="text-[10px] font-semibold text-muted-foreground hover:text-card-foreground px-2 py-0.5 border rounded hover:bg-muted/40 transition-all shadow-sm"
-                        >
-                          Limpiar Reporte
-                        </button>
-                      )}
-                    </div>
-
-                    {aiLoading && (
-                      <div className="bg-muted/30 border border-dashed rounded-xl p-8 flex flex-col items-center justify-center gap-3">
-                        <div className="size-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                        <div className="text-center space-y-1">
-                          <p className="text-xs font-bold text-card-foreground">Analizando tus unit economics...</p>
-                          <p className="text-[10px] text-muted-foreground">El copiloto de IA está cruzando tus tasas de entrega, cpa y márgenes para diseñar tu plan de escala.</p>
-                        </div>
-                      </div>
-                    )}
-
-                    {aiError && (
-                      <div className="flex items-start gap-2.5 p-3 rounded-lg border border-destructive/20 bg-destructive/5 text-destructive text-xs">
-                        <AlertCircle className="size-4 shrink-0 mt-0.5" />
-                        <span>{aiError}</span>
-                      </div>
-                    )}
-
-                    {aiRecommendation && (
-                      <div className="bg-background border rounded-xl p-5 shadow-sm max-h-[500px] overflow-y-auto border-primary/20 relative">
-                        <div className="absolute top-3 right-3 size-2.5 rounded-full bg-emerald-500 animate-ping" />
-                        <MarkdownRenderer text={aiRecommendation} />
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             )}
         </>
@@ -1346,52 +1266,7 @@ function SimuladorContent() {
   );
 }
 
-function parseFormatting(text: string) {
-  const parts = text.split(/(\*\*.*?\*\*|`.*?`)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith("**") && part.endsWith("**")) {
-      return <strong key={i} className="font-extrabold text-card-foreground">{part.slice(2, -2)}</strong>;
-    }
-    if (part.startsWith("`") && part.endsWith("`")) {
-      return <code key={i} className="px-1.5 py-0.5 rounded bg-muted text-primary font-mono text-xs">{part.slice(1, -1)}</code>;
-    }
-    return part;
-  });
-}
 
-function MarkdownRenderer({ text }: { text: string }) {
-  const lines = text.split("\n");
-  return (
-    <div className="space-y-3 text-sm text-card-foreground leading-relaxed">
-      {lines.map((line, idx) => {
-        const trimmed = line.trim();
-        if (!trimmed) return <div key={idx} className="h-2" />;
-
-        if (trimmed.startsWith("###")) {
-          return <h5 key={idx} className="text-sm font-bold text-primary mt-4 mb-2">{trimmed.replace(/^###\s*/, "")}</h5>;
-        }
-        if (trimmed.startsWith("##")) {
-          return <h4 key={idx} className="text-base font-extrabold text-primary mt-5 mb-2.5 border-b pb-1">{trimmed.replace(/^##\s*/, "")}</h4>;
-        }
-        if (trimmed.startsWith("#")) {
-          return <h3 key={idx} className="text-lg font-black text-primary mt-6 mb-3">{trimmed.replace(/^#\s*/, "")}</h3>;
-        }
-
-        if (trimmed.startsWith("-") || trimmed.startsWith("*")) {
-          const itemText = trimmed.replace(/^[-*]\s*/, "");
-          return (
-            <div key={idx} className="flex gap-2 pl-2">
-              <span className="text-primary">•</span>
-              <p className="flex-1">{parseFormatting(itemText)}</p>
-            </div>
-          );
-        }
-
-        return <p key={idx} className="indent-0">{parseFormatting(trimmed)}</p>;
-      })}
-    </div>
-  );
-}
 
 export default function SimuladorPage() {
   return (
