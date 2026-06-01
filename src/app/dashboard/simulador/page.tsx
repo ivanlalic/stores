@@ -36,6 +36,13 @@ function SimuladorContent() {
   const [costoRechazo, setCostoRechazo] = useState(14.00);
   const [costoFulfillment, setCostoFulfillment] = useState(0.00);
 
+  // Budget Optimizer and AI Strategy Copilot
+  const [budget, setBudget] = useState(100.00);
+  const [strategy, setStrategy] = useState<"roi" | "diversified" | "volume">("roi");
+  const [aiRecommendation, setAiRecommendation] = useState<string>("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
+
   // Auto/Manual Rate Status
   const [isAutoTasa, setIsAutoTasa] = useState(false);
   const [autoTasaLoading, setAutoTasaLoading] = useState(false);
@@ -426,6 +433,121 @@ function SimuladorContent() {
     sortBy,
     sortOrder,
   ]);
+
+  // 6. Deterministic Budget Optimization Logic
+  const optimizedAllocation = useMemo(() => {
+    const profitable = sortedSimulations.filter((item) => item.expectedProfit > 0);
+    
+    if (profitable.length === 0 || budget <= 0) {
+      return {
+        allocations: [],
+        totalDailyProfit: 0,
+        overallRoi: 0,
+        totalOrders: 0,
+        totalSpent: 0,
+      };
+    }
+
+    let allocations: Array<{
+      id: string;
+      nombre: string;
+      cpa: number;
+      expectedProfit: number;
+      roi: number;
+      budgetAllocated: number;
+      ordersProjected: number;
+      profitProjected: number;
+    }> = [];
+
+    let totalSpent = 0;
+
+    if (strategy === "roi") {
+      const best = [...profitable].sort((a, b) => b.adsRoi - a.adsRoi)[0];
+      const orders = best.cpaVal > 0 ? budget / best.cpaVal : 0;
+      allocations.push({
+        id: best.id,
+        nombre: best.nombre,
+        cpa: best.cpaVal,
+        expectedProfit: best.expectedProfit,
+        roi: best.adsRoi,
+        budgetAllocated: budget,
+        ordersProjected: orders,
+        profitProjected: orders * best.expectedProfit,
+      });
+      totalSpent = budget;
+    } else if (strategy === "volume") {
+      const sortedByCpa = [...profitable].sort((a, b) => a.cpaVal - b.cpaVal);
+      const bestVolume = sortedByCpa[0];
+      const orders = bestVolume.cpaVal > 0 ? budget / bestVolume.cpaVal : 0;
+      allocations.push({
+        id: bestVolume.id,
+        nombre: bestVolume.nombre,
+        cpa: bestVolume.cpaVal,
+        expectedProfit: bestVolume.expectedProfit,
+        roi: bestVolume.adsRoi,
+        budgetAllocated: budget,
+        ordersProjected: orders,
+        profitProjected: orders * bestVolume.expectedProfit,
+      });
+      totalSpent = budget;
+    } else {
+      const totalRoi = profitable.reduce((sum, item) => sum + item.adsRoi, 0);
+      profitable.forEach((item) => {
+        const weight = totalRoi > 0 ? item.adsRoi / totalRoi : 0;
+        const budgetShare = budget * weight;
+        const orders = item.cpaVal > 0 ? budgetShare / item.cpaVal : 0;
+        allocations.push({
+          id: item.id,
+          nombre: item.nombre,
+          cpa: item.cpaVal,
+          expectedProfit: item.expectedProfit,
+          roi: item.adsRoi,
+          budgetAllocated: budgetShare,
+          ordersProjected: orders,
+          profitProjected: orders * item.expectedProfit,
+        });
+      });
+      totalSpent = budget;
+    }
+
+    const totalDailyProfit = allocations.reduce((sum, item) => sum + item.profitProjected, 0);
+    const totalOrders = allocations.reduce((sum, item) => sum + item.ordersProjected, 0);
+    const overallRoi = totalSpent > 0 ? (totalDailyProfit / totalSpent) * 100 : 0;
+
+    return {
+      allocations,
+      totalDailyProfit,
+      overallRoi,
+      totalOrders,
+      totalSpent,
+    };
+  }, [sortedSimulations, budget, strategy]);
+
+  async function handleFetchAiRecommendation() {
+    setAiLoading(true);
+    setAiError("");
+    setAiRecommendation("");
+    try {
+      const res = await fetch("/api/simulaciones/recomendacion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          budget,
+          simulations: sortedSimulations,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAiRecommendation(data.recommendation);
+      } else {
+        throw new Error(data.error || "Error al obtener recomendación");
+      }
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : "Error desconocido");
+    } finally {
+      setAiLoading(false);
+    }
+  }
 
   // Aggregated totals of projected volumes
   const totals = useMemo(() => {
@@ -1034,8 +1156,239 @@ function SimuladorContent() {
               </div>
             </div>
           )}
+          {/* Ads Budget Optimizer Panel */}
+            {simulations.length > 0 && (
+              <div className="bg-card border rounded-xl p-6 shadow-sm mt-6 space-y-6 bg-gradient-to-br from-card to-secondary/5 relative overflow-hidden">
+                <div className="absolute -top-24 -left-24 size-48 rounded-full opacity-5 bg-primary/30 blur-2xl pointer-events-none" />
+                
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex items-center justify-center size-9 rounded-lg bg-primary/10 text-primary">
+                      <TrendingUp className="size-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-sm text-card-foreground">🚀 Optimizador Estratégico de Presupuesto Ads</h3>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        Distribuye tu presupuesto diario de publicidad de manera óptima entre tus ofertas ganadoras.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                  {/* Inputs block */}
+                  <div className="md:col-span-4 space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
+                        Presupuesto Diario Ads (€)
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="1"
+                          value={budget}
+                          onChange={(e) => setBudget(Math.max(0, Number(e.target.value)))}
+                          className="w-full text-sm border rounded px-3 py-2 bg-background focus:ring-1 focus:ring-primary focus:outline-none pl-8 font-bold"
+                        />
+                        <span className="absolute left-3 top-2 text-muted-foreground text-sm font-semibold">€</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
+                        Estrategia de Crecimiento
+                      </label>
+                      <select
+                        value={strategy}
+                        onChange={(e) => setStrategy(e.target.value as any)}
+                        className="w-full text-sm border rounded px-3 py-2 bg-background focus:ring-1 focus:ring-primary focus:outline-none font-medium cursor-pointer"
+                      >
+                        <option value="roi">📈 Rentabilidad Máxima (Best ROI)</option>
+                        <option value="diversified">⚖️ Diversificación Equilibrada</option>
+                        <option value="volume">🔥 Volumen Máximo de Pedidos</option>
+                      </select>
+                    </div>
+
+                    <div className="pt-2 border-t space-y-3">
+                      <div className="text-[10px] text-muted-foreground leading-relaxed">
+                        * El optimizador matemático **excluye** automáticamente los productos a pérdidas o con ROI negativo para proteger tu capital de anuncios.
+                      </div>
+                      
+                      <button
+                        onClick={handleFetchAiRecommendation}
+                        disabled={aiLoading}
+                        className="w-full flex items-center justify-center gap-2 bg-primary/10 text-primary border border-primary/20 font-bold px-4 py-2.5 text-xs rounded-lg hover:bg-primary/15 transition-all shadow-sm disabled:opacity-50"
+                      >
+                        <Sparkles className="size-4 animate-pulse text-primary" />
+                        {aiLoading ? "Consultando al Copiloto..." : "✨ Preguntar al Copiloto de IA"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Results/Metrics display */}
+                  <div className="md:col-span-8 space-y-6">
+                    {/* Aggregated Totals Grid */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="bg-muted/30 border rounded-xl p-3.5 space-y-1">
+                        <span className="block text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Presupuesto Ads</span>
+                        <span className="text-lg font-extrabold text-card-foreground">{optimizedAllocation.totalSpent.toFixed(2)}€</span>
+                      </div>
+                      <div className="bg-muted/30 border rounded-xl p-3.5 space-y-1">
+                        <span className="block text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Ganancia Diaria Net</span>
+                        <span className={`text-lg font-black ${
+                          optimizedAllocation.totalDailyProfit > 0 ? "text-emerald-600" : "text-card-foreground"
+                        }`}>
+                          +{optimizedAllocation.totalDailyProfit.toFixed(2)}€
+                        </span>
+                      </div>
+                      <div className="bg-muted/30 border rounded-xl p-3.5 space-y-1">
+                        <span className="block text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Ganancia Mensual</span>
+                        <span className={`text-lg font-black ${
+                          optimizedAllocation.totalDailyProfit > 0 ? "text-emerald-600" : "text-card-foreground"
+                        }`}>
+                          +{(optimizedAllocation.totalDailyProfit * 30).toFixed(0)}€
+                        </span>
+                      </div>
+                      <div className="bg-muted/30 border rounded-xl p-3.5 space-y-1">
+                        <span className="block text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">ROI de Ads</span>
+                        <span className="text-lg font-black text-primary">
+                          +{optimizedAllocation.overallRoi.toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Allocations Breakdown */}
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-bold text-card-foreground uppercase tracking-wider">Distribución Recomendada de Ads</h4>
+                      {optimizedAllocation.allocations.length === 0 ? (
+                        <div className="border border-dashed rounded-xl p-6 text-center text-muted-foreground">
+                          <AlertCircle className="size-6 text-muted-foreground mx-auto mb-2" />
+                          <span className="text-xs">No tienes productos con rentabilidad esperada positiva en tu catálogo. ¡Ajusta tus precios, cpa o tasas de entrega!</span>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {optimizedAllocation.allocations.map((item) => (
+                            <div key={item.id} className="bg-background border rounded-xl p-4 space-y-3.5 shadow-sm relative overflow-hidden">
+                              <div className="flex items-start justify-between gap-2 border-b pb-2">
+                                <span className="font-bold text-xs text-card-foreground truncate max-w-[150px]">{item.nombre}</span>
+                                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100/30 px-1.5 py-0.5 rounded shrink-0">+{item.roi.toFixed(0)}% ROI</span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 text-[10px]">
+                                <div>
+                                  <span className="block font-semibold text-muted-foreground">Presupuesto Ads</span>
+                                  <span className="text-xs font-extrabold text-card-foreground">{item.budgetAllocated.toFixed(2)}€/d</span>
+                                </div>
+                                <div>
+                                  <span className="block font-semibold text-muted-foreground">Pedidos Est.</span>
+                                  <span className="text-xs font-extrabold text-card-foreground">{item.ordersProjected.toFixed(1)}/d</span>
+                                </div>
+                                <div className="col-span-2 pt-2 border-t">
+                                  <span className="block font-semibold text-muted-foreground">Ganancia Neta Diaria</span>
+                                  <span className="text-xs font-bold text-emerald-600">+{item.profitProjected.toFixed(2)}€/día</span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* AI strategic report overlay */}
+                {(aiLoading || aiRecommendation || aiError) && (
+                  <div className="border-t pt-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold text-card-foreground uppercase tracking-wider flex items-center gap-1.5">
+                        <Sparkles className="size-4 text-primary animate-pulse" />
+                        Informe Estratégico del Copiloto IA
+                      </h4>
+                      {aiRecommendation && (
+                        <button
+                          onClick={() => setAiRecommendation("")}
+                          className="text-[10px] font-semibold text-muted-foreground hover:text-card-foreground px-2 py-0.5 border rounded hover:bg-muted/40 transition-all shadow-sm"
+                        >
+                          Limpiar Reporte
+                        </button>
+                      )}
+                    </div>
+
+                    {aiLoading && (
+                      <div className="bg-muted/30 border border-dashed rounded-xl p-8 flex flex-col items-center justify-center gap-3">
+                        <div className="size-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                        <div className="text-center space-y-1">
+                          <p className="text-xs font-bold text-card-foreground">Analizando tus unit economics...</p>
+                          <p className="text-[10px] text-muted-foreground">El copiloto de IA está cruzando tus tasas de entrega, cpa y márgenes para diseñar tu plan de escala.</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {aiError && (
+                      <div className="flex items-start gap-2.5 p-3 rounded-lg border border-destructive/20 bg-destructive/5 text-destructive text-xs">
+                        <AlertCircle className="size-4 shrink-0 mt-0.5" />
+                        <span>{aiError}</span>
+                      </div>
+                    )}
+
+                    {aiRecommendation && (
+                      <div className="bg-background border rounded-xl p-5 shadow-sm max-h-[500px] overflow-y-auto border-primary/20 relative">
+                        <div className="absolute top-3 right-3 size-2.5 rounded-full bg-emerald-500 animate-ping" />
+                        <MarkdownRenderer text={aiRecommendation} />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
         </>
       )}
+    </div>
+  );
+}
+
+function parseFormatting(text: string) {
+  const parts = text.split(/(\*\*.*?\*\*|`.*?`)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={i} className="font-extrabold text-card-foreground">{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith("`") && part.endsWith("`")) {
+      return <code key={i} className="px-1.5 py-0.5 rounded bg-muted text-primary font-mono text-xs">{part.slice(1, -1)}</code>;
+    }
+    return part;
+  });
+}
+
+function MarkdownRenderer({ text }: { text: string }) {
+  const lines = text.split("\n");
+  return (
+    <div className="space-y-3 text-sm text-card-foreground leading-relaxed">
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <div key={idx} className="h-2" />;
+
+        if (trimmed.startsWith("###")) {
+          return <h5 key={idx} className="text-sm font-bold text-primary mt-4 mb-2">{trimmed.replace(/^###\s*/, "")}</h5>;
+        }
+        if (trimmed.startsWith("##")) {
+          return <h4 key={idx} className="text-base font-extrabold text-primary mt-5 mb-2.5 border-b pb-1">{trimmed.replace(/^##\s*/, "")}</h4>;
+        }
+        if (trimmed.startsWith("#")) {
+          return <h3 key={idx} className="text-lg font-black text-primary mt-6 mb-3">{trimmed.replace(/^#\s*/, "")}</h3>;
+        }
+
+        if (trimmed.startsWith("-") || trimmed.startsWith("*")) {
+          const itemText = trimmed.replace(/^[-*]\s*/, "");
+          return (
+            <div key={idx} className="flex gap-2 pl-2">
+              <span className="text-primary">•</span>
+              <p className="flex-1">{parseFormatting(itemText)}</p>
+            </div>
+          );
+        }
+
+        return <p key={idx} className="indent-0">{parseFormatting(trimmed)}</p>;
+      })}
     </div>
   );
 }
