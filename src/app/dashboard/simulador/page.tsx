@@ -1230,29 +1230,60 @@ function SimuladorContent() {
                           <span className="text-xs">No tienes productos con rentabilidad esperada positiva en tu catálogo. ¡Ajusta tus precios, cpa o tasas de entrega!</span>
                         </div>
                       ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          {optimizedAllocation.allocations.map((item) => (
-                            <div key={item.id} className="bg-background border rounded-xl p-4 space-y-3.5 shadow-sm relative overflow-hidden">
-                              <div className="flex items-start justify-between gap-2 border-b pb-2">
-                                <span className="font-bold text-xs text-card-foreground truncate max-w-[150px]">{item.nombre}</span>
-                                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100/30 px-1.5 py-0.5 rounded shrink-0">+{item.roi.toFixed(0)}% ROI</span>
-                              </div>
-                              <div className="grid grid-cols-2 gap-2 text-[10px]">
-                                <div>
-                                  <span className="block font-semibold text-muted-foreground">Presupuesto Ads</span>
-                                  <span className="text-xs font-extrabold text-card-foreground">{item.budgetAllocated.toFixed(2)}€/d</span>
-                                </div>
-                                <div>
-                                  <span className="block font-semibold text-muted-foreground">Pedidos Est.</span>
-                                  <span className="text-xs font-extrabold text-card-foreground">{item.ordersProjected.toFixed(1)}/d</span>
-                                </div>
-                                <div className="col-span-2 pt-2 border-t">
-                                  <span className="block font-semibold text-muted-foreground">Ganancia Neta Diaria</span>
-                                  <span className="text-xs font-bold text-emerald-600">+{item.profitProjected.toFixed(2)}€/día</span>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
+                        <div className="overflow-x-auto border rounded-xl bg-background shadow-sm">
+                          <table className="w-full text-xs text-left border-collapse">
+                            <thead>
+                              <tr className="border-b bg-muted/40 font-semibold text-muted-foreground select-none">
+                                <th className="py-2.5 px-3.5 font-bold">Producto / Oferta</th>
+                                <th className="py-2.5 px-3 text-center font-bold">ROI Ads</th>
+                                <th className="py-2.5 px-3 text-right font-bold">Presupuesto Ads</th>
+                                <th className="py-2.5 px-3 text-right font-bold">Pedidos Est.</th>
+                                <th className="py-2.5 px-3.5 text-right text-emerald-600 font-bold">Ganancia Diaria Net</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                              {optimizedAllocation.allocations.map((item) => (
+                                <tr key={item.id} className="hover:bg-muted/40 transition-colors">
+                                  <td className="py-3 px-3.5 text-card-foreground font-bold truncate max-w-[180px]">
+                                    {item.nombre}
+                                  </td>
+                                  <td className="py-3 px-3 text-center">
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                      +{item.roi.toFixed(0)}% ROI
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-3 text-right font-semibold text-card-foreground">
+                                    {item.budgetAllocated.toFixed(2)}€<span className="text-[10px] text-muted-foreground font-normal"> /día</span>
+                                  </td>
+                                  <td className="py-3 px-3 text-right font-medium text-muted-foreground">
+                                    {item.ordersProjected.toFixed(1)}<span className="text-[10px] text-muted-foreground font-normal"> ped/día</span>
+                                  </td>
+                                  <td className="py-3 px-3.5 text-right font-black text-emerald-600">
+                                    +{item.profitProjected.toFixed(2)}€<span className="text-[10px] font-normal text-emerald-600/70"> /día</span>
+                                  </td>
+                                </tr>
+                              ))}
+                              
+                              {/* Totals row inside allocator */}
+                              <tr className="bg-primary/5 font-extrabold border-t-2 border-double border-primary/20">
+                                <td className="py-2.5 px-3.5 text-primary font-bold">TOTAL OPTIMIZADO</td>
+                                <td className="py-2.5 px-3 text-center">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black bg-primary text-primary-foreground">
+                                    +{optimizedAllocation.overallRoi.toFixed(1)}% ROI
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 text-right text-primary font-black">
+                                  {optimizedAllocation.totalSpent.toFixed(2)}€<span className="text-[10px] font-normal"> /d</span>
+                                </td>
+                                <td className="py-2.5 px-3 text-right text-primary font-bold">
+                                  {optimizedAllocation.totalOrders.toFixed(1)}<span className="text-[10px] font-normal"> /d</span>
+                                </td>
+                                <td className="py-2.5 px-3.5 text-right text-emerald-600 font-black">
+                                  +{optimizedAllocation.totalDailyProfit.toFixed(2)}€<span className="text-[10px] font-normal"> /día</span>
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
                         </div>
                       )}
                     </div>
