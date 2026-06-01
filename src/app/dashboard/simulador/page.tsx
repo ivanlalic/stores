@@ -314,7 +314,7 @@ function SimuladorContent() {
       breakevenCpa: Math.round(breakevenCpa * 100) / 100,
       marginStatus,
     };
-  }, [precioVenta, costoUnitario, unidades, costoEnvioCod, cpaPromedio, tasaEntrega, costoRechazo]);
+  }, [precioVenta, costoUnitario, unidades, costoFulfillment, costoEnvioCod, cpaPromedio, tasaEntrega, costoRechazo]);
 
   // Sorted and calculated simulations list for rendering and sorting
   const sortedSimulations = useMemo(() => {
@@ -416,6 +416,7 @@ function SimuladorContent() {
     precioVenta,
     costoUnitario,
     unidades,
+    costoFulfillment,
     costoEnvioCod,
     cpaPromedio,
     tasaEntrega,
