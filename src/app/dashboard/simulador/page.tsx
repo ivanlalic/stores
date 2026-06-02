@@ -35,10 +35,21 @@ function SimuladorContent() {
   const [tasaEntrega, setTasaEntrega] = useState(0.75); // 75%
   const [costoRechazo, setCostoRechazo] = useState(14.00);
   const [costoFulfillment, setCostoFulfillment] = useState(0.00);
-
   // Budget Optimizer
   const [budget, setBudget] = useState(100.00);
-  const [strategy, setStrategy] = useState<"roi" | "diversified" | "volume">("roi");
+  const [strategy, setStrategy] = useState<"roi" | "diversified" | "volume" | "portfolio">("roi");
+  const [numProducts, setNumProducts] = useState(5);
+  const [minBudgetMode, setMinBudgetMode] = useState<"none" | "cpa_1.5" | "cpa_2.0" | "custom">("cpa_1.5");
+  const [minBudgetCustomVal, setMinBudgetCustomVal] = useState(15.00);
+  const [excessDistribution, setExcessDistribution] = useState<"best_roi" | "proportional">("best_roi");
+  const [excludedProductIds, setExcludedProductIds] = useState<Record<string, boolean>>({});
+
+  function toggleProductExclusion(id: string) {
+    setExcludedProductIds((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  }
 
   // Auto/Manual Rate Status
   const [isAutoTasa, setIsAutoTasa] = useState(false);
@@ -433,7 +444,10 @@ function SimuladorContent() {
 
   // 6. Deterministic Budget Optimization Logic
   const optimizedAllocation = useMemo(() => {
-    const profitable = sortedSimulations.filter((item) => item.expectedProfit > 0);
+    // Filter out excluded products or those with non-positive expected profit
+    const profitable = sortedSimulations.filter(
+      (item) => item.expectedProfit > 0 && !excludedProductIds[item.id]
+    );
     
     if (profitable.length === 0 || budget <= 0) {
       return {
@@ -442,6 +456,9 @@ function SimuladorContent() {
         overallRoi: 0,
         totalOrders: 0,
         totalSpent: 0,
+        isBudgetInsufficient: false,
+        activeCount: 0,
+        targetCount: 0,
       };
     }
 
@@ -454,9 +471,13 @@ function SimuladorContent() {
       budgetAllocated: number;
       ordersProjected: number;
       profitProjected: number;
+      isAtMinBudget: boolean;
     }> = [];
 
     let totalSpent = 0;
+    let isBudgetInsufficient = false;
+    let activeCount = 0;
+    let targetCount = 0;
 
     if (strategy === "roi") {
       const best = [...profitable].sort((a, b) => b.adsRoi - a.adsRoi)[0];
@@ -470,8 +491,11 @@ function SimuladorContent() {
         budgetAllocated: budget,
         ordersProjected: orders,
         profitProjected: orders * best.expectedProfit,
+        isAtMinBudget: false,
       });
       totalSpent = budget;
+      activeCount = 1;
+      targetCount = 1;
     } else if (strategy === "volume") {
       const sortedByCpa = [...profitable].sort((a, b) => a.cpaVal - b.cpaVal);
       const bestVolume = sortedByCpa[0];
@@ -485,9 +509,12 @@ function SimuladorContent() {
         budgetAllocated: budget,
         ordersProjected: orders,
         profitProjected: orders * bestVolume.expectedProfit,
+        isAtMinBudget: false,
       });
       totalSpent = budget;
-    } else {
+      activeCount = 1;
+      targetCount = 1;
+    } else if (strategy === "diversified") {
       const totalRoi = profitable.reduce((sum, item) => sum + item.adsRoi, 0);
       profitable.forEach((item) => {
         const weight = totalRoi > 0 ? item.adsRoi / totalRoi : 0;
@@ -502,8 +529,108 @@ function SimuladorContent() {
           budgetAllocated: budgetShare,
           ordersProjected: orders,
           profitProjected: orders * item.expectedProfit,
+          isAtMinBudget: false,
         });
       });
+      totalSpent = budget;
+      activeCount = profitable.length;
+      targetCount = profitable.length;
+    } else if (strategy === "portfolio") {
+      // Sort by ROI descending
+      const candidates = [...profitable].sort((a, b) => b.adsRoi - a.adsRoi);
+      targetCount = Math.min(numProducts, candidates.length);
+      const selectedCandidates = candidates.slice(0, targetCount);
+
+      // Determine min budgets for each
+      const minBudgets: Record<string, number> = {};
+      selectedCandidates.forEach((item) => {
+        let minB = 0;
+        if (minBudgetMode === "cpa_1.5") {
+          minB = 1.5 * item.cpaVal;
+        } else if (minBudgetMode === "cpa_2.0") {
+          minB = 2.0 * item.cpaVal;
+        } else if (minBudgetMode === "custom") {
+          minB = minBudgetCustomVal;
+        }
+        minBudgets[item.id] = minB;
+      });
+
+      // Greedily allocate minimum budgets
+      let allocatedMinBudgets: Record<string, number> = {};
+      let totalMinAllocated = 0;
+      let supportedCandidates: typeof selectedCandidates = [];
+
+      for (let i = 0; i < selectedCandidates.length; i++) {
+        const item = selectedCandidates[i];
+        const minB = minBudgets[item.id];
+        if (totalMinAllocated + minB <= budget) {
+          allocatedMinBudgets[item.id] = minB;
+          totalMinAllocated += minB;
+          supportedCandidates.push(item);
+        } else {
+          isBudgetInsufficient = true;
+          if (i === 0) {
+            // Allocate whatever is left to the first one
+            allocatedMinBudgets[item.id] = budget;
+            totalMinAllocated = budget;
+            supportedCandidates.push(item);
+          }
+          break;
+        }
+      }
+
+      activeCount = supportedCandidates.length;
+      if (activeCount < targetCount) {
+        isBudgetInsufficient = true;
+      }
+
+      // Calculate excess budget
+      const excess = budget - totalMinAllocated;
+
+      // Distribute excess
+      let finalBudgets: Record<string, { amount: number; isAtMin: boolean }> = {};
+      supportedCandidates.forEach((item) => {
+        finalBudgets[item.id] = {
+          amount: allocatedMinBudgets[item.id] || 0,
+          isAtMin: true,
+        };
+      });
+
+      if (excess > 0 && supportedCandidates.length > 0) {
+        if (excessDistribution === "best_roi") {
+          const bestId = supportedCandidates[0].id;
+          finalBudgets[bestId].amount += excess;
+          finalBudgets[bestId].isAtMin = false;
+        } else {
+          const totalRoiOfSupported = supportedCandidates.reduce((sum, item) => sum + item.adsRoi, 0);
+          supportedCandidates.forEach((item) => {
+            const weight = totalRoiOfSupported > 0 ? item.adsRoi / totalRoiOfSupported : 0;
+            const share = excess * weight;
+            finalBudgets[item.id].amount += share;
+            if (share > 0.01) {
+              finalBudgets[item.id].isAtMin = false;
+            }
+          });
+        }
+      }
+
+      // Build allocations
+      supportedCandidates.forEach((item) => {
+        const budgetAllocated = finalBudgets[item.id]?.amount || 0;
+        const orders = item.cpaVal > 0 ? budgetAllocated / item.cpaVal : 0;
+        allocations.push({
+          id: item.id,
+          nombre: item.nombre,
+          cpa: item.cpaVal,
+          expectedProfit: item.expectedProfit,
+          roi: item.adsRoi,
+          budgetAllocated,
+          ordersProjected: orders,
+          profitProjected: orders * item.expectedProfit,
+          isAtMinBudget: finalBudgets[item.id]?.isAtMin || false,
+        });
+      });
+
       totalSpent = budget;
     }
 
@@ -517,8 +644,21 @@ function SimuladorContent() {
       overallRoi,
       totalOrders,
       totalSpent,
+      isBudgetInsufficient,
+      activeCount,
+      targetCount,
     };
-  }, [sortedSimulations, budget, strategy]);
+  }, [
+    sortedSimulations,
+    budget,
+    strategy,
+    numProducts,
+    minBudgetMode,
+    minBudgetCustomVal,
+    excessDistribution,
+    excludedProductIds,
+  ]);
+
 
 
 
@@ -890,7 +1030,7 @@ function SimuladorContent() {
                 <div>
                   <h3 className="font-bold text-xs text-card-foreground">📋 Comparativa de Productos Simulados</h3>
                   <p className="text-[10px] text-muted-foreground mt-0.5">
-                    Haz clic en una fila para editar sus variables base, o **escribe directamente** en las columnas "Simulado" de cada fila para proyectar diferentes volúmenes independientes.
+                    Haz clic en una fila para editar sus variables base, marca/desmarca el checkbox del nombre para incluir/excluir en la optimización automática de anuncios, o **escribe directamente** en las columnas "Simulado" de cada fila para proyectar diferentes volúmenes independientes.
                   </p>
                 </div>
                 {!isFormOpen && (
@@ -977,8 +1117,24 @@ function SimuladorContent() {
                             isSelected ? "bg-primary/5 font-semibold" : ""
                           }`}
                         >
-                          <td className="py-3 px-3 text-card-foreground font-medium truncate max-w-[150px]">
-                            {item.nombre}
+                          <td className="py-3 px-3 text-card-foreground font-medium truncate max-w-[150px]" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={!excludedProductIds[s.id]}
+                                onChange={() => toggleProductExclusion(s.id)}
+                                className="rounded border-gray-300 text-primary focus:ring-primary/50 focus:ring-1 cursor-pointer size-3.5 shrink-0"
+                                title={excludedProductIds[s.id] ? "Incluir en optimizador" : "Excluir de optimizador"}
+                              />
+                              <span 
+                                onClick={() => handleSelectChange(s.id)}
+                                className={`cursor-pointer hover:underline ${
+                                  excludedProductIds[s.id] ? "line-through text-muted-foreground/50 font-normal" : ""
+                                }`}
+                              >
+                                {item.nombre}
+                              </span>
+                            </div>
                           </td>
                           <td className="py-3 px-3 text-right font-medium">{item.precio.toFixed(2)}€</td>
                           <td className="py-3 px-3 text-right text-muted-foreground">{item.costoUnit.toFixed(2)}€</td>
@@ -1177,10 +1333,75 @@ function SimuladorContent() {
                         className="w-full text-sm border rounded px-3 py-2 bg-background focus:ring-1 focus:ring-primary focus:outline-none font-medium cursor-pointer"
                       >
                         <option value="roi">📈 Rentabilidad Máxima (Best ROI)</option>
+                        <option value="portfolio">💼 Cartera Optimizada (Top N)</option>
                         <option value="diversified">⚖️ Diversificación Equilibrada</option>
                         <option value="volume">🔥 Volumen Máximo de Pedidos</option>
                       </select>
                     </div>
+
+                    {strategy === "portfolio" && (
+                      <div className="space-y-3 pt-3 border-t border-dashed">
+                        <div>
+                          <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
+                            Nº de Productos a Activar (Top N)
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="15"
+                            value={numProducts}
+                            onChange={(e) => setNumProducts(Math.max(1, Number(e.target.value)))}
+                            className="w-full text-sm border rounded px-3 py-1.5 bg-background focus:ring-1 focus:ring-primary focus:outline-none font-medium"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
+                            Presupuesto Mínimo por Campaña
+                          </label>
+                          <select
+                            value={minBudgetMode}
+                            onChange={(e) => setMinBudgetMode(e.target.value as any)}
+                            className="w-full text-sm border rounded px-3 py-1.5 bg-background focus:ring-1 focus:ring-primary focus:outline-none font-medium cursor-pointer"
+                          >
+                            <option value="cpa_1.5">⚡ Automático (1.5x CPA)</option>
+                            <option value="cpa_2.0">🔥 Automático (2.0x CPA)</option>
+                            <option value="custom">⚙️ Fijo Personalizado</option>
+                            <option value="none">❌ Ninguno (Sin mínimo)</option>
+                          </select>
+                        </div>
+
+                        {minBudgetMode === "custom" && (
+                          <div>
+                            <label className="block text-xs font-semibold text-muted-foreground mb-1">
+                              Monto Mínimo por Campaña (€/día)
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              step="0.5"
+                              value={minBudgetCustomVal}
+                              onChange={(e) => setMinBudgetCustomVal(Math.max(0, Number(e.target.value)))}
+                              className="w-full text-sm border rounded px-3 py-1.5 bg-background focus:ring-1 focus:ring-primary focus:outline-none font-medium"
+                            />
+                          </div>
+                        )}
+
+                        <div>
+                          <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
+                            Distribución de Excedente
+                          </label>
+                          <select
+                            value={excessDistribution}
+                            onChange={(e) => setExcessDistribution(e.target.value as any)}
+                            className="w-full text-sm border rounded px-3 py-1.5 bg-background focus:ring-1 focus:ring-primary focus:outline-none font-medium cursor-pointer"
+                          >
+                            <option value="best_roi">⭐ Concentrar en Mejor ROI</option>
+                            <option value="proportional">⚖️ Proporcional al ROI</option>
+                          </select>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="pt-2 border-t">
                       <div className="text-[10px] text-muted-foreground leading-relaxed">
@@ -1223,6 +1444,20 @@ function SimuladorContent() {
 
                     {/* Allocations Breakdown */}
                     <div className="space-y-3">
+                      {optimizedAllocation.isBudgetInsufficient && (
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-800 flex gap-2.5 items-start mb-4">
+                          <AlertCircle className="size-4 shrink-0 mt-0.5 text-amber-600 animate-pulse" />
+                          <div>
+                            <span className="font-bold block text-amber-900 mb-0.5">⚠️ Presupuesto Ajustado / Insuficiente</span>
+                            <span>
+                              Tu presupuesto diario de <strong>{budget.toFixed(2)}€</strong> no es suficiente para cubrir el presupuesto mínimo viable de los <strong>{optimizedAllocation.targetCount}</strong> productos solicitados. 
+                              Hemos priorizado y activado únicamente los <strong>{optimizedAllocation.activeCount}</strong> productos de mayor ROI. 
+                              Sube el presupuesto diario o reduce el mínimo por campaña para activar más productos.
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
                       <h4 className="text-xs font-bold text-card-foreground uppercase tracking-wider">Distribución Recomendada de Ads</h4>
                       {optimizedAllocation.allocations.length === 0 ? (
                         <div className="border border-dashed rounded-xl p-6 text-center text-muted-foreground">
@@ -1253,7 +1488,18 @@ function SimuladorContent() {
                                     </span>
                                   </td>
                                   <td className="py-3 px-3 text-right font-semibold text-card-foreground">
-                                    {item.budgetAllocated.toFixed(2)}€<span className="text-[10px] text-muted-foreground font-normal"> /día</span>
+                                    <div className="flex flex-col items-end">
+                                      <span>{item.budgetAllocated.toFixed(2)}€<span className="text-[10px] text-muted-foreground font-normal"> /día</span></span>
+                                      {strategy === "portfolio" && (
+                                        <span className={`text-[9px] font-bold uppercase tracking-wider ${
+                                          item.isAtMinBudget 
+                                            ? "text-muted-foreground/60" 
+                                            : "text-emerald-600"
+                                        }`}>
+                                          {item.isAtMinBudget ? "Mín. Viable" : "Optimizado 🔥"}
+                                        </span>
+                                      )}
+                                    </div>
                                   </td>
                                   <td className="py-3 px-3 text-right font-medium text-muted-foreground">
                                     {item.ordersProjected.toFixed(1)}<span className="text-[10px] text-muted-foreground font-normal"> ped/día</span>
