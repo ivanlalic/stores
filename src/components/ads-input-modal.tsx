@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-interface AdsInputModalProps {
+export interface AdsInputModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   fecha: string;
@@ -23,6 +23,7 @@ interface AdsInputModalProps {
   storeId?: string;
   label1?: string;
   label2?: string;
+  apiEndpoint?: string;
 }
 
 export function AdsInputModal({
@@ -37,6 +38,7 @@ export function AdsInputModal({
   storeId,
   label1 = "Meta Ads",
   label2 = "TikTok Ads",
+  apiEndpoint = "/api/ads",
 }: AdsInputModalProps) {
   const [metaBase, setMetaBase] = useState("0");
   const [tiktokBase, setTiktokBase] = useState("0");
@@ -64,7 +66,7 @@ export function AdsInputModal({
   async function handleSave() {
     setSaving(true);
     try {
-      const res = await fetch("/api/ads", {
+      const res = await fetch(apiEndpoint, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

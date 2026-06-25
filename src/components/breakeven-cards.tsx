@@ -2,29 +2,14 @@
 
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Activity, Info, ChevronDown, ChevronUp } from "lucide-react";
+import { Activity, ChevronDown, ChevronUp } from "lucide-react";
+import { InfoTip } from "@/components/info-tip";
 import type { BreakevenMetrics } from "@/lib/queries/dashboard";
 
 interface Props { metrics: BreakevenMetrics | null; diasRolling?: number; }
 
 function formatEur(n: number) {
   return `€${n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-function InfoTip({ text }: { text: string }) {
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger>
-          <Info className="size-3 text-muted-foreground cursor-help shrink-0" />
-        </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-[220px] text-center leading-snug">
-          {text}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
 }
 
 function getSemaforo(envDiario: number, beDiario: number) {
@@ -115,19 +100,4 @@ export function EquilibrioCard({ metrics, diasRolling = 30 }: Props) {
   );
 }
 
-export const PuntoEquilibrioCard = EquilibrioCard;
-export const BEDiarioCard = EquilibrioCard;
-export const BEFacturacionCard = ({ metrics }: Props) => null;
-export const EstadoDiarioCard = ({ metrics }: Props) => null;
 
-// Legacy wrapper
-export function BreakevenCards({ metrics }: Props) {
-  if (!metrics) return null;
-  return (
-    <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
-      <BEDiarioCard metrics={metrics} />
-      <BEFacturacionCard metrics={metrics} />
-      <EstadoDiarioCard metrics={metrics} />
-    </div>
-  );
-}

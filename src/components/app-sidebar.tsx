@@ -16,6 +16,7 @@ import {
   Plus,
 } from "lucide-react";
 import { createClient } from "@/lib/insforge/client";
+import { clearAuthCookies } from "@/lib/utils";
 
 import {
   Sidebar,
@@ -35,11 +36,6 @@ interface StoreItem {
   name: string;
   type: "dropea" | "dropi";
   is_owner: boolean;
-}
-
-function clearAuthCookies() {
-  document.cookie = "insforge_token=; path=/; max-age=0";
-  document.cookie = "insforge_uid=; path=/; max-age=0";
 }
 
 export function AppSidebar() {

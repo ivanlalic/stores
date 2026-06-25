@@ -8,6 +8,7 @@ import { SyncButton } from "@/components/sync-button";
 import { VentasCard, PnlCard, TasaEntregaCard, GastosCard, CpaCard } from "@/components/kpi-cards";
 import { EquilibrioCard } from "@/components/breakeven-cards";
 import { ChartStrip } from "@/components/sales-chart";
+import { LoadingSpinner } from "@/components/loading-spinner";
 import { DailyTable } from "@/components/daily-table";
 import { AdsInputModal } from "@/components/ads-input-modal";
 import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
@@ -158,10 +159,7 @@ function DashboardContent() {
       </div>
 
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
-          <div className="size-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-          <p className="text-sm">Cargando datos...</p>
-        </div>
+        <LoadingSpinner />
       ) : rows.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-2">
           <p className="text-sm">No hay datos para este mes.</p>

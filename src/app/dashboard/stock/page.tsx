@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { LoadingSpinner } from "@/components/loading-spinner";
 import {
   Boxes,
   X,
@@ -429,10 +430,7 @@ function StockContent() {
 
       {/* Table */}
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
-          <div className="size-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-          <p className="text-sm">Cargando stock...</p>
-        </div>
+        <LoadingSpinner text="Cargando stock..." />
       ) : products.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-2">
           <p className="text-sm">No hay datos.</p>

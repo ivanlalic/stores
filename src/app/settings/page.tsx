@@ -10,12 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SyncButton } from "@/components/sync-button";
 import { createClient } from "@/lib/insforge/client";
+import { clearAuthCookies } from "@/lib/utils";
 import { Plus, Trash2, Copy, Check } from "lucide-react";
-
-function clearAuthCookies() {
-  document.cookie = "insforge_token=; path=/; max-age=0";
-  document.cookie = "insforge_uid=; path=/; max-age=0";
-}
 
 interface StoreData {
   id: string;

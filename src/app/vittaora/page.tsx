@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropiAdsModal } from "@/components/dropi-ads-modal";
 import type { DropiDailyRow } from "@/lib/queries/dropi-dashboard";
 
@@ -228,35 +229,35 @@ function VittaoraContent() {
 
       {/* Daily Table */}
       <div className="rounded-md border overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b bg-muted/50">
-              <th className="text-left px-3 py-2 font-medium">Fecha</th>
-              <th className="text-right px-3 py-2 font-medium">Pedidos</th>
-              <th className="text-right px-3 py-2 font-medium">Enviados</th>
-              <th className="text-right px-3 py-2 font-medium">%Enviados</th>
-              <th className="text-right px-3 py-2 font-medium">Entregados</th>
-              <th className="text-right px-3 py-2 font-medium">%Entregados</th>
-              <th className="text-right px-3 py-2 font-medium">Ventas</th>
-              <th className="text-right px-3 py-2 font-medium">Bruto</th>
-              <th className="text-right px-3 py-2 font-medium">Ads</th>
-              <th className="text-right px-3 py-2 font-medium">P&L Teórico</th>
-              <th className="text-right px-3 py-2 font-medium">P&L Real</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/50">
+              <TableHead>Fecha</TableHead>
+              <TableHead className="text-right">Pedidos</TableHead>
+              <TableHead className="text-right">Enviados</TableHead>
+              <TableHead className="text-right">%Enviados</TableHead>
+              <TableHead className="text-right">Entregados</TableHead>
+              <TableHead className="text-right">%Entregados</TableHead>
+              <TableHead className="text-right">Ventas</TableHead>
+              <TableHead className="text-right">Bruto</TableHead>
+              <TableHead className="text-right">Ads</TableHead>
+              <TableHead className="text-right">P&L Teórico</TableHead>
+              <TableHead className="text-right">P&L Real</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {loading ? (
-              <tr>
-                <td colSpan={11} className="text-center py-8 text-muted-foreground">
+              <TableRow>
+                <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                   Cargando...
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : rows.length === 0 ? (
-              <tr>
-                <td colSpan={11} className="text-center py-8 text-muted-foreground">
+              <TableRow>
+                <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                   Sin datos. Haz clic en &quot;Sincronizar Dropi&quot; para importar pedidos.
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               (showAll ? [...rows].reverse() : [...rows].reverse().slice(0, 5)).map((row) => {
                 const displayDate = new Date(row.fecha + "T12:00:00").toLocaleDateString(
@@ -270,9 +271,9 @@ function VittaoraContent() {
                   ? (row.tasa_entrega * 100).toFixed(1) + "%"
                   : "—";
                 return (
-                  <tr
+                  <TableRow
                     key={row.fecha}
-                    className="border-b hover:bg-muted/30 cursor-pointer"
+                    className="cursor-pointer"
                     onClick={() =>
                       setAdsModal({
                         open: true,
@@ -284,78 +285,78 @@ function VittaoraContent() {
                       })
                     }
                   >
-                    <td className="px-3 py-2 text-muted-foreground capitalize">{displayDate}</td>
-                    <td className="px-3 py-2 text-right">{row.pedidos}</td>
-                    <td className="px-3 py-2 text-right">{row.enviados}</td>
-                    <td className="px-3 py-2 text-right">{pctEnviados}</td>
-                    <td className="px-3 py-2 text-right">{row.entregados || ""}</td>
-                    <td className={`px-3 py-2 text-right ${row.tasa_entrega < 0.6 ? "text-destructive" : row.tasa_entrega >= 0.8 ? "text-green-600" : ""}`}>{pctEntregados}</td>
-                    <td className="px-3 py-2 text-right">
+                    <TableCell className="text-muted-foreground capitalize">{displayDate}</TableCell>
+                    <TableCell className="text-right">{row.pedidos}</TableCell>
+                    <TableCell className="text-right">{row.enviados}</TableCell>
+                    <TableCell className="text-right">{pctEnviados}</TableCell>
+                    <TableCell className="text-right">{row.entregados || ""}</TableCell>
+                    <TableCell className={`text-right ${row.tasa_entrega < 0.6 ? "text-destructive" : row.tasa_entrega >= 0.8 ? "text-green-600" : ""}`}>{pctEntregados}</TableCell>
+                    <TableCell className="text-right">
                       {row.ventas > 0 ? `€${fmt(row.ventas)}` : "—"}
-                    </td>
-                    <td className={`px-3 py-2 text-right ${row.bruto > 0 ? "text-green-600" : row.bruto < 0 ? "text-destructive" : ""}`}>
+                    </TableCell>
+                    <TableCell className={`text-right ${row.bruto > 0 ? "text-green-600" : row.bruto < 0 ? "text-destructive" : ""}`}>
                       {row.ventas > 0 ? `€${fmt(row.bruto)}` : "—"}
-                    </td>
-                    <td className="px-3 py-2 text-right text-muted-foreground">
+                    </TableCell>
+                    <TableCell className="text-right text-muted-foreground">
                       {row.total_ads > 0 ? `€${fmt(row.total_ads)}` : "—"}
-                    </td>
-                    <td className={`px-3 py-2 text-right font-medium ${row.pnl_teorico > 0 ? "text-green-600" : row.pnl_teorico < 0 ? "text-destructive" : ""}`}>
+                    </TableCell>
+                    <TableCell className={`text-right font-medium ${row.pnl_teorico > 0 ? "text-green-600" : row.pnl_teorico < 0 ? "text-destructive" : ""}`}>
                       {row.ventas > 0 || row.total_ads > 0
                         ? `€${fmt(row.pnl_teorico)}`
                         : "—"}
-                    </td>
-                    <td className={`px-3 py-2 text-right font-medium ${row.pnl_real > 0 ? "text-green-600" : row.pnl_real < 0 ? "text-destructive" : ""}`}>
+                    </TableCell>
+                    <TableCell className={`text-right font-medium ${row.pnl_real > 0 ? "text-green-600" : row.pnl_real < 0 ? "text-destructive" : ""}`}>
                       {row.ventas > 0 || row.total_ads > 0
                         ? `€${fmt(row.pnl_real)}`
                         : "—"}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })
             )}
-          </tbody>
+          </TableBody>
           {rows.length > 0 && !loading && (
-            <tfoot>
-              <tr className="border-t bg-muted/50 font-semibold">
-                <td className="px-3 py-2">Total</td>
-                <td className="px-3 py-2 text-right">{totPedidos}</td>
-                <td className="px-3 py-2 text-right">{totEnviados}</td>
-                <td className="px-3 py-2 text-right">
+            <TableFooter>
+              <TableRow>
+                <TableCell>Total</TableCell>
+                <TableCell className="text-right">{totPedidos}</TableCell>
+                <TableCell className="text-right">{totEnviados}</TableCell>
+                <TableCell className="text-right">
                   {totPedidos > 0 ? Math.round(totEnviados / totPedidos * 100) + "%" : "—"}
-                </td>
-                <td className="px-3 py-2 text-right">{totEntregados || ""}</td>
-                <td className={`px-3 py-2 text-right ${tasaEntrega < 0.6 ? "text-destructive" : tasaEntrega >= 0.8 ? "text-green-600" : ""}`}>
+                </TableCell>
+                <TableCell className="text-right">{totEntregados || ""}</TableCell>
+                <TableCell className={`text-right ${tasaEntrega < 0.6 ? "text-destructive" : tasaEntrega >= 0.8 ? "text-green-600" : ""}`}>
                   {totEnviados > 0 ? (tasaEntrega * 100).toFixed(1) + "%" : "—"}
-                </td>
-                <td className="px-3 py-2 text-right">€{fmt(totVentas)}</td>
-                <td className={`px-3 py-2 text-right ${totBruto >= 0 ? "text-green-600" : "text-destructive"}`}>
+                </TableCell>
+                <TableCell className="text-right">€{fmt(totVentas)}</TableCell>
+                <TableCell className={`text-right ${totBruto >= 0 ? "text-green-600" : "text-destructive"}`}>
                   €{fmt(totBruto)}
-                </td>
-                <td className="px-3 py-2 text-right">€{fmt(totAds)}</td>
-                <td className={`px-3 py-2 text-right ${totPnlTeorico >= 0 ? "text-green-600" : "text-destructive"}`}>
+                </TableCell>
+                <TableCell className="text-right">€{fmt(totAds)}</TableCell>
+                <TableCell className={`text-right ${totPnlTeorico >= 0 ? "text-green-600" : "text-destructive"}`}>
                   €{fmt(totPnlTeorico)}
-                </td>
-                <td className={`px-3 py-2 text-right ${totPnlReal >= 0 ? "text-green-600" : "text-destructive"}`}>
+                </TableCell>
+                <TableCell className={`text-right ${totPnlReal >= 0 ? "text-green-600" : "text-destructive"}`}>
                   €{fmt(totPnlReal)}
-                </td>
-              </tr>
-            </tfoot>
+                </TableCell>
+              </TableRow>
+            </TableFooter>
           )}
           {rows.length > 5 && !loading && (
-            <tfoot>
-              <tr>
-                <td colSpan={11} className="text-center py-1.5">
+            <TableFooter>
+              <TableRow>
+                <TableCell colSpan={11} className="text-center py-1.5">
                   <button
                     onClick={() => setShowAll((s) => !s)}
                     className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                   >
                     {showAll ? "▲ Ver menos" : `▼ Ver mes completo (${rows.length} días)`}
                   </button>
-                </td>
-              </tr>
-            </tfoot>
+                </TableCell>
+              </TableRow>
+            </TableFooter>
           )}
-        </table>
+        </Table>
       </div>
 
       <DropiAdsModal

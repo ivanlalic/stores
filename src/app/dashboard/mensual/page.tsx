@@ -6,6 +6,7 @@ import { MonthlyTable } from "@/components/monthly-table";
 import { MonthlyChart } from "@/components/monthly-chart";
 import { SyncButton } from "@/components/sync-button";
 import { ExportMonthlyButton } from "@/components/export-monthly-button";
+import { LoadingSpinner } from "@/components/loading-spinner";
 import { CalendarDays } from "lucide-react";
 import type { MonthlyRow } from "@/lib/queries/dashboard";
 
@@ -55,10 +56,7 @@ function MensualContent() {
       </div>
 
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
-          <div className="size-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-          <p className="text-sm">Cargando datos...</p>
-        </div>
+        <LoadingSpinner />
       ) : rows.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-2">
           <p className="text-sm">No hay datos.</p>

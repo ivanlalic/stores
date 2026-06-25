@@ -65,8 +65,6 @@ export function MiniSalesChart({ rows }: SalesChartProps) {
   );
 }
 
-export { MiniSalesChart as SalesChart };
-
 export function ChartStrip({ rows }: SalesChartProps) {
   const chartData = rows
     .filter((r) => r.pedidos > 0 || r.total_ads > 0)

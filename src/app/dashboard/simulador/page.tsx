@@ -2,6 +2,7 @@
 
 import { Suspense, useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
+import { LoadingSpinner } from "@/components/loading-spinner";
 import { TrendingUp, Trash2, Save, Sparkles, AlertCircle, Info, Percent, Edit2 } from "lucide-react";
 
 interface Simulation {
@@ -710,10 +711,7 @@ function SimuladorContent() {
       </div>
 
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
-          <div className="size-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-          <p className="text-sm">Cargando simulaciones...</p>
-        </div>
+        <LoadingSpinner text="Cargando simulaciones..." />
       ) : (
         <>
           {isFormOpen && (

@@ -1,8 +1,8 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { TrendingUp, TrendingDown, Info, ArrowDown, ArrowUp } from "lucide-react";
+import { TrendingUp, TrendingDown, ArrowDown, ArrowUp } from "lucide-react";
+import { InfoTip } from "@/components/info-tip";
 import type { DailyRow } from "@/lib/queries/dashboard";
 
 interface KpiCardsProps { rows: DailyRow[]; }
@@ -12,21 +12,6 @@ function formatEur(n: number) {
 }
 function formatEurShort(n: number) {
   return `€${Math.round(n).toLocaleString("es-ES")}`;
-}
-
-function InfoTip({ text }: { text: string }) {
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger>
-          <Info className="size-3 text-muted-foreground cursor-help shrink-0" />
-        </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-[220px] text-center leading-snug">
-          {text}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
 }
 
 function useTotals(rows: DailyRow[]) {
