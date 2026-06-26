@@ -90,7 +90,13 @@ function SimuladorContent() {
   const [strategy, setStrategy] = useState<"roi" | "diversified" | "volume">(
     "roi",
   );
-  const [doubtDiscount, setDoubtDiscount] = useState(0);
+  const [doubtDiscount, setDoubtDiscount] = useState(() => {
+    const profitDelivered = 29.9 - (2.5 * 2 + 1.0) - 7.08 - 4.0;
+    return Math.min(
+      Math.floor((Math.max(0, profitDelivered) / 29.9) * 100),
+      100,
+    );
+  });
 
   // Load products from DB
   useEffect(() => {
@@ -297,6 +303,13 @@ function SimuladorContent() {
     setCostoRechazo(p.rechazo);
     setTasaEntrega(p.tasa);
     setTasaConfirmacion(p.confirmRate);
+    const profitDelivered =
+      p.precio - (p.costoUnit * p.units + p.fulfillment) - p.envio - p.cpa;
+    const pct =
+      p.precio > 0
+        ? Math.floor((Math.max(0, profitDelivered) / p.precio) * 100)
+        : 0;
+    setDoubtDiscount(Math.min(pct, 100));
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -929,6 +942,49 @@ function SimuladorContent() {
                   El cliente duda. ¿Cuánto puedes bajar sin perder más que si lo
                   rechazara?
                 </p>
+
+                {(() => {
+                  const profitDelivered =
+                    precioVenta -
+                    (costoUnitario * unidades + costoFulfillment) -
+                    costoEnvioCod -
+                    cpaPromedio;
+                  const pctMax =
+                    precioVenta > 0
+                      ? Math.floor(
+                          (Math.max(0, profitDelivered) / precioVenta) * 100,
+                        )
+                      : 0;
+                  const minPrice =
+                    costoUnitario * unidades +
+                    costoFulfillment +
+                    costoEnvioCod +
+                    cpaPromedio;
+                  return (
+                    <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2.5">
+                      <div>
+                        <span className="text-[0.5rem] font-semibold text-muted-foreground uppercase tracking-wider">
+                          Puedes ofrecer hasta
+                        </span>
+                        <div className="text-base font-black text-emerald-700">
+                          {Math.max(0, profitDelivered).toFixed(2)}€
+                          <span className="text-[0.65rem] font-bold text-emerald-600 ml-1">
+                            ({pctMax}% de descuento)
+                          </span>
+                        </div>
+                        <div className="text-[0.55rem] text-muted-foreground">
+                          Precio mínimo: {minPrice.toFixed(2)}€
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setDoubtDiscount(pctMax)}
+                        className="text-[0.55rem] font-bold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 px-2.5 py-1.5 rounded-lg transition-colors shrink-0"
+                      >
+                        Aplicar máximo
+                      </button>
+                    </div>
+                  );
+                })()}
 
                 <div className="flex items-center gap-3">
                   <span className="text-[0.65rem] font-semibold whitespace-nowrap text-muted-foreground">
