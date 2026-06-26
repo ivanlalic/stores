@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulador de Rentabilidad Ecommerce · Unit Economics</title>
+<style>
+  :root {
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --border: #e2e8f0;
+    --text: #0f172a;
+    --muted: #64748b;
+    --primary: #6366f1;
+    --success: #059669;
+    --danger: #dc2626;
+    --warning: #d97706;
+    --radius: 12px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 20px;
+    line-height: 1.5;
+  }
+  .container { max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+  h1 small { font-size: 0.75rem; font-weight: 400; color: var(--muted); }
+  .subtitle { color: var(--muted); font-size: 0.8125rem; margin-top: 2px; }
+  .header { margin-bottom: 24px; }
+  .header .meta { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px; }
+  .header .meta span { font-size: 0.75rem; color: var(--muted); }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .card-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 16px; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; }
+
+  label { display: block; font-size: 0.75rem; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+  input, select {
+    width: 100%; padding: 8px 10px; font-size: 0.875rem;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg); color: var(--text);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+  input[type="range"] { padding: 0; height: 6px; border: none; background: var(--border); }
+  input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 18px; font-size: 0.8125rem; font-weight: 700;
+    border: none; border-radius: 8px; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn-success { background: var(--success); color: #fff; }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn-outline:hover { background: var(--bg); }
+  .btn-sm { padding: 4px 10px; font-size: 0.75rem; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 10px; border-radius: 999px;
+    font-size: 0.6875rem; font-weight: 700;
+  }
+  .badge-success { background: #d1fae5; color: #065f46; }
+  .badge-warning { background: #fef3c7; color: #92400e; }
+  .badge-danger { background: #fee2e2; color: #991b1b; }
+  .badge-info { background: #e0e7ff; color: #3730a3; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+  th { text-align: left; padding: 10px 8px; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--border); font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+  td { padding: 10px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th.right, td.right { text-align: right; }
+  th.center, td.center { text-align: center; }
+  .sortable { cursor: pointer; user-select: none; }
+  .sortable:hover { color: var(--text); }
+  .tr-total { background: #eef2ff; font-weight: 800; border-top: 2px solid var(--primary); }
+  .tr-total td { padding: 12px 8px; }
+  .tr-highlight { background: #f0fdf4; }
+  .text-success { color: var(--success); }
+  .text-danger { color: var(--danger); }
+
+  .modal-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5); z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .modal-content {
+    background: #fff; border-radius: var(--radius); padding: 24px;
+    max-width: 460px; width: 100%; max-height: 90vh; overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+  .text-muted { color: var(--muted); }
+  .fw-bold { font-weight: 700; }
+  .fw-black { font-weight: 900; }
+
+  .breakdown-box { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+  .breakdown-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 0.8125rem; }
+  .breakdown-row + .breakdown-row { border-top: 1px dashed var(--border); padding-top: 6px; margin-top: 6px; }
+
+  .result-card {
+    border-radius: var(--radius); padding: 20px; margin-bottom: 16px;
+    position: relative; overflow: hidden;
+  }
+  .result-card .bg-blur { position: absolute; top: -30px; right: -30px; width: 120px; height: 120px; border-radius: 50%; opacity: 0.1; pointer-events: none; }
+  .result-profitable { background: linear-gradient(135deg, #f0fdf4, #ecfdf5); border: 1px solid #a7f3d0; }
+  .result-tight { background: linear-gradient(135deg, #fffbeb, #fef3c7); border: 1px solid #fde68a; }
+  .result-loss { background: linear-gradient(135deg, #fef2f2, #fee2e2); border: 1px solid #fca5a5; }
+
+  .result-card .label { font-size: 0.75rem; color: var(--muted); font-weight: 500; }
+  .result-card .value { font-size: 2rem; font-weight: 900; letter-spacing: -0.02em; line-height: 1.1; }
+  .result-card .unit { font-size: 0.75rem; font-weight: 600; color: var(--muted); margin-left: 4px; }
+
+  .glossary { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 20px; font-size: 0.8125rem; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .glossary dt { font-weight: 700; color: var(--text); }
+  .glossary dd { color: var(--muted); }
+
+  @media (max-width: 768px) {
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+    .glossary { grid-template-columns: 1fr; }
+  }
+
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); }
+  .empty-state p { font-size: 0.875rem; }
+  .tag { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 0.625rem; font-weight: 700; }
+  .tag-primary { background: #e0e7ff; color: var(--primary); }
+
+  /* Animaciones */
+  .fade-in { animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>📊 Simulador de Rentabilidad Ecommerce <small>Unit Economics · CPA · ROI</small></h1>
+    <p class="subtitle">Analiza la rentabilidad de tus productos, calcula el CPA de equilibrio y optimiza tu presupuesto de anuncios.</p>
+    <div class="meta">
+      <span>🎓 Herramienta educativa</span>
+      <span>⚡ 100% offline</span>
+      <span>📌 Datos privados en tu navegador</span>
+    </div>
+  </div>
+
+  <!-- Glosario -->
+  <div class="glossary">
+    <dt>💰 Precio de Venta</dt>
+    <dd>Lo que paga el cliente por el producto.</dd>
+    <dt>📦 Coste Unitario</dt>
+    <dd>Lo que nos cobra Dropea por cada unidad.</dd>
+    <dt>📐 Unidades por pedido</dt>
+    <dd>Cuántas unidades incluye cada venta (ej: pack 4x).</dd>
+    <dt>🚚 Coste Envío + COD</dt>
+    <dd>Gasto de logística + contrarreembolso por envío.</dd>
+    <dt>📢 CPA (Coste Por Adquisición)</dt>
+    <dd>Lo que pagas en Meta/TikTok Ads por cada pedido.</dd>
+    <dt>📬 Tasa de Entrega</dt>
+    <dd>Porcentaje de pedidos enviados que se cobran exitosamente.</dd>
+    <dt>📱 Tasa de Confirmación</dt>
+    <dd>Porcentaje de pedidos que confirman por WhatsApp antes de enviarse.</dd>
+    <dt>💔 Coste de Rechazo</dt>
+    <dd>Lo que pierdes cuando un pedido se devuelve.</dd>
+    <dt>🎯 CPA de Equilibrio</dt>
+    <dd>CPA máximo que puedes pagar sin perder dinero.</dd>
+    <dt>📊 ROAS</dt>
+    <dd>Retorno en anuncios: ingresos directos ÷ gasto ads. No descuenta costes.</dd>
+    <dt>📈 ROI Ads</dt>
+    <dd>Retorno total: beneficio ÷ gasto ads. Ya descuenta costes de producto, envío y rechazos.</dd>
+  </div>
+
+  <!-- Formulario + Resultados -->
+  <div class="grid-2" style="align-items: start;">
+    <!-- Columna Izquierda: Formulario -->
+    <div>
+      <div class="card">
+        <div class="card-title">🔧 Parámetros del Producto</div>
+
+        <!-- 📌 Producto -->
+        <div style="margin-bottom:16px;">
+          <div style="font-size:0.75rem;font-weight:700;color:var(--muted);margin-bottom:8px;">📌 Producto</div>
+          <label>Nombre del Producto / Oferta</label>
+          <input type="text" id="nombre" value="Producto A" placeholder="Ej: Crema Antiage 2x">
+        </div>
+
+        <!-- 💰 Precio -->
+        <div style="margin-bottom:16px;">
+          <div style="font-size:0.75rem;font-weight:700;color:var(--muted);margin-bottom:8px;">💰 Precio</div>
+          <label>Precio de Venta (€)</label>
+          <input type="number" id="precioVenta" value="29.90" step="0.01" min="0">
+        </div>
+
+        <!-- 📦 Costos -->
+        <div style="margin-bottom:16px;">
+          <div style="font-size:0.75rem;font-weight:700;color:var(--muted);margin-bottom:8px;">📦 Costos</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <label>Coste Unitario (€)</label>
+              <input type="number" id="costoUnitario" value="2.50" step="0.01" min="0">
+            </div>
+            <div>
+              <label>Unidades</label>
+              <input type="number" id="unidades" value="2" min="1" step="1">
+            </div>
+          </div>
+          <div style="margin-top:8px;">
+            <label>Fulfillment Proveedor (€)</label>
+            <input type="number" id="costoFulfillment" value="1" step="0.01" min="0">
+          </div>
+          <div style="margin-top:8px;">
+            <label>Envío + COD (€)</label>
+            <input type="number" id="costoEnvioCod" value="7.08" step="0.01" min="0">
+          </div>
+          <div style="margin-top:8px;">
+            <label>CPA Promedio (€)</label>
+            <input type="number" id="cpaPromedio" value="4.00" step="0.01" min="0">
+          </div>
+          <div style="margin-top:8px;">
+            <label>Coste si Rechazan (€)</label>
+            <input type="number" id="costoRechazo" value="13.76" step="0.01" min="0">
+          </div>
+        </div>
+
+        <!-- ⚙️ Variables -->
+        <div>
+          <div style="font-size:0.75rem;font-weight:700;color:var(--muted);margin-bottom:8px;">⚙️ Variables</div>
+          <div style="margin-bottom:8px;">
+            <label>Tasa de Confirmación: <span id="tasaConfLabel" style="font-weight:800;color:var(--primary)">100%</span></label>
+            <input type="range" id="tasaConfirmacion" min="0.10" max="1.00" step="0.01" value="1.00">
+          </div>
+          <div>
+            <label>Tasa de Entrega: <span id="tasaLabel" style="font-weight:800;color:var(--primary)">80%</span></label>
+            <input type="range" id="tasaEntrega" min="0.10" max="1.00" step="0.01" value="0.80">
+          </div>
+        </div>
+      </div>
+
+      <!-- Añadir a tabla comparativa -->
+      <div class="card">
+        <div class="card-title">📋 Gestión de Productos</div>
+        <p style="font-size:0.8125rem; color:var(--muted); margin-bottom:12px;">Añade productos a la tabla comparativa para analizar y optimizar tu cartera.</p>
+        <button class="btn btn-primary" onclick="addProduct()">➕ Añadir a la Tabla</button>
+        <button class="btn btn-success" onclick="autoSync()" style="margin-left:8px;">↻ Sincronizar</button>
+        <button class="btn btn-outline" onclick="clearAll()" style="margin-left:8px;">🗑️ Limpiar todo</button>
+      </div>
+    </div>
+
+    <!-- Columna Derecha: Resultados -->
+    <div>
+      <div id="resultCard" class="result-card result-profitable fade-in">
+        <div class="bg-blur" style="background:var(--success);"></div>
+        <div style="display:flex; align-items:center; gap:6px; margin-bottom:12px;">
+          <span id="resultIcon" style="font-size:1rem;">🟢</span>
+          <span id="resultBadge" class="badge badge-success">PRODUCTO RENTABLE</span>
+        </div>
+    <div class="label">Beneficio Neto Esperado (por pedido que entra)</div>
+    <div style="display:flex; align-items:baseline;">
+      <span id="expectedProfit" class="value text-success">+12.34</span>
+      <span class="unit">€ / pedido</span>
+      <span style="margin-left:10px;font-size:0.85rem;font-weight:700;color:var(--primary);" id="marginPct">22.4%</span>
+      <span style="font-size:0.65rem;color:var(--muted);font-weight:500;">sobre ventas</span>
+    </div>
+    <div id="expectedProfitFormula" style="font-size:0.6875rem;color:#94a3b8;font-weight:400;margin-top:4px;"></div>
+        <div style="margin-top:16px;">
+          <div class="breakdown-box">
+            <div class="breakdown-row" id="profitDeliveredRow" style="flex-direction:column;align-items:stretch;gap:2px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span>Si se entrega (<span id="pctDelivered">75</span>%)</span>
+                <span id="profitDelivered" class="fw-bold text-success">+17.50€</span>
+              </div>
+              <div id="profitFormula" style="font-size:0.625rem;color:#94a3b8;font-weight:400;text-align:right;"></div>
+            </div>
+            <div class="breakdown-row" id="lossRejectedRow" style="flex-direction:column;align-items:stretch;gap:2px;padding-top:6px;margin-top:6px;border-top:1px dashed var(--border);">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span>Si se rechaza (<span id="pctRejected">25</span>%)</span>
+                <span id="lossRejected" class="fw-bold text-danger">-20.00€</span>
+              </div>
+              <div id="lossFormula" style="font-size:0.625rem;color:#94a3b8;font-weight:400;text-align:right;"></div>
+            </div>
+            <div class="breakdown-row" id="noConfirmRow" style="flex-direction:column;align-items:stretch;gap:2px;padding-top:6px;margin-top:6px;border-top:1px dashed var(--border);">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span>No confirma (<span id="pctNoConfirm">10</span>%)</span>
+                <span id="lossNoConfirm" class="fw-bold text-danger">-4.00€</span>
+              </div>
+              <div id="noConfirmFormula" style="font-size:0.625rem;color:#94a3b8;font-weight:400;text-align:right;"></div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:16px;">
+          <div class="grid-2">
+            <div class="breakdown-box">
+              <div class="label">CPA Actual</div>
+              <div style="font-size:1.25rem;font-weight:900;" id="cpaActual">7.00€</div>
+            </div>
+            <div class="breakdown-box">
+              <div class="label">CPA de Equilibrio</div>
+              <div style="font-size:1.25rem;font-weight:900;color:var(--primary);" id="breakevenCpa">12.50€</div>
+              <div id="breakevenDesc" style="font-size:0.625rem;color:#94a3b8;font-weight:400;margin-top:2px;">CPA máximo que puedes pagar sin perder dinero. Si tu CPA real está por debajo, tienes colchón.</div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:12px;">
+          <div class="grid-2">
+            <div class="breakdown-box">
+              <div class="label">Tasa de Entrega Actual</div>
+              <div style="font-size:1.25rem;font-weight:900;" id="entregaActual">80%</div>
+            </div>
+            <div class="breakdown-box">
+              <div class="label">Entrega de Equilibrio (mínima)</div>
+              <div style="font-size:1.25rem;font-weight:900;color:var(--primary);" id="breakevenEntrega">53%</div>
+              <div id="breakevenEntregaDesc" style="font-size:0.625rem;color:#94a3b8;font-weight:400;margin-top:2px;">Tasa de entrega mínima para no perder dinero. Por encima ganas; por debajo, pierdes.</div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:12px;">
+          <div class="grid-2">
+            <div class="breakdown-box">
+              <div class="label">ROAS (Retorno en Anuncios)</div>
+              <div style="font-size:1.25rem;font-weight:900;color:var(--primary);" id="roasValue">5.40x</div>
+              <div id="roasFormula" style="font-size:0.625rem;color:#94a3b8;font-weight:400;margin-top:2px;"></div>
+            </div>
+            <div class="breakdown-box">
+              <div class="label">ROI Ads (Retorno Total)</div>
+              <div style="font-size:1.25rem;font-weight:900;" id="roiValue">+120%</div>
+              <div id="roiFormula" style="font-size:0.625rem;color:#94a3b8;font-weight:400;margin-top:2px;"></div>
+            </div>
+          </div>
+        </div>
+        <div id="cpaAlert" style="margin-top:12px; padding:12px; border-radius:8px; font-size:0.8125rem; display:flex; gap:8px; align-items:start; background:#d1fae5; border:1px solid #a7f3d0; color:#065f46;">
+          <span style="font-size:1.25rem;">✅</span>
+          <div>
+            <strong style="display:block;">Colchón de CPA positivo</strong>
+            <span>Tienes <span id="cpaCushion" style="font-weight:800;">+5.50€</span> de margen antes de perder dinero. Puedes escalar anuncios.</span>
+          </div>
+        </div>
+        <div style="margin-top:8px;text-align:right;">
+          <a href="#" onclick="openDoubtModal();return false;" style="font-size:0.7rem;color:var(--muted);text-decoration:underline;">🤔 Pedido en duda</a>
+        </div>
+      </div>
+      <div style="font-size:0.75rem;color:var(--muted);text-align:center;padding:8px;">
+        * Los cálculos se actualizan automáticamente al cambiar cualquier valor.
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabla Comparativa -->
+  <div id="tableSection" class="card" style="display:none;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px;">
+      <div>
+        <div class="card-title" style="margin-bottom:0;">📊 Comparativa de Productos</div>
+        <p style="font-size:0.75rem;color:var(--muted);">Haz clic en una fila para cargar sus valores en el formulario.</p>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <label style="margin:0;font-size:0.6875rem;">Ordenar por:</label>
+        <select id="sortBy" onchange="renderTable()" style="width:auto;padding:4px 8px;font-size:0.75rem;">
+          <option value="nombre">Nombre</option>
+          <option value="expectedProfit" selected>Beneficio/Envío</option>
+          <option value="roi">ROI Ads</option>
+        </select>
+      </div>
+    </div>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th class="right">Precio</th>
+            <th class="right">Coste Total</th>
+            <th class="right">Envío</th>
+            <th class="right">CPA</th>
+            <th class="center">Entrega</th>
+            <th class="center">Confirma</th>
+            <th class="right">CPA Límite</th>
+            <th class="right" style="color:var(--success);">Si Entrega</th>
+            <th class="right" style="color:var(--danger);">Si Rechazo</th>
+            <th class="right" style="border-right:2px solid var(--border);color:var(--primary);">Resultado/Envío</th>
+            <th class="center">Pedidos/día</th>
+            <th class="right">Gasto Ads</th>
+            <th class="right" style="color:var(--success);">Ganancia/día</th>
+            <th class="right">Ganancia/30d</th>
+            <th class="center">ROI</th>
+            <th class="center">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+        <tfoot id="tableFoot"></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- Optimizador de Presupuesto -->
+  <div id="optimizerSection" class="card" style="display:none;">
+    <div class="card-title">🚀 Optimizador Estratégico de Presupuesto Ads</div>
+    <p style="font-size:0.8125rem;color:var(--muted);margin-bottom:16px;">Distribuye tu presupuesto diario entre tus productos para maximizar la rentabilidad.</p>
+    
+    <div class="grid-2">
+      <div style="space-y:12px;">
+        <div style="margin-bottom:12px;">
+          <label>Presupuesto Diario Ads (€)</label>
+          <input type="number" id="budget" value="200" min="1" onchange="calculateOptimizer()">
+        </div>
+        <div style="margin-bottom:12px;">
+          <label>Estrategia</label>
+          <select id="strategy" onchange="calculateOptimizer()">
+            <option value="roi">📈 Rentabilidad Máxima (Mejor ROI)</option>
+            <option value="diversified">⚖️ Diversificación Equilibrada</option>
+            <option value="volume">🔥 Volumen Máximo de Pedidos</option>
+          </select>
+        </div>
+        <div style="font-size:0.75rem;color:var(--muted);padding:8px 0;border-top:1px solid var(--border);margin-top:12px;">
+          💡 El optimizador excluye automáticamente los productos con beneficio esperado negativo para proteger tu inversión.
+        </div>
+      </div>
+      <div>
+        <div class="grid-2" id="optimizerTotals" style="margin-bottom:12px;">
+          <div class="breakdown-box">
+            <div class="label">Presupuesto</div>
+            <div style="font-size:1.25rem;font-weight:900;" id="optBudget">—</div>
+          </div>
+          <div class="breakdown-box">
+            <div class="label">Ganancia Diaria</div>
+            <div style="font-size:1.25rem;font-weight:900;color:var(--success);" id="optDailyProfit">—</div>
+          </div>
+          <div class="breakdown-box">
+            <div class="label">Ganancia Mensual</div>
+            <div style="font-size:1.25rem;font-weight:900;color:var(--success);" id="optMonthlyProfit">—</div>
+          </div>
+          <div class="breakdown-box">
+            <div class="label">ROI Ads</div>
+            <div style="font-size:1.25rem;font-weight:900;color:var(--primary);" id="optRoi">—</div>
+          </div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th class="center">ROI</th>
+                <th class="right">Presupuesto</th>
+                <th class="right">Pedidos</th>
+                <th class="right" style="color:var(--success);">Ganancia/día</th>
+              </tr>
+            </thead>
+            <tbody id="optBody"></tbody>
+          </table>
+        </div>
+        <div id="optEmpty" class="empty-state" style="display:none;">
+          <p>Añade productos a la tabla comparativa para usar el optimizador.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer educativo -->
+  <div class="card" style="background:var(--bg);text-align:center;font-size:0.75rem;color:var(--muted);">
+    <p><strong>Fórmulas utilizadas:</strong></p>
+    <p style="margin-top:4px;">
+      Coste Total = (Coste Unitario × Unidades) + Fulfillment · 
+      Si Entrega = Precio − Coste Total − Envío − CPA · 
+      Si Rechazo = Coste Rechazo + CPA · 
+      No Confirma = CPA · 
+      Beneficio Esperado = (Conf% × Ent%) × SiEntrega + (Conf% × (1−Ent%)) × (−SiRechazo) + (1−Conf%) × (−NoConfirma) · 
+      CPA Equilibrio = Conf% × [Ent% × (Precio − Coste Total − Envío) − (1−Ent%) × Coste Rechazo]
+    </p>
+  <p style="margin-top:8px;">Hecho para la clase de ecommerce · 2026 · Sin conexión a internet necesaria</p>
+</div>
+</div>
+
+<!-- Modal Pedido en duda -->
+<div id="doubtModalOverlay" class="modal-overlay" onclick="closeDoubtModal(event)" style="display:none;">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <div style="font-weight:700;font-size:0.95rem;">🤔 Pedido en duda — ¿qué descuento le ofreces?</div>
+      <a href="#" onclick="closeDoubtModal();return false;" style="font-size:1.25rem;color:var(--muted);text-decoration:none;">✕</a>
+    </div>
+    <p style="font-size:0.8rem;color:var(--muted);margin-bottom:14px;">El cliente está dudando. Quieres llamarlo y ofrecerle un descuento para que acepte el contrareembolso. ¿Cuánto puedes bajar sin perder más que si lo rechazara?</p>
+
+    <div id="doubtProductName" style="font-size:0.75rem;font-weight:600;margin-bottom:10px;color:var(--primary);"></div>
+
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+      <span style="font-size:0.8rem;font-weight:600;white-space:nowrap;">Descuento:</span>
+      <input type="range" id="doubtDiscount" min="0" max="100" value="0" style="flex:1;">
+      <span id="doubtDiscountLabel" style="font-size:0.95rem;font-weight:800;min-width:55px;text-align:right;color:var(--primary);">0%</span>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;margin-bottom:12px;font-size:0.8rem;">
+      <span>Precio original: <strong id="doubtOriginalPrice" style="color:var(--text);">29.90€</strong></span>
+      <span>− <strong id="doubtDiscountAmt" style="color:var(--danger);">0.00€</strong></span>
+      <span>→ <span style="font-size:0.65rem;color:var(--muted);">PRECIO FINAL </span><strong id="doubtFinalPrice" style="font-size:1rem;color:var(--primary);">29.90€</strong></span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:0.8rem;">
+      <div class="breakdown-box">
+        <div class="label">✅ Si acepta con descuento</div>
+        <div id="doubtAcceptValue" style="font-size:1.25rem;font-weight:900;color:var(--success);">+12.82€</div>
+      </div>
+      <div class="breakdown-box">
+        <div class="label">❌ Si rechaza</div>
+        <div id="doubtRejectValue" style="font-size:1.25rem;font-weight:900;color:var(--danger);">-17.76€</div>
+      </div>
+    </div>
+    <div style="font-size:0.75rem;color:var(--muted);margin-top:8px;text-align:center;">
+      Prefieres aceptar por <strong id="doubtAcceptCompare" style="color:var(--success);">+12.82€</strong>
+      frente a perder <strong id="doubtRejectCompare" style="color:var(--danger);">−17.76€</strong> si rechaza.
+    </div>
+
+    <div id="doubtBreakevenBox" style="margin-top:12px;padding:12px;border-radius:6px;font-size:0.8rem;background:var(--accent-bg,#f0f5ff);border:1px solid var(--border);">
+      <div><strong>💰 Salir a 0:</strong> descuento de <span id="doubtMaxDiscount" style="font-weight:800;color:var(--primary);">12.82€</span> <span id="doubtMaxDiscountPct" style="font-size:0.7rem;color:var(--muted);">(43%)</span> → precio final <span id="doubtMinPrice" style="font-weight:800;">17.08€</span></div>
+      <div id="doubtDecisionNote" style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border);"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── Estado ──────────────────────────────────────────────────────────────
+let products = [];
+let activeProductId = '';
+
+function saveProducts() {
+  try { localStorage.setItem('simulador_productos', JSON.stringify(products)); } catch(e) {}
+}
+
+function loadProducts() {
+  try {
+    const saved = localStorage.getItem('simulador_productos');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        products = parsed;
+        return true;
+      }
+    }
+  } catch(e) {}
+  return false;
+}
+
+// ─── Lógica de Cálculo ──────────────────────────────────────────────────
+function calculate() {
+  const precio = parseFloat(document.getElementById('precioVenta').value) || 0;
+  const costoUnit = parseFloat(document.getElementById('costoUnitario').value) || 0;
+  const units = parseInt(document.getElementById('unidades').value) || 1;
+  const fulfillment = parseFloat(document.getElementById('costoFulfillment').value) || 0;
+  const envio = parseFloat(document.getElementById('costoEnvioCod').value) || 0;
+  const cpa = parseFloat(document.getElementById('cpaPromedio').value) || 0;
+  const rechazo = parseFloat(document.getElementById('costoRechazo').value) || 0;
+  const tasa = parseFloat(document.getElementById('tasaEntrega').value) || 0.5;
+  const confirmRate = parseFloat(document.getElementById('tasaConfirmacion').value) || 0.5;
+
+  document.getElementById('tasaLabel').textContent = Math.round(tasa * 100) + '%';
+  document.getElementById('tasaConfLabel').textContent = Math.round(confirmRate * 100) + '%';
+
+  const costoTotal = (costoUnit * units) + fulfillment;
+  const profitDelivered = precio - costoTotal - envio - cpa;
+  const lossRejected = rechazo + cpa;
+  const lossNoConfirm = cpa;
+
+  const pctDelivered = confirmRate * tasa;
+  const pctRejected = confirmRate * (1 - tasa);
+  const pctNoConfirm = 1 - confirmRate;
+
+  const expectedProfit = pctDelivered * profitDelivered - pctRejected * lossRejected - pctNoConfirm * lossNoConfirm;
+  const breakevenCpa = confirmRate * (tasa * (precio - costoTotal - envio) - (1 - tasa) * rechazo);
+
+  let status, badge, icon;
+  if (expectedProfit > 1.50) {
+    status = 'profitable'; badge = 'badge-success'; icon = '🟢';
+  } else if (expectedProfit >= 0) {
+    status = 'tight'; badge = 'badge-warning'; icon = '🟡';
+  } else {
+    status = 'loss'; badge = 'badge-danger'; icon = '🔴';
+  }
+
+  const card = document.getElementById('resultCard');
+  card.className = 'result-card fade-in result-' + status;
+  document.getElementById('resultIcon').textContent = icon;
+
+  const badgeLabels = { profitable: 'PRODUCTO RENTABLE', tight: 'MARGEN AJUSTADO', loss: 'PRODUCTO A PÉRDIDAS' };
+  const badgeEl = document.getElementById('resultBadge');
+  badgeEl.textContent = badgeLabels[status];
+  badgeEl.className = 'badge ' + badge;
+
+  document.getElementById('expectedProfit').textContent = (expectedProfit > 0 ? '+' : '') + expectedProfit.toFixed(2);
+  document.getElementById('expectedProfit').className = 'value ' + (expectedProfit > 0 ? 'text-success' : 'text-danger');
+  document.getElementById('marginPct').textContent = (precio > 0 ? (expectedProfit / precio * 100).toFixed(1) : '0.0') + '%';
+  document.getElementById('marginPct').style.color = expectedProfit > 0 ? 'var(--success)' : 'var(--danger)';
+  const contribDel = pctDelivered * profitDelivered;
+  const contribRej = pctRejected * lossRejected;
+  const contribNoc = pctNoConfirm * lossNoConfirm;
+  document.getElementById('expectedProfitFormula').innerHTML =
+    '✓ ' + Math.round(pctDelivered * 100) + '% × ' + profitDelivered.toFixed(2) + '€ → <span class="text-success">+' + contribDel.toFixed(2) + '€</span><br>' +
+    '✗ ' + Math.round(pctRejected * 100) + '% × (−' + lossRejected.toFixed(2) + '€) → <span class="text-danger">−' + contribRej.toFixed(2) + '€</span><br>' +
+    '📱 ' + Math.round(pctNoConfirm * 100) + '% × (−' + lossNoConfirm.toFixed(2) + '€) → <span class="text-danger">−' + contribNoc.toFixed(2) + '€</span><br>' +
+    '<strong>Total = ' + (expectedProfit > 0 ? '+' : '') + expectedProfit.toFixed(2) + '€/pedido</strong>';
+  document.getElementById('profitDelivered').textContent = '+' + profitDelivered.toFixed(2) + '€';
+  document.getElementById('profitFormula').textContent = 'Precio (' + precio.toFixed(2) + '€) − Coste Total (' + costoTotal.toFixed(2) + '€) − Envío (' + envio.toFixed(2) + '€) − CPA (' + cpa.toFixed(2) + '€) = ' + profitDelivered.toFixed(2) + '€';
+  document.getElementById('lossRejected').textContent = '-' + lossRejected.toFixed(2) + '€';
+  document.getElementById('lossFormula').textContent = 'Coste Rechazo (' + rechazo.toFixed(2) + '€) + CPA (' + cpa.toFixed(2) + '€) = ' + lossRejected.toFixed(2) + '€';
+  document.getElementById('lossNoConfirm').textContent = '-' + lossNoConfirm.toFixed(2) + '€';
+  document.getElementById('noConfirmFormula').textContent = 'CPA (' + cpa.toFixed(2) + '€) = ' + lossNoConfirm.toFixed(2) + '€';
+  document.getElementById('pctDelivered').textContent = Math.round(pctDelivered * 100);
+  document.getElementById('pctRejected').textContent = Math.round(pctRejected * 100);
+  document.getElementById('pctNoConfirm').textContent = Math.round(pctNoConfirm * 100);
+  document.getElementById('cpaActual').textContent = cpa.toFixed(2) + '€';
+  document.getElementById('breakevenCpa').textContent = breakevenCpa.toFixed(2) + '€';
+
+  // ─── Tasa de entrega de equilibrio ──────────────────────────────────────
+  // Despejando la entrega 't' de expectedProfit = 0:
+  //   t_eq = (CPA + conf × rechazo) / [conf × (margen + rechazo)]
+  // donde margen = precio − costeTotal − envío
+  const margenEntregado = precio - costoTotal - envio;
+  const denomEntrega = confirmRate * (margenEntregado + rechazo);
+  const breakevenEntrega = denomEntrega > 0 ? (cpa + confirmRate * rechazo) / denomEntrega : Infinity;
+  const entregaEl = document.getElementById('breakevenEntrega');
+  const entregaDesc = document.getElementById('breakevenEntregaDesc');
+  document.getElementById('entregaActual').textContent = Math.round(tasa * 100) + '%';
+  if (confirmRate <= 0 || denomEntrega <= 0) {
+    entregaEl.textContent = '—';
+    entregaEl.style.color = 'var(--muted)';
+    entregaDesc.textContent = 'Con esta confirmación o margen no se puede calcular un punto de equilibrio.';
+  } else if (breakevenEntrega > 1) {
+    entregaEl.textContent = '>100%';
+    entregaEl.style.color = 'var(--danger)';
+    entregaDesc.innerHTML = 'Ni entregando el 100% es rentable. El problema es el producto (precio, coste o CPA), no la entrega.';
+  } else {
+    entregaEl.textContent = Math.round(breakevenEntrega * 100) + '%';
+    entregaEl.style.color = tasa >= breakevenEntrega ? 'var(--success)' : 'var(--danger)';
+    const cushionPts = (tasa - breakevenEntrega) * 100;
+    entregaDesc.innerHTML = cushionPts >= 0
+      ? 'Tu entrega (' + Math.round(tasa * 100) + '%) está <strong>' + cushionPts.toFixed(0) + ' puntos por encima</strong> del mínimo. Tienes colchón.'
+      : 'Tu entrega (' + Math.round(tasa * 100) + '%) está <strong>' + Math.abs(cushionPts).toFixed(0) + ' puntos por debajo</strong> del mínimo. Estás perdiendo.';
+  }
+
+  const roas = cpa > 0 ? (pctDelivered * precio) / cpa : 0;
+  const roiAds = cpa > 0 ? (expectedProfit / cpa) * 100 : 0;
+  document.getElementById('roasValue').textContent = roas.toFixed(1) + 'x';
+  document.getElementById('roasFormula').innerHTML =
+    Math.round(pctDelivered * 100) + '% × ' + precio.toFixed(2) + '€ / ' + cpa.toFixed(2) + '€ = ' + roas.toFixed(1) + 'x' +
+    '<br>— Cada 1€ de anuncio genera <strong>' + roas.toFixed(1) + '€</strong> en ingresos brutos.';
+  document.getElementById('roiValue').textContent = (roiAds > 0 ? '+' : '') + roiAds.toFixed(0) + '%';
+  document.getElementById('roiValue').style.color = roiAds > 0 ? 'var(--success)' : 'var(--danger)';
+  document.getElementById('roiFormula').innerHTML =
+    (expectedProfit > 0 ? '+' : '') + expectedProfit.toFixed(2) + '€ / ' + cpa.toFixed(2) + '€ = ' + (roiAds > 0 ? '+' : '') + roiAds.toFixed(0) + '%' +
+    '<br>— Cada 1€ de anuncio genera <strong>' + (expectedProfit > 0 ? '+' : '') + (expectedProfit / cpa).toFixed(2) + '€</strong> de beneficio neto (descontando costes).';
+
+  const alertBox = document.getElementById('cpaAlert');
+  const cushion = breakevenCpa - cpa;
+
+  if (breakevenCpa > cpa) {
+    alertBox.style.display = 'flex';
+    alertBox.innerHTML = '<span style="font-size:1.25rem;">✅</span><div><strong>Colchón de CPA positivo</strong><span>Tienes <strong><span id="cpaCushion" style="font-weight:800;">' + (cushion > 0 ? '+' : '') + cushion.toFixed(2) + '€</span></strong> de margen antes de perder dinero. Puedes escalar anuncios.</span></div>';
+    alertBox.style.background = '#d1fae5';
+    alertBox.style.borderColor = '#a7f3d0';
+    alertBox.style.color = '#065f46';
+  } else {
+    alertBox.style.display = 'flex';
+    alertBox.innerHTML = '<span style="font-size:1.25rem;">⚠️</span><div><strong style="color:#92400e;">Alerta: CPA de Equilibrio Superado</strong><span>Estás pagando <strong><span id="cpaCushion" style="font-weight:800;">' + cpa.toFixed(2) + '€</span></strong> de CPA, pero tu límite es <strong>' + breakevenCpa.toFixed(2) + '€</strong>. ¡Necesitas bajar el CPA o subir la tasa de confirmación o entrega!</span></div>';
+    alertBox.style.background = '#fef3c7';
+    alertBox.style.borderColor = '#fde68a';
+    alertBox.style.color = '#92400e';
+  }
+
+  return { precio, costoUnit, units, fulfillment, envio, cpa, rechazo, tasa, confirmRate, costoTotal, profitDelivered, lossRejected, lossNoConfirm, expectedProfit, breakevenCpa, pctDelivered, pctRejected, pctNoConfirm };
+}
+
+// ─── Auto-sync: cada vez que cambia un input, actualiza la tabla ──────
+function autoSync() {
+  if (!activeProductId) return;
+  const p = products.find(x => x.id === activeProductId);
+  if (!p) { activeProductId = ''; return; }
+  p.precio = parseFloat(document.getElementById('precioVenta').value) || 0;
+  p.costoUnit = parseFloat(document.getElementById('costoUnitario').value) || 0;
+  p.units = parseInt(document.getElementById('unidades').value) || 1;
+  p.fulfillment = parseFloat(document.getElementById('costoFulfillment').value) || 0;
+  p.envio = parseFloat(document.getElementById('costoEnvioCod').value) || 0;
+  p.cpa = parseFloat(document.getElementById('cpaPromedio').value) || 0;
+  p.rechazo = parseFloat(document.getElementById('costoRechazo').value) || 0;
+  p.tasa = parseFloat(document.getElementById('tasaEntrega').value) || 0.5;
+  p.confirmRate = parseFloat(document.getElementById('tasaConfirmacion').value) || 0.5;
+  renderTable();
+  calculateOptimizer();
+  saveProducts();
+}
+
+// ─── Listeners ──────────────────────────────────────────────────────────
+document.querySelectorAll('#nombre, #precioVenta, #costoUnitario, #unidades, #costoFulfillment, #costoEnvioCod, #cpaPromedio, #costoRechazo, #tasaEntrega, #tasaConfirmacion')
+  .forEach(el => {
+    el.addEventListener('input', () => { try { autoSync(); } catch(e) {} try { calculate(); } catch(e) {} });
+    el.addEventListener('change', () => { try { autoSync(); } catch(e) {} try { calculate(); } catch(e) {} });
+  });
+
+document.getElementById('doubtDiscount').addEventListener('input', () => { try { renderDoubtCalculator(); } catch(e) {} });
+document.getElementById('doubtDiscount').addEventListener('change', () => { try { renderDoubtCalculator(); } catch(e) {} });
+
+// ─── Gestión de Productos ────────────────────────────────────────────────
+function addProduct() {
+  const nombre = document.getElementById('nombre').value.trim() || 'Producto sin nombre';
+  const precio = parseFloat(document.getElementById('precioVenta').value) || 0;
+  const costoUnit = parseFloat(document.getElementById('costoUnitario').value) || 0;
+  const units = parseInt(document.getElementById('unidades').value) || 1;
+  const fulfillment = parseFloat(document.getElementById('costoFulfillment').value) || 0;
+  const envio = parseFloat(document.getElementById('costoEnvioCod').value) || 0;
+  const cpa = parseFloat(document.getElementById('cpaPromedio').value) || 0;
+  const rechazo = parseFloat(document.getElementById('costoRechazo').value) || 0;
+  const tasa = parseFloat(document.getElementById('tasaEntrega').value) || 0.5;
+  const confirmRate = parseFloat(document.getElementById('tasaConfirmacion').value) || 0.5;
+
+  activeProductId = '';
+  products.push({
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    nombre, precio, costoUnit, units, fulfillment, envio, cpa, rechazo, tasa, confirmRate,
+    scaleMode: 'pedidos', scaleValue: 5
+  });
+
+  renderTable();
+  document.getElementById('tableSection').style.display = 'block';
+  calculateOptimizer();
+  saveProducts();
+}
+
+function deleteProduct(id) {
+  if (activeProductId === id) activeProductId = '';
+  products = products.filter(p => p.id !== id);
+  renderTable();
+  calculateOptimizer();
+  saveProducts();
+  if (products.length === 0) {
+    document.getElementById('tableSection').style.display = 'none';
+    document.getElementById('optimizerSection').style.display = 'none';
+  }
+}
+
+function clearAll() {
+  if (!confirm('¿Eliminar todos los productos de la tabla?')) return;
+  activeProductId = '';
+  products = [];
+  renderTable();
+  calculateOptimizer();
+  saveProducts();
+  document.getElementById('tableSection').style.display = 'none';
+  document.getElementById('optimizerSection').style.display = 'none';
+}
+
+function loadProduct(id) {
+  const p = products.find(x => x.id === id);
+  if (!p) return;
+  activeProductId = id;
+  document.getElementById('nombre').value = p.nombre;
+  document.getElementById('precioVenta').value = p.precio;
+  document.getElementById('costoUnitario').value = p.costoUnit;
+  document.getElementById('unidades').value = p.units;
+  document.getElementById('costoFulfillment').value = p.fulfillment;
+  document.getElementById('costoEnvioCod').value = p.envio;
+  document.getElementById('cpaPromedio').value = p.cpa;
+  document.getElementById('costoRechazo').value = p.rechazo;
+  document.getElementById('tasaEntrega').value = p.tasa;
+  document.getElementById('tasaConfirmacion').value = p.confirmRate != null ? p.confirmRate : 1;
+  calculate();
+  renderTable();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function updateScale(id, mode, value) {
+  const p = products.find(x => x.id === id);
+  if (p) { p.scaleMode = mode; p.scaleValue = Math.max(0, value); saveProducts(); }
+  renderTable();
+  calculateOptimizer();
+}
+
+// ─── Render Tabla ──────────────────────────────────────────────────────
+function renderTable() {
+  const tbody = document.getElementById('tableBody');
+  const tfoot = document.getElementById('tableFoot');
+  const sortBy = document.getElementById('sortBy').value;
+
+  const sorted = [...products].sort((a, b) => {
+    const statsA = calcStats(a), statsB = calcStats(b);
+    let va, vb;
+    if (sortBy === 'nombre') { va = a.nombre.toLowerCase(); vb = b.nombre.toLowerCase(); }
+    else if (sortBy === 'expectedProfit') { va = statsA.expectedProfit; vb = statsB.expectedProfit; }
+    else if (sortBy === 'roi') { va = statsA.roi; vb = statsB.roi; }
+    if (va < vb) return 1; if (va > vb) return -1; return 0;
+  });
+
+  let totals = { orders: 0, ads: 0, profit: 0 };
+
+  tbody.innerHTML = sorted.map(p => {
+    const s = calcStats(p);
+    totals.orders += s.projectedOrders;
+    totals.ads += s.projectedAds;
+    totals.profit += s.projectedProfit;
+
+    return '<tr onclick="loadProduct(\'' + p.id + '\')" style="cursor:pointer;" class="fade-in">' +
+      '<td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;" class="fw-bold">' + escHtml(p.nombre) + '</td>' +
+      '<td class="right">' + p.precio.toFixed(2) + '€</td>' +
+      '<td class="right text-muted">' + s.costoTotal.toFixed(2) + '€</td>' +
+      '<td class="right text-muted">' + p.envio.toFixed(2) + '€</td>' +
+      '<td class="right text-muted">' + p.cpa.toFixed(2) + '€</td>' +
+      '<td class="center"><span class="tag tag-primary">' + Math.round(p.tasa * 100) + '%</span></td>' +
+      '<td class="center"><span class="tag tag-primary">' + Math.round((p.confirmRate != null ? p.confirmRate : 1) * 100) + '%</span></td>' +
+      '<td class="right fw-bold">' + s.breakevenCpa.toFixed(2) + '€</td>' +
+      '<td class="right text-success fw-bold">+' + s.profitDelivered.toFixed(2) + '€</td>' +
+      '<td class="right text-danger fw-bold">-' + s.lossRejected.toFixed(2) + '€</td>' +
+      '<td class="right fw-black" style="border-right:2px solid var(--border);color:' + (s.expectedProfit > 0 ? 'var(--success)' : 'var(--danger)') + ';">' +
+        (s.expectedProfit > 0 ? '+' : '') + s.expectedProfit.toFixed(2) + '€' +
+      '</td>' +
+      '<td class="center" onclick="event.stopPropagation()">' +
+        '<input type="number" value="' + s.projectedOrders.toFixed(s.projectedOrders % 1 === 0 ? 0 : 1) + '" min="0" step="1" ' +
+          'onchange="updateScale(\'' + p.id + '\',\'pedidos\',Number(this.value))" ' +
+          'style="width:60px;text-align:center;font-size:0.75rem;padding:2px 4px;">' +
+        '<span style="font-size:0.625rem;color:var(--muted);">/d</span>' +
+      '</td>' +
+      '<td class="right">' + s.projectedAds.toFixed(2) + '€</td>' +
+      '<td class="right fw-bold" style="color:' + (s.projectedProfit > 0 ? 'var(--success)' : 'var(--danger)') + ';">' +
+        (s.projectedProfit > 0 ? '+' : '') + s.projectedProfit.toFixed(2) + '€' +
+      '</td>' +
+      '<td class="right fw-black" style="color:' + (s.projectedProfit > 0 ? 'var(--success)' : 'var(--danger)') + ';">' +
+        (s.projectedProfit * 30 > 0 ? '+' : '') + (s.projectedProfit * 30).toFixed(2) + '€' +
+      '</td>' +
+      '<td class="center"><span class="badge ' + (s.roi > 0 ? 'badge-success' : s.roi < 0 ? 'badge-danger' : 'badge-info') + '">' +
+        (s.roi > 0 ? '+' : '') + s.roi.toFixed(1) + '%' +
+      '</span></td>' +
+      '<td class="center" onclick="event.stopPropagation()">' +
+        '<button class="btn btn-sm btn-danger" onclick="deleteProduct(\'' + p.id + '\')" title="Eliminar">✕</button>' +
+      '</td>' +
+    '</tr>';
+  }).join('');
+
+  if (sorted.length > 0) {
+    const monthly = totals.profit * 30;
+    const roi = totals.ads > 0 ? (totals.profit / totals.ads) * 100 : 0;
+    tfoot.innerHTML = '<tr class="tr-total">' +
+      '<td class="fw-bold" style="color:var(--primary);">TOTAL</td>' +
+      '<td class="right">—</td><td class="right">—</td><td class="right">—</td><td class="right">—</td>' +
+      '<td class="center">—</td><td class="center">—</td><td class="right">—</td><td class="right">—</td><td class="right">—</td>' +
+      '<td class="right fw-black" style="border-right:2px solid var(--border);color:var(--primary);">—</td>' +
+      '<td class="center fw-bold" style="color:var(--primary);">' + (totals.orders % 1 === 0 ? totals.orders : totals.orders.toFixed(1)) + '/d</td>' +
+      '<td class="right fw-black" style="color:var(--primary);">' + totals.ads.toFixed(2) + '€</td>' +
+      '<td class="right fw-black" style="color:' + (totals.profit > 0 ? 'var(--success)' : 'var(--danger)') + ';">' +
+        (totals.profit > 0 ? '+' : '') + totals.profit.toFixed(2) + '€' +
+      '</td>' +
+      '<td class="right fw-black" style="color:' + (monthly > 0 ? 'var(--success)' : 'var(--danger)') + ';">' +
+        (monthly > 0 ? '+' : '') + monthly.toFixed(2) + '€' +
+      '</td>' +
+      '<td class="center"><span class="badge ' + (roi > 0 ? 'badge-success' : roi < 0 ? 'badge-danger' : 'badge-info') + '" style="font-size:0.75rem;">' +
+        (roi > 0 ? '+' : '') + roi.toFixed(1) + '%' +
+      '</span></td>' +
+      '<td class="center">—</td>' +
+    '</tr>';
+  } else {
+    tfoot.innerHTML = '';
+  }
+}
+
+function calcStats(p) {
+  const cf = p.confirmRate != null ? p.confirmRate : 1;
+  const costoTotal = (p.costoUnit * p.units) + p.fulfillment;
+  const profitDelivered = p.precio - costoTotal - p.envio - p.cpa;
+  const lossRejected = p.rechazo + p.cpa;
+  const lossNoConfirm = p.cpa;
+  const pctDelivered = cf * p.tasa;
+  const pctRejected = cf * (1 - p.tasa);
+  const pctNoConfirm = 1 - cf;
+  const expectedProfit = pctDelivered * profitDelivered - pctRejected * lossRejected - pctNoConfirm * lossNoConfirm;
+  const breakevenCpa = cf * (p.tasa * (p.precio - costoTotal - p.envio) - (1 - p.tasa) * p.rechazo);
+  
+  const scale = p.scaleValue || 10;
+  const projectedOrders = scale;
+  const projectedAds = scale * p.cpa;
+  const projectedProfit = projectedOrders * expectedProfit;
+  const roi = projectedAds > 0 ? (projectedProfit / projectedAds) * 100 : 0;
+  
+  return { costoTotal, profitDelivered, lossRejected, expectedProfit, breakevenCpa, projectedOrders, projectedAds, projectedProfit, roi };
+}
+
+function escHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// ─── Optimizador de Presupuesto ─────────────────────────────────────────
+function calculateOptimizer() {
+  const budget = parseFloat(document.getElementById('budget').value) || 0;
+  const strategy = document.getElementById('strategy').value;
+  const profitable = products.filter(p => {
+    const s = calcStats(p);
+    return s.expectedProfit > 0;
+  });
+
+  const body = document.getElementById('optBody');
+  const empty = document.getElementById('optEmpty');
+
+  if (profitable.length === 0 || budget <= 0) {
+    body.innerHTML = '';
+    empty.style.display = 'block';
+    document.getElementById('optBudget').textContent = '—';
+    document.getElementById('optDailyProfit').textContent = '—';
+    document.getElementById('optMonthlyProfit').textContent = '—';
+    document.getElementById('optRoi').textContent = '—';
+    return;
+  }
+  empty.style.display = 'none';
+
+  let allocations = [];
+  let totalSpent = 0;
+
+  if (strategy === 'roi') {
+    const best = profitable.map(p => ({ p, s: calcStats(p) })).sort((a, b) => b.s.roi - a.s.roi)[0];
+    const orders = best.p.cpa > 0 ? budget / best.p.cpa : 0;
+    allocations.push({ nombre: best.p.nombre, roi: best.s.roi, budget, orders, profit: orders * best.s.expectedProfit });
+    totalSpent = budget;
+  } else if (strategy === 'volume') {
+    const vol = profitable.map(p => ({ p, s: calcStats(p) })).sort((a, b) => a.p.cpa - b.p.cpa)[0];
+    const orders = vol.p.cpa > 0 ? budget / vol.p.cpa : 0;
+    allocations.push({ nombre: vol.p.nombre, roi: vol.s.roi, budget, orders, profit: orders * vol.s.expectedProfit });
+    totalSpent = budget;
+  } else if (strategy === 'diversified') {
+    const withStats = profitable.map(p => ({ p, s: calcStats(p) }));
+    const totalRoi = withStats.reduce((sum, item) => sum + item.s.roi, 0) || 1;
+    withStats.forEach(({ p, s }) => {
+      const weight = s.roi / totalRoi;
+      const share = budget * weight;
+      const orders = p.cpa > 0 ? share / p.cpa : 0;
+      allocations.push({ nombre: p.nombre, roi: s.roi, budget: share, orders, profit: orders * s.expectedProfit });
+    });
+    totalSpent = budget;
+  }
+
+  const totalProfit = allocations.reduce((s, a) => s + a.profit, 0);
+  const totalOrders = allocations.reduce((s, a) => s + a.orders, 0);
+  const overallRoi = totalSpent > 0 ? (totalProfit / totalSpent) * 100 : 0;
+
+  document.getElementById('optBudget').textContent = totalSpent.toFixed(2) + '€';
+  document.getElementById('optDailyProfit').textContent = '+' + totalProfit.toFixed(2) + '€';
+  document.getElementById('optMonthlyProfit').textContent = '+' + (totalProfit * 30).toFixed(2) + '€';
+  document.getElementById('optRoi').textContent = '+' + overallRoi.toFixed(1) + '%';
+
+  body.innerHTML = allocations.map(a =>
+    '<tr class="fade-in">' +
+    '<td class="fw-bold" style="max-width:140px;overflow:hidden;text-overflow:ellipsis;">' + escHtml(a.nombre) + '</td>' +
+    '<td class="center"><span class="badge badge-success">+' + a.roi.toFixed(0) + '%</span></td>' +
+    '<td class="right fw-bold">' + a.budget.toFixed(2) + '€</td>' +
+    '<td class="right text-muted">' + a.orders.toFixed(1) + '</td>' +
+    '<td class="right fw-black text-success">+' + a.profit.toFixed(2) + '€</td>' +
+    '</tr>'
+  ).join('');
+}
+
+// ─── Pedido en duda (modal) ─────────────────────────────────────────────
+function renderDoubtCalculator() {
+  const precio = parseFloat(document.getElementById('precioVenta').value) || 0;
+  const costoUnit = parseFloat(document.getElementById('costoUnitario').value) || 0;
+  const units = parseInt(document.getElementById('unidades').value) || 1;
+  const fulfillment = parseFloat(document.getElementById('costoFulfillment').value) || 0;
+  const envio = parseFloat(document.getElementById('costoEnvioCod').value) || 0;
+  const cpa = parseFloat(document.getElementById('cpaPromedio').value) || 0;
+  const rechazo = parseFloat(document.getElementById('costoRechazo').value) || 0;
+  const costoTotal = (costoUnit * units) + fulfillment;
+  const profitDelivered = precio - costoTotal - envio - cpa;
+  const lossIfRejected = rechazo + cpa;
+
+  const discountPct = parseFloat(document.getElementById('doubtDiscount').value) || 0;
+  const discountAmt = precio * (discountPct / 100);
+  const finalPrice = precio - discountAmt;
+  const profitIfAccepted = profitDelivered - discountAmt;
+  const breakevenDiscount = Math.max(0, profitDelivered);
+  const minPrice = costoTotal + envio + cpa;
+  const costToDeliver = costoTotal + envio;
+
+  const nombre = document.getElementById('nombre').value.trim() || 'Producto sin nombre';
+  document.getElementById('doubtProductName').textContent = 'Producto: ' + nombre;
+
+  document.getElementById('doubtDiscountLabel').textContent = discountPct + '%';
+  document.getElementById('doubtOriginalPrice').textContent = precio.toFixed(2) + '€';
+  document.getElementById('doubtDiscountAmt').textContent = discountAmt.toFixed(2) + '€';
+  document.getElementById('doubtFinalPrice').textContent = finalPrice.toFixed(2) + '€';
+  document.getElementById('doubtFinalPrice').style.color = finalPrice >= minPrice ? 'var(--success)' : 'var(--danger)';
+
+  document.getElementById('doubtAcceptValue').textContent = (profitIfAccepted >= 0 ? '+' : '') + profitIfAccepted.toFixed(2) + '€';
+  document.getElementById('doubtAcceptValue').style.color = profitIfAccepted >= 0 ? 'var(--success)' : 'var(--danger)';
+  document.getElementById('doubtRejectValue').textContent = '-' + lossIfRejected.toFixed(2) + '€';
+  document.getElementById('doubtAcceptCompare').textContent = (profitIfAccepted >= 0 ? '+' : '') + profitIfAccepted.toFixed(2) + '€';
+  document.getElementById('doubtAcceptCompare').style.color = profitIfAccepted >= 0 ? 'var(--success)' : 'var(--danger)';
+  document.getElementById('doubtRejectCompare').textContent = '-' + lossIfRejected.toFixed(2) + '€';
+  document.getElementById('doubtMaxDiscount').textContent = breakevenDiscount.toFixed(2) + '€';
+  document.getElementById('doubtMaxDiscountPct').textContent = '(' + (precio > 0 ? (breakevenDiscount / precio * 100).toFixed(0) : 0) + '%)';
+  document.getElementById('doubtMinPrice').textContent = minPrice.toFixed(2) + '€';
+
+  // Nota dinámica: ¿conviene más que lo rechacen?
+  const note = document.getElementById('doubtDecisionNote');
+  if (costToDeliver > rechazo) {
+    const crossDiscount = precio - costToDeliver + rechazo;
+    const crossPrice = costToDeliver - rechazo;
+    const pctCross = ((crossDiscount / precio) * 100);
+    if (discountPct / 100 > (precio - crossPrice) / precio) {
+      note.innerHTML = '⚠️ <strong>Ojo:</strong> el producto cuesta <strong>' + costToDeliver.toFixed(2) + '€</strong> (producto+envío) y devolverlo solo <strong>' + rechazo.toFixed(2) + '€</strong>. A partir de <strong>' + pctCross.toFixed(0) + '%</strong> de descuento (precio &lt; ' + crossPrice.toFixed(2) + '€), <strong>te conviene más que lo rechacen</strong>.';
+      note.style.color = '#92400e';
+    } else {
+      note.innerHTML = '📌 El producto cuesta <strong>' + costToDeliver.toFixed(2) + '€</strong> entregarlo y <strong>' + rechazo.toFixed(2) + '€</strong> devolverlo. Como el producto es más caro que la devolución, a partir de cierto descuento es mejor que lo rechacen.';
+      note.style.color = 'var(--muted)';
+      note.innerHTML += '<br><span style="font-size:0.7rem;">Punto de cruce: descuento &gt; ' + pctCross.toFixed(0) + '% → precio &lt; ' + crossPrice.toFixed(2) + '€ → mejor rechazo.</span>';
+    }
+  } else {
+    note.innerHTML = '📌 El producto cuesta <strong>' + costToDeliver.toFixed(2) + '€</strong> entregarlo y <strong>' + rechazo.toFixed(2) + '€</strong> devolverlo. Como la devolución es más cara que el producto, <strong>siempre conviene ofrecer descuento</strong> — incluso regalarlo es mejor que un rechazo.';
+    note.style.color = 'var(--muted)';
+  }
+}
+
+function openDoubtModal() {
+  const precio = parseFloat(document.getElementById('precioVenta').value) || 0;
+  const costoUnit = parseFloat(document.getElementById('costoUnitario').value) || 0;
+  const units = parseInt(document.getElementById('unidades').value) || 1;
+  const fulfillment = parseFloat(document.getElementById('costoFulfillment').value) || 0;
+  const envio = parseFloat(document.getElementById('costoEnvioCod').value) || 0;
+  const cpa = parseFloat(document.getElementById('cpaPromedio').value) || 0;
+  const profitDelivered = precio - ((costoUnit * units) + fulfillment) - envio - cpa;
+  const pct = precio > 0 ? Math.floor(Math.max(0, profitDelivered) / precio * 100) : 0;
+  document.getElementById('doubtDiscount').value = Math.min(pct, 100);
+  renderDoubtCalculator();
+  document.getElementById('doubtModalOverlay').style.display = 'flex';
+}
+
+function closeDoubtModal(ev) {
+  if (ev && ev.target !== ev.currentTarget) return;
+  document.getElementById('doubtModalOverlay').style.display = 'none';
+}
+
+// ─── Init ────────────────────────────────────────────────────────────────
+if (loadProducts()) {
+  renderTable();
+  document.getElementById('tableSection').style.display = 'block';
+  calculateOptimizer();
+}
+calculate();
+</script>
+</body>
+</html>
