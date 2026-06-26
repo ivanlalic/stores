@@ -90,7 +90,6 @@ function SimuladorContent() {
   const [strategy, setStrategy] = useState<"roi" | "diversified" | "volume">(
     "roi",
   );
-  const [showDoubtModal, setShowDoubtModal] = useState(false);
   const [doubtDiscount, setDoubtDiscount] = useState(0);
 
   // Load products from DB
@@ -915,33 +914,185 @@ function SimuladorContent() {
                       )}
                     </div>
                   </div>
-
-                  <div className="text-right">
-                    <button
-                      onClick={() => {
-                        const costoTotal =
-                          costoUnitario * unidades + costoFulfillment;
-                        const profitDelivered =
-                          precioVenta -
-                          costoTotal -
-                          costoEnvioCod -
-                          cpaPromedio;
-                        const pct =
-                          precioVenta > 0
-                            ? Math.floor(
-                                (Math.max(0, profitDelivered) / precioVenta) *
-                                  100,
-                              )
-                            : 0;
-                        setDoubtDiscount(Math.min(pct, 100));
-                        setShowDoubtModal(true);
-                      }}
-                      className="text-[0.65rem] text-muted-foreground underline hover:text-card-foreground transition-colors"
-                    >
-                      🤔 Pedido en duda
-                    </button>
-                  </div>
                 </div>
+              </div>
+
+              {/* Inline Doubt Calculator */}
+              <div className="bg-amber-50/40 border border-amber-200 rounded-xl p-4 shadow-sm space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">🤔</span>
+                  <span className="text-xs font-bold text-card-foreground">
+                    Pedido en duda — ¿qué descuento le ofreces?
+                  </span>
+                </div>
+                <p className="text-[0.65rem] text-muted-foreground">
+                  El cliente duda. ¿Cuánto puedes bajar sin perder más que si lo
+                  rechazara?
+                </p>
+
+                <div className="flex items-center gap-3">
+                  <span className="text-[0.65rem] font-semibold whitespace-nowrap text-muted-foreground">
+                    Descuento:
+                  </span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={doubtDiscount}
+                    onChange={(e) => setDoubtDiscount(Number(e.target.value))}
+                    className="flex-1 h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+                  />
+                  <span className="text-sm font-extrabold min-w-[55px] text-right text-primary">
+                    {doubtDiscount}%
+                  </span>
+                </div>
+
+                {(() => {
+                  const costoTotal =
+                    costoUnitario * unidades + costoFulfillment;
+                  const profitDelivered =
+                    precioVenta - costoTotal - costoEnvioCod - cpaPromedio;
+                  const lossIfRejected = costoRechazo + cpaPromedio;
+                  const discountAmt = precioVenta * (doubtDiscount / 100);
+                  const finalPrice = precioVenta - discountAmt;
+                  const profitIfAccepted = profitDelivered - discountAmt;
+                  const minPrice = costoTotal + costoEnvioCod + cpaPromedio;
+                  const costToDeliver = costoTotal + costoEnvioCod;
+                  const breakevenDiscount = Math.max(0, profitDelivered);
+                  return (
+                    <>
+                      <div className="flex justify-between items-center bg-white/70 border rounded-lg px-3 py-2 text-xs">
+                        <span>
+                          Precio original:{" "}
+                          <strong>{precioVenta.toFixed(2)}€</strong>
+                        </span>
+                        <span>
+                          −{" "}
+                          <strong className="text-destructive">
+                            {discountAmt.toFixed(2)}€
+                          </strong>
+                        </span>
+                        <span>
+                          <span className="text-[0.55rem] text-muted-foreground">
+                            PRECIO FINAL{" "}
+                          </span>
+                          <strong
+                            className={`text-sm ${finalPrice >= minPrice ? "text-primary" : "text-destructive"}`}
+                          >
+                            {finalPrice.toFixed(2)}€
+                          </strong>
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-white/70 border rounded-lg p-2.5">
+                          <div className="text-[0.55rem] font-semibold text-muted-foreground mb-0.5">
+                            ✅ Si acepta con descuento
+                          </div>
+                          <div
+                            className={`text-base font-black ${profitIfAccepted >= 0 ? "text-emerald-600" : "text-destructive"}`}
+                          >
+                            {profitIfAccepted >= 0 ? "+" : ""}
+                            {profitIfAccepted.toFixed(2)}€
+                          </div>
+                        </div>
+                        <div className="bg-white/70 border rounded-lg p-2.5">
+                          <div className="text-[0.55rem] font-semibold text-muted-foreground mb-0.5">
+                            ❌ Si rechaza
+                          </div>
+                          <div className="text-base font-black text-destructive">
+                            -{lossIfRejected.toFixed(2)}€
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-[0.65rem] text-muted-foreground text-center">
+                        Prefieres aceptar por{" "}
+                        <strong
+                          className={
+                            profitIfAccepted >= 0
+                              ? "text-emerald-600"
+                              : "text-destructive"
+                          }
+                        >
+                          {profitIfAccepted >= 0 ? "+" : ""}
+                          {profitIfAccepted.toFixed(2)}€
+                        </strong>{" "}
+                        frente a perder{" "}
+                        <strong className="text-destructive">
+                          -{lossIfRejected.toFixed(2)}€
+                        </strong>{" "}
+                        si rechaza.
+                      </div>
+                      <div className="bg-white/70 border border-amber-100 rounded-lg p-2.5 text-[0.65rem] space-y-1">
+                        <div>
+                          <strong>💰 Salir a 0:</strong> descuento de{" "}
+                          <strong className="text-primary">
+                            {breakevenDiscount.toFixed(2)}€
+                          </strong>{" "}
+                          <span className="text-[0.55rem] text-muted-foreground">
+                            (
+                            {precioVenta > 0
+                              ? (
+                                  (breakevenDiscount / precioVenta) *
+                                  100
+                                ).toFixed(0)
+                              : 0}
+                            %)
+                          </span>{" "}
+                          → precio final <strong>{minPrice.toFixed(2)}€</strong>
+                        </div>
+                        <div className="border-t border-amber-100 pt-1 mt-1">
+                          {costToDeliver > costoRechazo ? (
+                            (() => {
+                              const crossDiscount =
+                                precioVenta - costToDeliver + costoRechazo;
+                              const crossPrice = costToDeliver - costoRechazo;
+                              const pctCross =
+                                precioVenta > 0
+                                  ? (crossDiscount / precioVenta) * 100
+                                  : 0;
+                              const isPastCross =
+                                doubtDiscount / 100 >
+                                (precioVenta > 0
+                                  ? (precioVenta - crossPrice) / precioVenta
+                                  : 0);
+                              return isPastCross ? (
+                                <span className="text-amber-700 font-medium">
+                                  ⚠️ A partir de {pctCross.toFixed(0)}% de
+                                  descuento (precio &lt; {crossPrice.toFixed(2)}
+                                  €),{" "}
+                                  <strong>
+                                    te conviene más que lo rechacen
+                                  </strong>
+                                  .
+                                </span>
+                              ) : (
+                                <>
+                                  📌 El producto cuesta{" "}
+                                  <strong>{costToDeliver.toFixed(2)}€</strong>{" "}
+                                  entregarlo y{" "}
+                                  <strong>{costoRechazo.toFixed(2)}€</strong>{" "}
+                                  devolverlo. Punto de cruce: &gt;
+                                  {pctCross.toFixed(0)}% → precio &lt;{" "}
+                                  {crossPrice.toFixed(2)}€.
+                                </>
+                              );
+                            })()
+                          ) : (
+                            <>
+                              📌 Devolver cuesta{" "}
+                              <strong>{costoRechazo.toFixed(2)}€</strong> más
+                              que entregar ({costToDeliver.toFixed(2)}€).{" "}
+                              <strong>
+                                Incluso regalarlo es mejor que un rechazo
+                              </strong>
+                              .
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
 
               <div className="text-[0.6rem] text-muted-foreground text-center mt-2">
@@ -1336,218 +1487,6 @@ function SimuladorContent() {
                     </p>
                   </div>
                 )}
-              </div>
-            </div>
-          )}
-
-          {/* Pedido en duda Modal */}
-          {showDoubtModal && (
-            <div
-              className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-5"
-              onClick={() => setShowDoubtModal(false)}
-            >
-              <div
-                className="bg-white rounded-xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="font-bold text-sm">
-                    🤔 Pedido en duda — ¿qué descuento le ofreces?
-                  </h3>
-                  <button
-                    onClick={() => setShowDoubtModal(false)}
-                    className="text-muted-foreground hover:text-card-foreground text-lg leading-none"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <p className="text-xs text-muted-foreground mb-3">
-                  El cliente está dudando. Quieres llamarlo y ofrecerle un
-                  descuento para que acepte el contrareembolso. ¿Cuánto puedes
-                  bajar sin perder más que si lo rechazara?
-                </p>
-                <div className="text-xs font-semibold text-primary mb-2">
-                  Producto: {nombre}
-                </div>
-
-                <div className="flex items-center gap-3 mb-3">
-                  <span className="text-xs font-semibold whitespace-nowrap text-muted-foreground">
-                    Descuento:
-                  </span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={doubtDiscount}
-                    onChange={(e) => setDoubtDiscount(Number(e.target.value))}
-                    className="flex-1 h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
-                  />
-                  <span className="text-sm font-extrabold min-w-[55px] text-right text-primary">
-                    {doubtDiscount}%
-                  </span>
-                </div>
-
-                {(() => {
-                  const costoTotal =
-                    costoUnitario * unidades + costoFulfillment;
-                  const profitDelivered =
-                    precioVenta - costoTotal - costoEnvioCod - cpaPromedio;
-                  const lossIfRejected = costoRechazo + cpaPromedio;
-                  const discountAmt = precioVenta * (doubtDiscount / 100);
-                  const finalPrice = precioVenta - discountAmt;
-                  const profitIfAccepted = profitDelivered - discountAmt;
-                  const minPrice = costoTotal + costoEnvioCod + cpaPromedio;
-                  const costToDeliver = costoTotal + costoEnvioCod;
-                  const breakevenDiscount = Math.max(0, profitDelivered);
-                  return (
-                    <>
-                      <div className="flex justify-between items-center bg-muted/30 border rounded-lg px-3 py-2 mb-3 text-xs">
-                        <span>
-                          Precio original:{" "}
-                          <strong>{precioVenta.toFixed(2)}€</strong>
-                        </span>
-                        <span>
-                          −{" "}
-                          <strong className="text-destructive">
-                            {discountAmt.toFixed(2)}€
-                          </strong>
-                        </span>
-                        <span>
-                          <span className="text-[0.6rem] text-muted-foreground">
-                            PRECIO FINAL{" "}
-                          </span>
-                          <strong
-                            className={`text-sm ${finalPrice >= minPrice ? "text-primary" : "text-destructive"}`}
-                          >
-                            {finalPrice.toFixed(2)}€
-                          </strong>
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3 mb-3">
-                        <div className="bg-muted/30 border rounded-lg p-3">
-                          <div className="text-[0.6rem] font-semibold text-muted-foreground mb-1">
-                            ✅ Si acepta con descuento
-                          </div>
-                          <div
-                            className={`text-lg font-black ${profitIfAccepted >= 0 ? "text-emerald-600" : "text-destructive"}`}
-                          >
-                            {profitIfAccepted >= 0 ? "+" : ""}
-                            {profitIfAccepted.toFixed(2)}€
-                          </div>
-                        </div>
-                        <div className="bg-muted/30 border rounded-lg p-3">
-                          <div className="text-[0.6rem] font-semibold text-muted-foreground mb-1">
-                            ❌ Si rechaza
-                          </div>
-                          <div className="text-lg font-black text-destructive">
-                            -{lossIfRejected.toFixed(2)}€
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-xs text-muted-foreground text-center mb-3">
-                        Prefieres aceptar por{" "}
-                        <strong
-                          className={
-                            profitIfAccepted >= 0
-                              ? "text-emerald-600"
-                              : "text-destructive"
-                          }
-                        >
-                          {profitIfAccepted >= 0 ? "+" : ""}
-                          {profitIfAccepted.toFixed(2)}€
-                        </strong>{" "}
-                        frente a perder{" "}
-                        <strong className="text-destructive">
-                          -{lossIfRejected.toFixed(2)}€
-                        </strong>{" "}
-                        si rechaza.
-                      </div>
-                      <div className="bg-blue-50 border rounded-lg p-3 text-xs space-y-1">
-                        <div>
-                          <strong>💰 Salir a 0:</strong> descuento de{" "}
-                          <strong className="text-primary">
-                            {breakevenDiscount.toFixed(2)}€
-                          </strong>{" "}
-                          <span className="text-[0.65rem] text-muted-foreground">
-                            (
-                            {precioVenta > 0
-                              ? (
-                                  (breakevenDiscount / precioVenta) *
-                                  100
-                                ).toFixed(0)
-                              : 0}
-                            %)
-                          </span>{" "}
-                          → precio final <strong>{minPrice.toFixed(2)}€</strong>
-                        </div>
-                        <div className="border-t border-blue-100 pt-1.5 mt-1.5">
-                          {costToDeliver > costoRechazo ? (
-                            (() => {
-                              const crossDiscount =
-                                precioVenta - costToDeliver + costoRechazo;
-                              const crossPrice = costToDeliver - costoRechazo;
-                              const pctCross =
-                                precioVenta > 0
-                                  ? (crossDiscount / precioVenta) * 100
-                                  : 0;
-                              const isPastCross =
-                                doubtDiscount / 100 >
-                                (precioVenta > 0
-                                  ? (precioVenta - crossPrice) / precioVenta
-                                  : 0);
-                              return isPastCross ? (
-                                <span className="text-amber-700">
-                                  ⚠️ <strong>Ojo:</strong> el producto cuesta{" "}
-                                  <strong>{costToDeliver.toFixed(2)}€</strong>{" "}
-                                  (producto+envío) y devolverlo solo{" "}
-                                  <strong>{costoRechazo.toFixed(2)}€</strong>. A
-                                  partir de{" "}
-                                  <strong>{pctCross.toFixed(0)}%</strong> de
-                                  descuento (precio &lt; {crossPrice.toFixed(2)}
-                                  €),{" "}
-                                  <strong>
-                                    te conviene más que lo rechacen
-                                  </strong>
-                                  .
-                                </span>
-                              ) : (
-                                <>
-                                  📌 El producto cuesta{" "}
-                                  <strong>{costToDeliver.toFixed(2)}€</strong>{" "}
-                                  (producto+envío) y devolverlo solo{" "}
-                                  <strong>{costoRechazo.toFixed(2)}€</strong>.
-                                  Como el producto es más caro que la
-                                  devolución, a partir de cierto descuento es
-                                  mejor que lo rechacen.
-                                  <br />
-                                  <span className="text-[0.65rem] text-muted-foreground">
-                                    Punto de cruce: descuento &gt;{" "}
-                                    {pctCross.toFixed(0)}% → precio &lt;{" "}
-                                    {crossPrice.toFixed(2)}€ → mejor rechazo.
-                                  </span>
-                                </>
-                              );
-                            })()
-                          ) : (
-                            <>
-                              📌 El producto cuesta{" "}
-                              <strong>{costToDeliver.toFixed(2)}€</strong>{" "}
-                              entregarlo y{" "}
-                              <strong>{costoRechazo.toFixed(2)}€</strong>{" "}
-                              devolverlo. Como la devolución es más cara que el
-                              producto,{" "}
-                              <strong>
-                                siempre conviene ofrecer descuento — incluso
-                                regalarlo es mejor que un rechazo
-                              </strong>
-                              .
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </>
-                  );
-                })()}
               </div>
             </div>
           )}
