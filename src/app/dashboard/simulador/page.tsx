@@ -919,7 +919,21 @@ function SimuladorContent() {
                   <div className="text-right">
                     <button
                       onClick={() => {
-                        setDoubtDiscount(0);
+                        const costoTotal =
+                          costoUnitario * unidades + costoFulfillment;
+                        const profitDelivered =
+                          precioVenta -
+                          costoTotal -
+                          costoEnvioCod -
+                          cpaPromedio;
+                        const pct =
+                          precioVenta > 0
+                            ? Math.floor(
+                                (Math.max(0, profitDelivered) / precioVenta) *
+                                  100,
+                              )
+                            : 0;
+                        setDoubtDiscount(Math.min(pct, 100));
                         setShowDoubtModal(true);
                       }}
                       className="text-[0.65rem] text-muted-foreground underline hover:text-card-foreground transition-colors"
@@ -1402,7 +1416,9 @@ function SimuladorContent() {
                           <span className="text-[0.6rem] text-muted-foreground">
                             PRECIO FINAL{" "}
                           </span>
-                          <strong className="text-primary text-sm">
+                          <strong
+                            className={`text-sm ${finalPrice >= minPrice ? "text-primary" : "text-destructive"}`}
+                          >
                             {finalPrice.toFixed(2)}€
                           </strong>
                         </span>
@@ -1466,37 +1482,63 @@ function SimuladorContent() {
                         </div>
                         <div className="border-t border-blue-100 pt-1.5 mt-1.5">
                           {costToDeliver > costoRechazo ? (
-                            <>
-                              ⚠️ <strong>Ojo:</strong> el producto cuesta{" "}
-                              <strong>{costToDeliver.toFixed(2)}€</strong>{" "}
-                              (producto+envío) y devolverlo solo{" "}
-                              <strong>{costoRechazo.toFixed(2)}€</strong>. A
-                              partir de{" "}
-                              <strong>
-                                {precioVenta > 0
-                                  ? (
-                                      ((precioVenta -
-                                        costToDeliver +
-                                        costoRechazo) /
-                                        precioVenta) *
-                                      100
-                                    ).toFixed(0)
-                                  : 0}
-                                %
-                              </strong>{" "}
-                              de descuento (precio &lt;{" "}
-                              {(costToDeliver - costoRechazo).toFixed(2)}€),{" "}
-                              <strong>te conviene más que lo rechacen</strong>.
-                            </>
+                            (() => {
+                              const crossDiscount =
+                                precioVenta - costToDeliver + costoRechazo;
+                              const crossPrice = costToDeliver - costoRechazo;
+                              const pctCross =
+                                precioVenta > 0
+                                  ? (crossDiscount / precioVenta) * 100
+                                  : 0;
+                              const isPastCross =
+                                doubtDiscount / 100 >
+                                (precioVenta > 0
+                                  ? (precioVenta - crossPrice) / precioVenta
+                                  : 0);
+                              return isPastCross ? (
+                                <span className="text-amber-700">
+                                  ⚠️ <strong>Ojo:</strong> el producto cuesta{" "}
+                                  <strong>{costToDeliver.toFixed(2)}€</strong>{" "}
+                                  (producto+envío) y devolverlo solo{" "}
+                                  <strong>{costoRechazo.toFixed(2)}€</strong>. A
+                                  partir de{" "}
+                                  <strong>{pctCross.toFixed(0)}%</strong> de
+                                  descuento (precio &lt; {crossPrice.toFixed(2)}
+                                  €),{" "}
+                                  <strong>
+                                    te conviene más que lo rechacen
+                                  </strong>
+                                  .
+                                </span>
+                              ) : (
+                                <>
+                                  📌 El producto cuesta{" "}
+                                  <strong>{costToDeliver.toFixed(2)}€</strong>{" "}
+                                  (producto+envío) y devolverlo solo{" "}
+                                  <strong>{costoRechazo.toFixed(2)}€</strong>.
+                                  Como el producto es más caro que la
+                                  devolución, a partir de cierto descuento es
+                                  mejor que lo rechacen.
+                                  <br />
+                                  <span className="text-[0.65rem] text-muted-foreground">
+                                    Punto de cruce: descuento &gt;{" "}
+                                    {pctCross.toFixed(0)}% → precio &lt;{" "}
+                                    {crossPrice.toFixed(2)}€ → mejor rechazo.
+                                  </span>
+                                </>
+                              );
+                            })()
                           ) : (
                             <>
                               📌 El producto cuesta{" "}
                               <strong>{costToDeliver.toFixed(2)}€</strong>{" "}
                               entregarlo y{" "}
                               <strong>{costoRechazo.toFixed(2)}€</strong>{" "}
-                              devolverlo. Como la devolución es más cara,{" "}
+                              devolverlo. Como la devolución es más cara que el
+                              producto,{" "}
                               <strong>
-                                siempre conviene ofrecer descuento
+                                siempre conviene ofrecer descuento — incluso
+                                regalarlo es mejor que un rechazo
                               </strong>
                               .
                             </>
