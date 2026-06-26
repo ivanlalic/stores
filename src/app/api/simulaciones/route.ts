@@ -77,6 +77,7 @@ export async function POST(request: NextRequest) {
     costo_envio_cod,
     cpa_promedio,
     tasa_entrega_manual,
+    tasa_confirmacion_manual,
     costo_rechazo = 14.00,
     costo_fulfillment_proveedor = 0.00,
   } = body;
@@ -94,6 +95,7 @@ export async function POST(request: NextRequest) {
     costo_envio_cod: Number(costo_envio_cod) || 0,
     cpa_promedio: Number(cpa_promedio) || 0,
     tasa_entrega_manual: tasa_entrega_manual !== null && tasa_entrega_manual !== undefined ? Number(tasa_entrega_manual) : null,
+    tasa_confirmacion_manual: tasa_confirmacion_manual !== null && tasa_confirmacion_manual !== undefined ? Number(tasa_confirmacion_manual) : null,
     costo_rechazo: Number(costo_rechazo) || 14.00,
     costo_fulfillment_proveedor: Number(costo_fulfillment_proveedor) || 0.00,
     updated_at: new Date().toISOString(),
