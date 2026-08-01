@@ -9,7 +9,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (!token) {
+  if (!token && !pathname.startsWith("/api/dropea/webhook")) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
