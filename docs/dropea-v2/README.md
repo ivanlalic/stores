@@ -237,6 +237,21 @@ API key v2 en `.env.local` (`DROPEA_V2_API_KEY`, expira 2027-07-31, scopes compl
   - ✅ ENVIO/COD_FEE **constantes confirmadas en PT** (2ª muestra: `#NSPT-1095`, 2 uds:
     gastos 11.15€ = 5.0 + 1.65 + 3.5 + 1.0, beneficio **18.75€ = predicción exacta**).
 
+### 🆕 Webhooks v2 — receptor implementado (2026-08-01)
+
+- `src/app/api/dropea/webhook/route.ts`: verifica `X-Dropea-Signature`
+  (hmac-sha256 del raw body con `DROPEA_V2_WEBHOOK_SECRET`), acepta topics
+  `order.created` / `order.status.changed` / `order.cancelled`, localiza la
+  tienda por `market`, mapea con `mapOrderV2` y hace upsert a `pedidos`.
+  Acks los topics `issue.*` (pendiente de negocio). Respuesta <5s.
+- `src/lib/dropea/v2/upsert.ts`: `upsertOrders` compartido entre sync y webhook.
+- **Registro**: `POST {market}.public-api.dropea.com/dropshipper/webhooks`
+  (Bearer v2) con `{topic, url}` por API Key. El secreto de firma se muestra
+  UNA vez al crear la API Key → requiere la env var `DROPEA_V2_WEBHOOK_SECRET`
+  **en Vercel** (no solo en `.env.local`).
+- El sobre v2 no trae `previous_state` → para transiciones se cachea el último
+  `status` por `resource_id` (ya lo tenemos en `pedidos.status`).
+
 ### 🆕 Sync de pedidos v2 — implementado para tiendas con `market` (2026-08-01)
 
 - `src/lib/dropea/v2/client.ts`: cliente REST v2 (Bearer, host `{market}.public-api.dropea.com`,
