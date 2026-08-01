@@ -49,7 +49,12 @@ export function computeNetoV2(
     (sum, li) => sum + (li.wholesale_price ?? 0) * li.quantity,
     0
   );
-  const oc = order.order_costs ?? {};
+  const oc = order.order_costs ?? {
+    tax_rate_provider: 0,
+    fulfillment_outbound: 0,
+    fulfillment_quantity_cost: 0,
+    fulfillment_return: 0,
+  };
   const fulfillment = (oc.fulfillment_outbound ?? 0) + (oc.fulfillment_quantity_cost ?? 0);
   const raw = order.total_amount - wholesale - fulfillment - costs.envio - costs.cod_fee;
   return Math.round(raw * 100) / 100;
