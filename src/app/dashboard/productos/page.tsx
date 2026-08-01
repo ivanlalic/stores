@@ -5,9 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { ProductsTable } from "@/components/products-table";
 import { SyncButton } from "@/components/sync-button";
 import { LoadingSpinner } from "@/components/loading-spinner";
-import { CatalogTable, type CatalogRow } from "@/components/catalog-table";
-import { Button } from "@/components/ui/button";
-import { Package, RefreshCw } from "lucide-react";
+import { Package } from "lucide-react";
 import type { ProductoRow } from "@/lib/queries/dashboard";
 
 function ProductosContent() {
@@ -15,10 +13,6 @@ function ProductosContent() {
   const storeId = searchParams.get("store") || "";
   const [rows, setRows] = useState<ProductoRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [catalog, setCatalog] = useState<CatalogRow[]>([]);
-  const [catalogLoading, setCatalogLoading] = useState(true);
-  const [syncingCatalog, setSyncingCatalog] = useState(false);
-  const [catalogMsg, setCatalogMsg] = useState("");
 
   async function fetchData() {
     setLoading(true);
@@ -34,41 +28,8 @@ function ProductosContent() {
     }
   }
 
-  async function fetchCatalog() {
-    setCatalogLoading(true);
-    try {
-      const storeParam = storeId ? `?store_id=${storeId}` : "";
-      const res = await fetch(`/api/dropea/products${storeParam}`);
-      const data = await res.json();
-      setCatalog(data.rows || []);
-    } catch {
-      // handle error
-    } finally {
-      setCatalogLoading(false);
-    }
-  }
-
-  async function syncCatalog() {
-    setSyncingCatalog(true);
-    setCatalogMsg("Sincronizando catálogo...");
-    try {
-      const storeParam = storeId ? `?store_id=${storeId}` : "";
-      const res = await fetch(`/api/dropea/products${storeParam}`, { method: "POST" });
-      const data = await res.json();
-      setCatalogMsg(data.message || data.error || "Sincronizado");
-      await fetchCatalog();
-    } catch {
-      setCatalogMsg("Error sincronizando catálogo");
-    } finally {
-      setSyncingCatalog(false);
-    }
-  }
-
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    fetchData();
-    fetchCatalog();
-  }, [storeId]);
+  useEffect(() => { fetchData(); }, [storeId]);
 
   return (
     <div className="space-y-4">
@@ -96,37 +57,6 @@ function ProductosContent() {
         </div>
       ) : (
         <ProductsTable rows={rows} />
-      )}
-
-      <div className="flex items-center justify-between">
-        <div className="flex flex-col">
-          <h3 className="text-sm font-semibold">Catálogo / Stock</h3>
-          <p className="text-xs text-muted-foreground">
-            Stock actual de productos desde Dropea (v2).
-          </p>
-        </div>
-        <Button
-          size="sm"
-          onClick={syncCatalog}
-          disabled={syncingCatalog}
-          className="gap-1.5"
-        >
-          <RefreshCw className={`size-4 ${syncingCatalog ? "animate-spin" : ""}`} />
-          {syncingCatalog ? "Sincronizando..." : "Sincronizar catálogo"}
-        </Button>
-      </div>
-      {catalogMsg && <p className="text-xs text-muted-foreground">{catalogMsg}</p>}
-
-      {catalogLoading ? (
-        <LoadingSpinner text="Cargando catálogo..." />
-      ) : catalog.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-10 text-muted-foreground gap-2 rounded-lg border border-border/60">
-          <Package className="size-6 opacity-40" />
-          <p className="text-sm">Catálogo vacío.</p>
-          <p className="text-xs">Pulsa "Sincronizar catálogo" para traer el stock de Dropea.</p>
-        </div>
-      ) : (
-        <CatalogTable rows={catalog} />
       )}
     </div>
   );
