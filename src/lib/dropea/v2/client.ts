@@ -65,6 +65,38 @@ interface OrdersPageResponse {
   };
 }
 
+export interface DropeaVariantV2 {
+  variant_id: number;
+  sku: string | null;
+  name: string | null;
+  price: number;
+  currency: string;
+  stock: number;
+}
+
+export interface DropeaProductV2 {
+  id: number;
+  name: string;
+  status: string;
+  owner_id: number;
+  variants: DropeaVariantV2[];
+  created_at: string;
+  updated_at: string;
+}
+
+interface ProductsPageResponse {
+  data?: {
+    items?: DropeaProductV2[];
+    pagination?: {
+      page: number;
+      limit: number;
+      total: number;
+      total_pages: number;
+      has_next_page: boolean;
+    };
+  };
+}
+
 export function getDateRangeV2(monthsBack: number = 2) {
   const today = new Date();
   const end = new Date();
@@ -162,4 +194,62 @@ export async function testConnectionV2(apiKey: string, market: string) {
     success: true,
     total: json?.data?.pagination?.total ?? 0,
   };
+}
+
+async function fetchProductsPage(
+  apiKey: string,
+  market: string,
+  page: number
+): Promise<ProductsPageResponse> {
+  const base = `https://${market.toLowerCase()}.public-api.dropea.com`;
+  const params = new URLSearchParams({
+    limit: String(ITEMS_PER_PAGE),
+    page: String(page),
+  });
+
+  const res = await fetch(`${base}/dropshipper/products?${params}`, {
+    headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
+  });
+
+  if (res.status === 429) {
+    const retryAfter = parseInt(res.headers.get("retry-after") || "60", 10);
+    await new Promise((r) => setTimeout(r, retryAfter * 1000));
+    return fetchProductsPage(apiKey, market, page);
+  }
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Dropea v2 products error ${res.status}: ${text.slice(0, 300)}`);
+  }
+
+  return res.json();
+}
+
+export async function fetchAllProductsV2(
+  apiKey: string,
+  market: string,
+  onProgress?: (msg: string) => void
+): Promise<DropeaProductV2[]> {
+  const all: DropeaProductV2[] = [];
+  let page = 1;
+  let total = 0;
+
+  while (true) {
+    onProgress?.(`Obteniendo pagina ${page}...`);
+    const json = await fetchProductsPage(apiKey, market, page);
+    const items = json?.data?.items || [];
+    const pagination = json?.data?.pagination;
+    total = pagination?.total ?? 0;
+
+    all.push(...items);
+    onProgress?.(`Pagina ${page}: ${all.length}/${total} productos`);
+
+    const hasNext = pagination?.has_next_page ?? items.length >= ITEMS_PER_PAGE;
+    if (!hasNext) break;
+
+    await new Promise((r) => setTimeout(r, REQUEST_INTERVAL_MS));
+    page++;
+  }
+
+  return all;
 }
