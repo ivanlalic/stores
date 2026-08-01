@@ -127,7 +127,7 @@ function DropeaStoreCard({
       const body: Record<string, unknown> = {
         name: f.name.trim() || store.name,
         fee_gestion_eur: parseFloat(f.feeGestion) || 0,
-        costo_rechazo: parseFloat(f.costoRechazo) || 13.76,
+        costo_rechazo: f.costoRechazo === "" ? 13.76 : parseFloat(f.costoRechazo),
         dias_rolling: parseInt(f.diasRolling) || 30,
         dias_excluir: parseInt(f.diasExcluir) || 4,
       };

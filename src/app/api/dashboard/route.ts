@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
 
   const breakevenConfig = {
     fee_gestion_eur: Number(store.fee_gestion_eur) || 0,
-    costo_rechazo: Number(store.costo_rechazo) || 13.76,
+    costo_rechazo: Number(store.costo_rechazo ?? 13.76),
     dias_rolling: Number(store.dias_rolling) || 30,
     dias_excluir: Number(store.dias_excluir) || 4,
     ads_label_1: store.ads_label_1 || "Meta Ads",
