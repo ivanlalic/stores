@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUser, createServiceClient } from "@/lib/insforge/server";
 import { decrypt } from "@/lib/encryption";
 import { fetchProductPagesBatch } from "@/lib/dropea/client";
+import { fetchAllProductsV2 } from "@/lib/dropea/v2/client";
 import { getDefaultStore, requireStore } from "@/lib/store-utils";
 
 async function fetchAllSnapshots(
@@ -112,8 +113,14 @@ export async function POST(request: NextRequest) {
   }
 
   const apiKey = decrypt(store.dropea_api_key_encrypted!);
-  const BATCH = 10;
   const body = await request.json().catch(() => ({})) as { syncId?: string; startPage?: number; done?: number };
+
+  // v2: full catalog in a single pass, one row per product (stock = sum of variants)
+  if (store.market) {
+    return syncCatalogV2(insforge, store, apiKey, body.syncId);
+  }
+
+  const BATCH = 10;
   const startPage = body.startPage ?? 1;
 
   // First batch: create the sync record
@@ -181,4 +188,65 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ syncId, nextPage, done, total, hasMore, errors, isIncomplete });
+}
+
+async function syncCatalogV2(
+  insforge: Awaited<ReturnType<typeof createServiceClient>>,
+  store: { id: string; market: string | null },
+  apiKey: string,
+  existingSyncId?: string
+) {
+  // Create the sync record
+  let syncId: string;
+  if (!existingSyncId) {
+    const { data: syncRow, error: syncErr } = await insforge.database
+      .from("stock_syncs")
+      .insert({ store_id: store.id, total: 0 })
+      .select("id")
+      .single();
+    if (syncErr || !syncRow) {
+      return NextResponse.json({ error: syncErr?.message || "Error al crear sync" }, { status: 500 });
+    }
+    syncId = syncRow.id;
+  } else {
+    syncId = existingSyncId;
+  }
+
+  const products = await fetchAllProductsV2(apiKey, store.market!);
+
+  const rows: { sync_id: string; store_id: string; dropea_id: string; sku: string | null; name: string; image: string | null; stock: number }[] =
+    products.map((p) => ({
+      sync_id: syncId,
+      store_id: store.id,
+      dropea_id: String(p.id),
+      sku: p.variants?.find((v) => v.sku)?.sku ?? null,
+      name: p.name,
+      image: null,
+      stock: (p.variants ?? []).reduce((acc, v) => acc + v.stock, 0),
+    }));
+
+  const batchSize = 500;
+  for (let i = 0; i < rows.length; i += batchSize) {
+    const { error } = await insforge.database
+      .from("stock_snapshots")
+      .insert(rows.slice(i, i + batchSize));
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  const done = rows.length;
+  await insforge.database.from("stock_syncs").update({ total: done }).eq("id", syncId);
+
+  // Trim to keep only the 2 most recent syncs
+  const { data: allSyncs } = await insforge.database
+    .from("stock_syncs")
+    .select("id")
+    .eq("store_id", store.id)
+    .order("synced_at", { ascending: false });
+
+  if (allSyncs && allSyncs.length > 3) {
+    const toDelete = allSyncs.slice(3).map((s: { id: string }) => s.id);
+    await insforge.database.from("stock_syncs").delete().in("id", toDelete);
+  }
+
+  return NextResponse.json({ syncId, nextPage: 1, done, total: done, hasMore: false, errors: 0, isIncomplete: false });
 }
