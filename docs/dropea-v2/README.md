@@ -249,10 +249,16 @@ API key v2 en `.env.local` (`DROPEA_V2_API_KEY`, expira 2027-07-31, scopes compl
 - UI: en `/dashboard/productos`, botón **"Sincronizar catálogo" independiente**
   del sync de pedidos + `CatalogTable` (producto, variante, sku, precio, stock
   con colores, estado).
-- **Imágenes: NO expone la API pública v2.** El `images` del OpenAPI es solo para
-  push a tienda externa (Shopify). El URL `https://pt.api.dropea.com/api/media/
-  file/product/{id}/{fileId}` es del dominio interno del dashboard; la API pública
-  no entrega el `fileId`. Pendiente revisar (scraping dashboard / futura API).
+- **Imágenes: descartadas (2026-08-01).** La API pública v2 no expone ningún
+  campo de media ni endpoint (confirmado en `Product`/`ProductVariant` y en el
+  listado de rutas del OpenAPI). El URL `https://pt.api.dropea.com/api/media/
+  file/product/{id}/{fileId}` del dashboard es público sin auth, pero sus claves
+  son internas: `{id}` es un ObjectId de Mongo (timestamp 2026-06-10, no
+  derivable del `id` numérico, p.ej. producto 88 → `6a2996d363016bb2fe72ee2c`)
+  y `{fileId}` un UUID aleatorio por archivo; además `pt.api.dropea.com/api/*`
+  con la x-api-key del dropshipper responde `MISSING_TOKEN`. Sin relación
+  explotable → `stock_snapshots.image` queda a null (celda placeholder), página
+  más liviana.
 - El catálogo NO se actualiza por webhook (no hay topic de stock) → botón manual.
 
 ### 🆕 Webhooks v2 — receptor implementado (2026-08-01)
