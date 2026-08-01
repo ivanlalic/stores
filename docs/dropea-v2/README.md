@@ -237,6 +237,24 @@ API key v2 en `.env.local` (`DROPEA_V2_API_KEY`, expira 2027-07-31, scopes compl
   - ✅ ENVIO/COD_FEE **constantes confirmadas en PT** (2ª muestra: `#NSPT-1095`, 2 uds:
     gastos 11.15€ = 5.0 + 1.65 + 3.5 + 1.0, beneficio **18.75€ = predicción exacta**).
 
+### 🆕 Catálogo / Stock v2 (2026-08-01)
+
+- `src/lib/dropea/v2/client.ts` `fetchAllProductsV2` + `DropeaProductV2/DropeaVariantV2`:
+  `GET /dropshipper/products` paginado (mismo rate-limit que orders).
+- `src/lib/dropea/v2/products.ts`: `mapProductV2` (una fila por variante, fallback
+  variant_id=product_id si no hay variantes) + `upsertProducts` (onConflict
+  `store_id,dropea_variant_id`).
+- `src/app/api/dropea/products/route.ts`: POST sincroniza (market requerido),
+  GET lee de la tabla `productos`.
+- UI: en `/dashboard/productos`, botón **"Sincronizar catálogo" independiente**
+  del sync de pedidos + `CatalogTable` (producto, variante, sku, precio, stock
+  con colores, estado).
+- **Imágenes: NO expone la API pública v2.** El `images` del OpenAPI es solo para
+  push a tienda externa (Shopify). El URL `https://pt.api.dropea.com/api/media/
+  file/product/{id}/{fileId}` es del dominio interno del dashboard; la API pública
+  no entrega el `fileId`. Pendiente revisar (scraping dashboard / futura API).
+- El catálogo NO se actualiza por webhook (no hay topic de stock) → botón manual.
+
 ### 🆕 Webhooks v2 — receptor implementado (2026-08-01)
 
 - `src/app/api/dropea/webhook/route.ts`: verifica `X-Dropea-Signature`
