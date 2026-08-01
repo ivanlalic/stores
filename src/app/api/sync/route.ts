@@ -154,7 +154,8 @@ export async function POST(request: NextRequest) {
 
         const apiKey = decrypt(store.dropea_api_key_encrypted);
 
-        if (store.market) {
+        const market = store.market;
+        if (market) {
           const mode = request.nextUrl.searchParams.get("mode");
           const is48h = mode === "48h";
           const months = parseInt(request.nextUrl.searchParams.get("months") || "2", 10);
@@ -163,14 +164,14 @@ export async function POST(request: NextRequest) {
           const startDate = range.startDate;
           const endDate = range.endDate;
 
-          send(`Sincronización v2 (${store.market}, creados: ${startDate} - ${endDate})...`);
+          send(`Sincronización v2 (${market}, creados: ${startDate} - ${endDate})...`);
 
-          const orders = await fetchAllOrdersV2(apiKey, store.market, startDate, endDate, send);
+          const orders = await fetchAllOrdersV2(apiKey, market, startDate, endDate, send);
 
           send(`${orders.length} pedidos obtenidos. Procesando...`);
 
           const mappedOrders = orders.map((o: DropeaOrderV2) =>
-            mapOrderV2(o, user.id, store.id, store.market)
+            mapOrderV2(o, user.id, store.id, market)
           );
 
           const { added, updated } = await upsertOrders(insforge, store, mappedOrders, send);
