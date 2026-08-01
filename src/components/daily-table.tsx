@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Table,
   TableBody,
@@ -69,8 +69,21 @@ const columnInfo: Record<string, string> = {
 const mobileHidden = new Set(["Ped.", "Ent.", "Pend.", "Rech.", "Canc.", "%Ent", "Bruto", "Ads", "Comis.", "Gest.", "Gastos", "%G", "CPA Env.", "CPA Real"]);
 
 export function DailyTable({ rows, onRowClick, label1 = "Meta Ads", label2 = "TikTok Ads" }: DailyTableProps) {
-  const [showAll, setShowAll] = useState(false);
-  const [showAdsBreakdown, setShowAdsBreakdown] = useState(false);
+  const [showAll, setShowAll] = useState<boolean>(() =>
+    typeof window !== "undefined" && window.localStorage.getItem("dailyTable:showAll") === "1"
+  );
+  const [showAdsBreakdown, setShowAdsBreakdown] = useState<boolean>(() =>
+    typeof window !== "undefined" &&
+      window.localStorage.getItem("dailyTable:showAdsBreakdown") === "1"
+  );
+
+  useEffect(() => {
+    window.localStorage.setItem("dailyTable:showAll", showAll ? "1" : "0");
+  }, [showAll]);
+
+  useEffect(() => {
+    window.localStorage.setItem("dailyTable:showAdsBreakdown", showAdsBreakdown ? "1" : "0");
+  }, [showAdsBreakdown]);
 
   const displayRows = [...rows].reverse();
   const visibleRows = showAll ? displayRows : displayRows.slice(0, 5);
