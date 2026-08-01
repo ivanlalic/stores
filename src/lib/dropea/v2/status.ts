@@ -12,10 +12,21 @@ export function getMarketCosts(market: string): { envio: number; cod_fee: number
   return costs;
 }
 
-export function isEnviadoV2(status: string): boolean {
-  return ["CONFIRMED", "PROCESSING", "SHIPPING", "DELIVERED", "FINISH", "ERROR"].includes(
-    status
-  );
+export function isEnviadoV2(status: string, subStatus: string | null): boolean {
+  if (subStatus === "CANCELLED") return false;
+  switch (status) {
+    case "CONFIRMED":
+    case "PROCESSING":
+    case "SHIPPING":
+    case "DELIVERED":
+      return true;
+    case "FINISH":
+      return true;
+    case "ERROR":
+      return subStatus === "DELIVERY_EXCEPTION" || subStatus === "REJECTED";
+    default:
+      return false;
+  }
 }
 
 export function isEntregadoV2(status: string, subStatus: string | null): boolean {
@@ -103,7 +114,7 @@ export function mapOrderV2(
     venta: zeroRevenue ? 0 : order.total_amount || 0,
     neto: zeroRevenue ? 0 : computeNetoV2(order, costs),
     status,
-    es_enviado: isEnviadoV2(status),
+    es_enviado: isEnviadoV2(status, order.sub_status),
     es_entregado: isEntregadoV2(status, order.sub_status),
     es_rechazado: isRechazadoV2(status, order.sub_status),
     es_cancelado: isCanceladoV2(status, order.sub_status),
