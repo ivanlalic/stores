@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser, createServiceClient } from "@/lib/insforge/server";
 import { decrypt } from "@/lib/encryption";
+import {
+  fetchDropeaWalletV2,
+  decryptDropeaCredentials,
+} from "@/lib/dropea/wallet";
 
 export async function GET(request: NextRequest) {
   const user = await getUser();
@@ -13,7 +17,7 @@ export async function GET(request: NextRequest) {
 
   let query = insforge.database
     .from("stores")
-    .select("id, dropea_email_encrypted, dropea_pwd_encrypted, costo_rechazo")
+    .select("id, dropea_email_encrypted, dropea_pwd_encrypted, costo_rechazo, market")
     .eq("user_id", user.id)
     .eq("type", "dropea");
 
@@ -29,45 +33,55 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Store not found" }, { status: 404 });
   }
 
-  if (!storeData.dropea_email_encrypted || !storeData.dropea_pwd_encrypted) {
+  const creds = decryptDropeaCredentials(
+    storeData.dropea_email_encrypted,
+    storeData.dropea_pwd_encrypted
+  );
+
+  if (!creds) {
     return NextResponse.json({ error: "Dropea credentials not configured" }, { status: 400 });
   }
 
-  const email = decrypt(storeData.dropea_email_encrypted);
-  const pwd = decrypt(storeData.dropea_pwd_encrypted);
   const costoRechazo: number = storeData.costo_rechazo ?? 13.76;
 
-  // Login to get Bearer token
-  const loginRes = await fetch("https://api.dropea.com/api/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password: pwd }),
-  });
+  let balance: number;
+  let fondosDisponibles: number;
 
-  if (!loginRes.ok) {
-    return NextResponse.json({ error: "Dropea login failed" }, { status: 502 });
+  if (storeData.market) {
+    const wallet = await fetchDropeaWalletV2(creds.email, creds.pwd, storeData.market);
+    balance = wallet.balance;
+    fondosDisponibles = wallet.available_balance;
+  } else {
+    const loginRes = await fetch("https://api.dropea.com/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: creds.email, password: creds.pwd }),
+    });
+
+    if (!loginRes.ok) {
+      return NextResponse.json({ error: "Dropea login failed" }, { status: 502 });
+    }
+
+    const loginData = await loginRes.json();
+    const token: string = loginData.authToken || loginData.token || loginData.data?.authToken;
+
+    if (!token) {
+      return NextResponse.json({ error: "No auth token in Dropea response" }, { status: 502 });
+    }
+
+    const walletRes = await fetch("https://api.dropea.com/api/wallet-my-amounts", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!walletRes.ok) {
+      return NextResponse.json({ error: "Failed to fetch wallet" }, { status: 502 });
+    }
+
+    const walletData = await walletRes.json();
+    const amounts = walletData.amounts;
+    balance = parseFloat(amounts?.amount ?? "0");
+    fondosDisponibles = parseFloat(amounts?.withdraw_amount ?? "0");
   }
-
-  const loginData = await loginRes.json();
-  const token: string = loginData.authToken || loginData.token || loginData.data?.authToken;
-
-  if (!token) {
-    return NextResponse.json({ error: "No auth token in Dropea response" }, { status: 502 });
-  }
-
-  // Fetch wallet balance
-  const walletRes = await fetch("https://api.dropea.com/api/wallet-my-amounts", {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  if (!walletRes.ok) {
-    return NextResponse.json({ error: "Failed to fetch wallet" }, { status: 502 });
-  }
-
-  const walletData = await walletRes.json();
-  const amounts = walletData.amounts;
-  const balance = parseFloat(amounts?.amount ?? "0");
-  const fondosDisponibles = parseFloat(amounts?.withdraw_amount ?? "0");
 
   // Count pending orders (sent but not resolved) from current month + previous month only.
   // Orders older than 2 months are assumed resolved (delivered or returned).

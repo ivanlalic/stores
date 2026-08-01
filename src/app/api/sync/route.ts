@@ -9,7 +9,14 @@ import {
   isCancelado,
   shouldZeroRevenue,
 } from "@/lib/dropea/status";
-import { getDefaultStore, requireStore } from "@/lib/store-utils";
+import {
+  fetchAllOrdersV2,
+  getDateRangeV2,
+  getDateRangeDaysV2,
+  type DropeaOrderV2,
+} from "@/lib/dropea/v2/client";
+import { mapOrderV2 } from "@/lib/dropea/v2/status";
+import { getDefaultStore, requireStore, type StoreRow } from "@/lib/store-utils";
 
 function mapOrder(order: DropeaOrder, userId: string, storeId: string) {
   const customer = order.customer;
@@ -33,7 +40,6 @@ function mapOrder(order: DropeaOrder, userId: string, storeId: string) {
   const status = order.status || "";
   const zeroRevenue = shouldZeroRevenue(status);
 
-  // Dropea created_at is UTC; convert to Spain local time before extracting date
   const fecha = order.created_at
     ? new Date(order.created_at.replace(" ", "T") + "Z")
         .toLocaleDateString("en-CA", { timeZone: "Europe/Madrid" })
@@ -59,6 +65,45 @@ function mapOrder(order: DropeaOrder, userId: string, storeId: string) {
   };
 }
 
+async function upsertOrders(
+  insforge: ReturnType<typeof createServiceClient>,
+  store: { id: string },
+  mappedOrders: Record<string, unknown>[],
+  send: (msg: string) => void
+): Promise<{ added: number; updated: number }> {
+  const batchSize = 100;
+  let added = 0;
+  let updated = 0;
+
+  for (let i = 0; i < mappedOrders.length; i += batchSize) {
+    const batch = mappedOrders.slice(i, i + batchSize);
+
+    const dropeaIds = batch.map((o) => o.dropea_id);
+    const { data: existing } = await insforge.database
+      .from("pedidos")
+      .select("dropea_id")
+      .eq("store_id", store.id)
+      .in("dropea_id", dropeaIds);
+
+    const existingSet = new Set(existing?.map((e) => e.dropea_id) || []);
+    for (const order of batch) {
+      if (existingSet.has(order.dropea_id)) { updated++; } else { added++; }
+    }
+
+    const { error } = await insforge.database
+      .from("pedidos")
+      .upsert(batch, { onConflict: "store_id,dropea_id" });
+
+    if (error) {
+      send(`Error procesando batch: ${error.message}`);
+    }
+
+    send(`Procesados ${Math.min(i + batchSize, mappedOrders.length)}/${mappedOrders.length}...`);
+  }
+
+  return { added, updated };
+}
+
 export async function POST(request: NextRequest) {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -82,7 +127,7 @@ export async function POST(request: NextRequest) {
         const insforge = createServiceClient();
         const storeParam = request.nextUrl.searchParams.get("store_id");
 
-        let store;
+        let store: StoreRow;
         if (storeParam) {
           try {
             store = await requireStore(insforge, storeParam, user.id);
@@ -92,7 +137,13 @@ export async function POST(request: NextRequest) {
             return;
           }
         } else {
-          store = await getDefaultStore(insforge, user.id, "dropea");
+          const defaultStore = await getDefaultStore(insforge, user.id, "dropea");
+          if (!defaultStore) {
+            send("Error: No hay tienda configurada");
+            controller.close();
+            return;
+          }
+          store = defaultStore;
         }
 
         if (!store?.dropea_api_key_encrypted) {
@@ -103,61 +154,58 @@ export async function POST(request: NextRequest) {
 
         const apiKey = decrypt(store.dropea_api_key_encrypted);
 
-        const mode = request.nextUrl.searchParams.get("mode");
-        const is48h = mode === "48h";
-        
-        let startDate = request.nextUrl.searchParams.get("startDate") || "";
-        let endDate = request.nextUrl.searchParams.get("endDate") || "";
-        
-        if (!startDate || !endDate) {
+        if (store.market) {
+          const mode = request.nextUrl.searchParams.get("mode");
+          const is48h = mode === "48h";
           const months = parseInt(request.nextUrl.searchParams.get("months") || "2", 10);
-          const range = is48h ? getDateRangeUpdatedAt(15) : getDateRange(months);
-          startDate = range.startDate;
-          endDate = range.endDate;
-        }
-        
-        const dateField = (request.nextUrl.searchParams.get("dateField") || (is48h ? "UPDATED_AT" : "CREATED_AT")) as "CREATED_AT" | "UPDATED_AT";
 
-        send(`Sincronización (${dateField}): ${startDate} - ${endDate}...`);
+          const range = is48h ? getDateRangeDaysV2(15) : getDateRangeV2(months);
+          const startDate = range.startDate;
+          const endDate = range.endDate;
 
-        const orders = await fetchAllOrders(apiKey, startDate, endDate, send, dateField);
+          send(`Sincronización v2 (${store.market}, creados: ${startDate} - ${endDate})...`);
 
-        send(`${orders.length} pedidos obtenidos. Procesando...`);
+          const orders = await fetchAllOrdersV2(apiKey, store.market, startDate, endDate, send);
 
-        const mappedOrders = orders.map((o) => mapOrder(o, user.id, store.id));
+          send(`${orders.length} pedidos obtenidos. Procesando...`);
 
-        const batchSize = 100;
-        let added = 0;
-        let updated = 0;
+          const mappedOrders = orders.map((o: DropeaOrderV2) =>
+            mapOrderV2(o, user.id, store.id, store.market)
+          );
 
-        for (let i = 0; i < mappedOrders.length; i += batchSize) {
-          const batch = mappedOrders.slice(i, i + batchSize);
+          const { added, updated } = await upsertOrders(insforge, store, mappedOrders, send);
 
-          const dropeaIds = batch.map((o) => o.dropea_id);
-          const { data: existing } = await insforge.database
-            .from("pedidos")
-            .select("dropea_id")
-            .eq("store_id", store.id)
-            .in("dropea_id", dropeaIds);
+          send(`Sincronizacion v2 completa! Nuevos: ${added} | Actualizados: ${updated}`);
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, added, updated })}\n\n`));
+        } else {
+          const mode = request.nextUrl.searchParams.get("mode");
+          const is48h = mode === "48h";
 
-          const existingSet = new Set(existing?.map((e) => e.dropea_id) || []);
-          for (const order of batch) {
-            if (existingSet.has(order.dropea_id)) { updated++; } else { added++; }
+          let startDate = request.nextUrl.searchParams.get("startDate") || "";
+          let endDate = request.nextUrl.searchParams.get("endDate") || "";
+
+          if (!startDate || !endDate) {
+            const months = parseInt(request.nextUrl.searchParams.get("months") || "2", 10);
+            const range = is48h ? getDateRangeUpdatedAt(15) : getDateRange(months);
+            startDate = range.startDate;
+            endDate = range.endDate;
           }
 
-          const { error } = await insforge.database
-            .from("pedidos")
-            .upsert(batch, { onConflict: "store_id,dropea_id" });
+          const dateField = (request.nextUrl.searchParams.get("dateField") || (is48h ? "UPDATED_AT" : "CREATED_AT")) as "CREATED_AT" | "UPDATED_AT";
 
-          if (error) {
-            send(`Error procesando batch: ${error.message}`);
-          }
+          send(`Sincronización (${dateField}): ${startDate} - ${endDate}...`);
 
-          send(`Procesados ${Math.min(i + batchSize, mappedOrders.length)}/${mappedOrders.length}...`);
+          const orders = await fetchAllOrders(apiKey, startDate, endDate, send, dateField);
+
+          send(`${orders.length} pedidos obtenidos. Procesando...`);
+
+          const mappedOrders = orders.map((o) => mapOrder(o, user.id, store.id));
+
+          const { added, updated } = await upsertOrders(insforge, store, mappedOrders, send);
+
+          send(`Sincronizacion completa! Nuevos: ${added} | Actualizados: ${updated}`);
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, added, updated })}\n\n`));
         }
-
-        send(`Sincronizacion completa! Nuevos: ${added} | Actualizados: ${updated}`);
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, added, updated })}\n\n`));
       } catch (err) {
         send(`Error: ${err instanceof Error ? err.message : "Error desconocido"}`);
       } finally {
