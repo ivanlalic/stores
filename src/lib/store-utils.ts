@@ -10,6 +10,8 @@ export interface StoreRow {
   dropea_api_key_encrypted: string | null;
   dropea_email_encrypted: string | null;
   dropea_pwd_encrypted: string | null;
+  dropea_shop_id: number | null;
+  dropea_webhook_secret_encrypted: string | null;
   market: string | null;
   fee_gestion_eur: number;
   costo_rechazo: number;
