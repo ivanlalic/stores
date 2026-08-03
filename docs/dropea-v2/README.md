@@ -398,21 +398,30 @@ cuando v2 llegue a España.
   fallback a la env var.
 - **Sondeo ES (probe 2026-08-03):** 6/6 endpoints 200 con la key ES; 100 pedidos analizados;
   neto calculado coherente en todos.
-- ⚠️ **Webhook ES bloqueado (Dropea side):** `POST /dropshipper/webhooks` con la key ES devuelve
-  409 `ConflictFailure IN_PROGRESS` hasta con URLs de prueba (httpbin), mientras la key PT registra
-  bien (201). Parece una operación async atascada en el backend de Dropea para esa key →
-  reintentar más tarde / consultar soporte. El sync v2 funciona sin webhooks.
+- ⚠️ **Webhook ES bloqueado por API (Dropea side):** `POST /dropshipper/webhooks` con la key ES devuelve
+  409 `ConflictFailure IN_PROGRESS` con cualquier topic/URL/Idempotency-Key (job async atascado para
+  esa key) mientras la key PT registra bien (201). **Solución aplicada:** registrar el webhook ES
+  manualmente desde la **plataforma de Dropea** (UI), apuntando a una **URL distinta** a la de PT
+  para evitar colisión de URLs ya registradas.
+- ✅ **Nuevo endpoint `/api/dropea/webhook-es` (2026-08-03):** misma lógica que `/webhook`
+  (handler extraído a `webhook-shared.ts`), URL exclusiva para el webhook ES. Resuelve tienda por
+  `dropea_shop_id` (fallback `market`), verifica HMAC con el secret ES de la tienda.
+  Registrado en la plataforma Dropea (UI) con los 3 topics (`order.created`, `order.status.changed`,
+  `order.cancelled`) → `https://stores-steel.vercel.app/api/dropea/webhook-es`. Validado en
+  producción: firma ES aceptada (`200 {"ok":true,"updated":1}`).
 - ✅ **Webhook ES validado end-to-end (2026-08-03):** enviado `#IB20938` firmado (HMAC con
   `DROPEA_V2_WEBHOOK_SECRET_ES`) a `https://stores-steel.vercel.app/api/dropea/webhook` →
   `200 {"ok":true,"added":1}`. Pedido guardado en `pedidos` de IBericaStore con `store_id`
   resuelto por `dropea_shop_id=733` (fallback por `market=ES`). Quedó `PENDING` → venta/neto 0
-  (correcto por `shouldZeroRevenueV2`); pasará a neto real al cambiar a `CHARGED`. El receiver
-  funciona en producción con la key PT de Dropea entregando los 3 topics (incluye ES).
-- ✅ **Neto ES validado con pedido real entregado/cobrado:** `#IB20822` (id 1326931, `FINISH|DELIVERED`)
-  → venta 24.90 − wholesale 4.00 − fulfillment 1.00 − envío 5.88 − COD 1.20 = **neto 12.82** ✓
-  (confirmado por el usuario contra el dashboard). También se muestran netos coherentes para
-  `#IB20562` (17.62), `#IB20554` (20.42), `#IB20544` (17.22), etc. Los pedidos pagados ES usan
-  `status=FINISH` + `sub_status=PAID` (no `CHARGED`).
+  (correcto por `shouldZeroRevenueV2`); pasará a neto real al cambiar a `FINISH|PAID`. El receiver
+  funciona en producción. **Pendiente:** confirmar entrega real de pedidos nuevos ES vía el webhook
+  registrado en plataforma (prueba de campo durante el día).
+- ✅ **Neto ES validado con pedidos reales del dashboard:** `#IB20822` (id 1326931, `FINISH|DELIVERED`)
+  → 24.90 − 4.00 − 1.00 − **6.20** − 1.20 = **12.50** ✓; `ES1326006` (Madrid) → envío **5.88**.
+  El envío ES **varía por zona** y la API v2 no lo expone → se usa el **importe mayor (6.20)** por
+  decisión del usuario (no subestimar costes). Los pedidos pagados ES usan `status=FINISH` +
+  `sub_status=PAID` (no `CHARGED`).
 - **Nutrex (ES, `cd4e2aa3-…`)** sigue en v1 sin API key v2 → pendiente de migrar cuando el usuario
-  cree key ES para esa tienda (o si comparte cuenta, reutilizar `DROPEA_V2_API_KEY_ES`).
+  cree key ES para esa tienda (o si comparte cuenta, reutilizar `DROPEA_V2_API_KEY_ES`). Plan:
+  replicar el flujo de IBericaStore (market=ES, shop_id, credenciales, webhook con URL propia).
 
