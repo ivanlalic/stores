@@ -1,8 +1,9 @@
 # Migración Dropea API v1 → v2 — Análisis y plan
 
 > **ESTADO: V2 CONFIRMADA VIVA (tienda piloto NutrexPortugal, PT). SONDEO DÍA 1 HECHO (§9).**
-> **Todavía NO implementar la migración de las tiendas v1** (IBericaStore/Nutrex siguen en GraphQL).
-> Análisis inicial 2026-07-31; sondeo con datos reales 2026-08-01.
+> **ES v2 activa 2026-08-03: IBericaStore migrada a v2 (§9 "España v2").**
+> **Todavía NO migrar Nutrex (tienda ES, sin API key v2 ES propia).**
+> Análisis inicial 2026-07-31; sondeo con datos reales 2026-08-01; ES 2026-08-03.
 >
 > **Para retomar este trabajo:** leer este archivo completo + `openapi.json` (snapshot de la spec v2)
 > + los JSONs reales en `docs/dropea-v2/probe/`. Script de sondeo: `scripts/probe-dropea-v2.mjs`
@@ -299,20 +300,26 @@ No asumir los valores de PT en tiendas ES/IT. Tabla a rellenar y mantener:
 | Mercado | Carrier/servicio | ENVIO | COD_FEE | Fuente | Estado |
 |---|---|---|---|---|---|
 | PT | CTT / PM | 3.50 € | 1.00 € | Dashboard `#NSPT-1091` + `#NSPT-1095` (2026-08-01) | ✅ validado (2/2) |
-| ES | ? | ? | ? | **Bloqueado**: dashboard v1 ES inaccesible y v2 aún NO activa en ES (2026-08-01). Rellenar cuando Dropea active v2 en ES (captura de desglose + cruce con `neto` v1 histórico en DB) | ⏳ |
+| ES | GLS / 1\|2 | 5.88 € | 1.20 € | Dashboard `#IB20938` (2026-08-03, desglose pegado por el usuario) | ✅ validado (1/1) |
 | IT | ? | ? | ? | Pendiente (sin tienda IT por ahora) | ⏳ |
 
-**Situación ES (2026-08-01):** el usuario no puede acceder al dashboard v1 de España y v2
-todavía no está activa en ese mercado → la migración va **por mercados**. Las tiendas ES
-(IBericaStore, Nutrex) dependen de que v1 GraphQL siga respondiendo; si v1 muere antes de que
-v2 llegue a ES, sus syncs dejarán de funcionar hasta entonces. Vigilar.
+**Situación ES (2026-08-03):** v2 **YA está activa en ES**. IBericaStore migrada a v2
+(`market=ES`, `dropea_shop_id=733`, API key v2 ES + webhook secret cifrados en la tienda).
+Sondeo ES: 6/6 endpoints 200, cuenta con 5 shops (Smud, Vittaora Portugal, TodoModa y dos
+IBericaStore). El sync **NO filtra por shop**: trae todos los pedidos de la cuenta Dropea
+(necesario porque el usuario crea shops nuevos bajo la misma cuenta). `order_costs` ES difiere
+de PT: `fulfillment_outbound=1`, `fulfillment_quantity_cost=0`, `fulfillment_return=1` (plano).
+Validación neto ES con `#IB20938`: 29.90 − 6.60 − 1.00 − 5.88 − 1.20 = **15.22** ✓.
+**Webhook ES bloqueado (Dropea side):** POST `/dropshipper/webhooks` con la key ES devuelve
+409 `IN_PROGRESS` incluso con URLs de prueba (httpbin), mientras la key PT registra OK → operación
+async atascada en el backend de Dropea para esa key. Vigilar/reintentar; el sync v2 funciona igual.
 
 **Implicación de diseño:** como la API no da estos valores, deben ser **configurables por tienda**
 (siguiendo el patrón existente de `fee_gestion_eur`/`costo_rechazo`: columnas en `stores`,
 editables en Settings, con default según mercado). Añadir a §6 cuando se implemente:
 columnas `coste_envio`/`coste_cod` (o similar) + selector de mercado (ES/PT/IT) en la tienda.
 Además `fulfillment_outbound`/`fulfillment_quantity_cost` SÍ vienen por pedido en `order_costs`
-(1.5 + 0.15/ud extra en PT; verificar si también varían por mercado al migrar ES).
+(PT: 1.5 + 0.15/ud extra; **ES: 1.00 fijo + 0.00/ud** — verificar otros mercados/carriers al migrar).
   - ⏳ `order_costs` aparece también en CANCELLED (parece presupuestado, no cargado) → decidir
     en implementación si el neto de cancelados se calcula igual o se ignora (¿qué hacía v1?).
 - **Products**: 19 productos (PUBLIC del catálogo + EXCLUSIVE propios — el vendido es `[131]` EXCLUSIVE).
@@ -368,3 +375,32 @@ cuando v2 llegue a España.
    (crear `src/app/api/dropea/webhook/route.ts` primero; patrón espejo de `/api/dropi/webhook`).
 5. Conseguir un pedido **REFUSED/PAID** real para completar la semántica de estados y el
    `fulfillment_return` (ahora todo 0). Saldrá solo con el tiempo en NutrexPortugal.
+
+### 🆕 España (ES) v2 — migración IBericaStore (2026-08-03)
+
+**Dropea activó v2 en ES.** El usuario creó API key + webhook secret nuevos para la cuenta ES
+(ivanlalic@gmail.com) y pegó el desglose del dashboard del pedido `#IB20938` para validar costes.
+
+- **Costes ES (GLS, servicio `1|2`):** ENVIO = **5.88 €**, COD_FEE = **1.20 €**. Validado:
+  `29.90 − 6.60 (2×3.30) − 1.00 (fulfillment) − 5.88 − 1.20 = 15.22 €` = beneficio del dashboard ✓.
+  `order_costs` ES: `fulfillment_outbound=1`, `fulfillment_quantity_cost=0`, `fulfillment_return=1`
+  (plano, distinto de PT). Añadido a `MARKET_COSTS` en `src/lib/dropea/v2/status.ts`.
+- **Cuenta ES = 5 shops** (`/me`): Smud (15271), Vittaora Portugal (6792), TodoModa (3866),
+  IBericaStore (733) e IBericaStore (480). El sync **NO filtra por shop** — trae todos los pedidos
+  de la cuenta (el usuario crea shops nuevos bajo la misma cuenta y quiere verlos todos).
+- **Tienda actualizada en DB:** IBericaStore (`86a08ca2-…`) → `market='ES'`, `dropea_shop_id=733`,
+  `dropea_api_key_encrypted` y `dropea_webhook_secret_encrypted` con las credenciales v2 ES.
+  En `.env.local`: `DROPEA_V2_API_KEY_ES` + `DROPEA_V2_WEBHOOK_SECRET_ES` (mismas de la tienda).
+- **Código:** `MARKET_COSTS.ES`; PUT `/api/stores/[storeId]` acepta `market` + `dropea_webhook_secret`;
+  Settings UI añade selector de mercado (ES/PT/IT) + campo webhook secret por tienda.
+  El webhook receiver ya usaba el secret por tienda (`dropea_webhook_secret_encrypted`) con
+  fallback a la env var.
+- **Sondeo ES (probe 2026-08-03):** 6/6 endpoints 200 con la key ES; 100 pedidos analizados;
+  neto calculado coherente en todos.
+- ⚠️ **Webhook ES bloqueado (Dropea side):** `POST /dropshipper/webhooks` con la key ES devuelve
+  409 `ConflictFailure IN_PROGRESS` hasta con URLs de prueba (httpbin), mientras la key PT registra
+  bien (201). Parece una operación async atascada en el backend de Dropea para esa key →
+  reintentar más tarde / consultar soporte. El sync v2 funciona sin webhooks.
+- **Nutrex (ES, `cd4e2aa3-…`)** sigue en v1 sin API key v2 → pendiente de migrar cuando el usuario
+  cree key ES para esa tienda (o si comparte cuenta, reutilizar `DROPEA_V2_API_KEY_ES`).
+

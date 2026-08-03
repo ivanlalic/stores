@@ -21,7 +21,9 @@ interface StoreData {
   costo_rechazo: number;
   dias_rolling: number;
   dias_excluir: number;
+  market: string | null;
   has_api_key: boolean;
+  has_webhook_secret: boolean;
   has_dropea_credentials: boolean;
   has_dropi_credentials: boolean;
   is_owner: boolean;
@@ -30,6 +32,8 @@ interface StoreData {
 interface StoreFormState {
   name: string;
   newApiKey: string;
+  newWebhookSecret: string;
+  market: string;
   dropeaEmail: string;
   dropeaPassword: string;
   feeGestion: string;
@@ -46,6 +50,8 @@ function useStoreForm(store: StoreData): [StoreFormState, (patch: Partial<StoreF
   const [state, setState] = useState<StoreFormState>({
     name: store.name,
     newApiKey: "",
+    newWebhookSecret: "",
+    market: store.market || "",
     dropeaEmail: "",
     dropeaPassword: "",
     feeGestion: String(store.fee_gestion_eur ?? 0),
@@ -132,6 +138,8 @@ function DropeaStoreCard({
         dias_excluir: parseInt(f.diasExcluir) || 4,
       };
       if (f.newApiKey) body.dropea_api_key = f.newApiKey;
+      if (f.newWebhookSecret) body.dropea_webhook_secret = f.newWebhookSecret;
+      if (f.market) body.market = f.market;
       if (f.dropeaEmail) body.dropea_email = f.dropeaEmail;
       if (f.dropeaPassword) body.dropea_pwd = f.dropeaPassword;
       const res = await fetch(`/api/stores/${store.id}`, {
@@ -140,7 +148,7 @@ function DropeaStoreCard({
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error("Error guardando");
-      setF({ message: "Guardado", newApiKey: "", dropeaEmail: "", dropeaPassword: "" });
+      setF({ message: "Guardado", newApiKey: "", newWebhookSecret: "", dropeaEmail: "", dropeaPassword: "" });
       onSaved();
     } catch {
       setF({ message: "Error al guardar" });
@@ -204,6 +212,39 @@ function DropeaStoreCard({
             value={f.newApiKey}
             onChange={(e) => setF({ newApiKey: e.target.value })}
           />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Mercado Dropea</Label>
+          <select
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            value={f.market}
+            onChange={(e) => setF({ market: e.target.value })}
+          >
+            <option value="">Sin definir (API v1)</option>
+            <option value="ES">España (ES)</option>
+            <option value="PT">Portugal (PT)</option>
+            <option value="IT">Italia (IT)</option>
+          </select>
+          <p className="text-xs text-muted-foreground">
+            Activa la sincronización por API v2 para ese mercado. Requiere la API key v2 correspondiente.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Webhook secret Dropea</Label>
+          {store.has_webhook_secret && (
+            <p className="text-xs text-muted-foreground">Configurado. Deja vacío para no cambiar.</p>
+          )}
+          <Input
+            type="password"
+            placeholder={store.has_webhook_secret ? "******* (sin cambios)" : "HMAC secret"}
+            value={f.newWebhookSecret}
+            onChange={(e) => setF({ newWebhookSecret: e.target.value })}
+          />
+          <p className="text-xs text-muted-foreground">
+            Secreto HMAC para firmar webhooks v2. Se muestra una vez al crear la API key en Dropea.
+          </p>
         </div>
 
         <div className="space-y-2">

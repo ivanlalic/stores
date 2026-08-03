@@ -24,7 +24,9 @@ export async function GET(
         costo_rechazo: store.costo_rechazo,
         dias_rolling: store.dias_rolling,
         dias_excluir: store.dias_excluir,
+        market: store.market,
         has_api_key: !!store.dropea_api_key_encrypted,
+        has_webhook_secret: !!store.dropea_webhook_secret_encrypted,
         has_dropea_credentials: !!(store.dropea_email_encrypted && store.dropea_pwd_encrypted),
         has_dropi_credentials: !!(store.dropi_email_encrypted && store.dropi_pwd_encrypted),
       },
@@ -55,6 +57,8 @@ export async function PUT(
 
   if (body.name !== undefined) updates.name = body.name.trim();
   if (body.dropea_api_key) updates.dropea_api_key_encrypted = encrypt(body.dropea_api_key);
+  if (body.dropea_webhook_secret) updates.dropea_webhook_secret_encrypted = encrypt(body.dropea_webhook_secret);
+  if (body.market) updates.market = body.market.toUpperCase();
   if (body.dropea_email) updates.dropea_email_encrypted = encrypt(body.dropea_email);
   if (body.dropea_pwd) updates.dropea_pwd_encrypted = encrypt(body.dropea_pwd);
   if (body.dropi_email) updates.dropi_email_encrypted = encrypt(body.dropi_email);

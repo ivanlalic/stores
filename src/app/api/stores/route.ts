@@ -11,7 +11,7 @@ export async function GET() {
   // Owned stores
   const { data: owned, error: ownedError } = await insforge.database
     .from("stores")
-    .select("id, name, type, fee_gestion_eur, costo_rechazo, dias_rolling, dias_excluir, created_at")
+    .select("id, name, type, fee_gestion_eur, costo_rechazo, dias_rolling, dias_excluir, market, created_at")
     .eq("user_id", user.id)
     .order("created_at", { ascending: true });
 
@@ -28,7 +28,7 @@ export async function GET() {
   const { data: shared } = memberStoreIds.length
     ? await insforge.database
         .from("stores")
-        .select("id, name, type, fee_gestion_eur, costo_rechazo, dias_rolling, dias_excluir, created_at")
+        .select("id, name, type, fee_gestion_eur, costo_rechazo, dias_rolling, dias_excluir, market, created_at")
         .in("id", memberStoreIds)
         .neq("user_id", user.id)
         .order("created_at", { ascending: true })
@@ -44,7 +44,7 @@ export async function GET() {
   const { data: full } = allIds.length
     ? await insforge.database
         .from("stores")
-        .select("id, dropea_api_key_encrypted, dropea_email_encrypted, dropea_pwd_encrypted, dropi_email_encrypted, dropi_pwd_encrypted")
+        .select("id, dropea_api_key_encrypted, dropea_email_encrypted, dropea_pwd_encrypted, dropea_webhook_secret_encrypted, dropi_email_encrypted, dropi_pwd_encrypted")
         .in("id", allIds)
     : { data: [] };
 
@@ -54,6 +54,7 @@ export async function GET() {
     return {
       ...s,
       has_api_key: !!(c?.dropea_api_key_encrypted),
+      has_webhook_secret: !!(c?.dropea_webhook_secret_encrypted),
       has_dropea_credentials: !!(c?.dropea_email_encrypted && c?.dropea_pwd_encrypted),
       has_dropi_credentials: !!(c?.dropi_email_encrypted && c?.dropi_pwd_encrypted),
     };

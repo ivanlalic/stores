@@ -45,3 +45,21 @@ next-env.d.ts
 /tmp_*
 *.xlsx
 scripts/*.mjs
+
+# InsForge & AI agent skills
+.insforge
+.agent
+.agents
+.augment
+.claude
+.cline
+.github/copilot*
+.kilocode
+.qoder
+.qwen
+.roo
+.trae
+.windsurf
+
+# Sondeos Dropea v2: contienen PII de clientes, no subir
+docs/dropea-v2/probe/
