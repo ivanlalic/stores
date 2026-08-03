@@ -421,7 +421,18 @@ cuando v2 llegue a España.
   El envío ES **varía por zona** y la API v2 no lo expone → se usa el **importe mayor (6.20)** por
   decisión del usuario (no subestimar costes). Los pedidos pagados ES usan `status=FINISH` +
   `sub_status=PAID` (no `CHARGED`).
-- **Nutrex (ES, `cd4e2aa3-…`)** sigue en v1 sin API key v2 → pendiente de migrar cuando el usuario
-  cree key ES para esa tienda (o si comparte cuenta, reutilizar `DROPEA_V2_API_KEY_ES`). Plan:
-  replicar el flujo de IBericaStore (market=ES, shop_id, credenciales, webhook con URL propia).
+- **Nutrex (ES, `cd4e2aa3-…`) migrada a v2 (2026-08-03):** el usuario creó API key + webhook secret
+  propios. **Es una cuenta DISTINTA a la de IBericaStore**: `/me` → usuario id 8963 "Ivan Lalic"
+  (`todomodaespana@gmail.com`), 4 shops: Nutrex Pets (16025), Nutrex Portugal (6884), US Nutrex ES
+  (6229), Tienda España (5442). Todos los pedidos recientes son de la tienda **5442 "Tienda España"**
+  (`external_order_id` tipo `#17893`, sin prefijo) → `dropea_shop_id=5442`. El sync **NO filtra por
+  shop** (trae los pedidos de las 4 tiendas de la cuenta, igual que IBerica). Tienda actualizada en
+  DB: `market='ES'`, `dropea_shop_id=5442`, credenciales v2 cifradas. En `.env.local`:
+  `DROPEA_V2_API_KEY_ES_NUTREX` + `DROPEA_V2_WEBHOOK_SECRET_ES_NUTREX`. Prueba de sync: 1.693
+  pedidos/3 meses, 945 `FINISH|PAID`, netos con costes ES (6.20/1.20). ⚠️ La key solo es válida en
+  `es.public-api.dropea.com` (en `public-api.dropea.com` da "API key revoked"). ⚠️ Webhook por API
+  también bloqueado (409 `IN_PROGRESS` igual que IBerica ES) → **registrar manualmente en la
+  plataforma** con URL propia `https://stores-steel.vercel.app/api/dropea/webhook-nutrex`
+  (endpoint creado + desplegado, commit `04bf8fe`). Verificar con pedidos reales del dashboard de
+  Nutrex si los costes ES coinciden con los de IBerica antes de fiar el neto.
 
