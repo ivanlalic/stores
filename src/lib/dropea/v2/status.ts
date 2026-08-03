@@ -2,7 +2,7 @@ import type { DropeaOrderV2 } from "./client";
 
 const MARKET_COSTS: Record<string, { envio: number; cod_fee: number }> = {
   PT: { envio: 3.5, cod_fee: 1.0 },
-  ES: { envio: 5.88, cod_fee: 1.2 },
+  ES: { envio: 6.2, cod_fee: 1.2 },
 };
 
 export function getMarketCosts(market: string): { envio: number; cod_fee: number } {

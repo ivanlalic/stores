@@ -381,10 +381,11 @@ cuando v2 llegue a España.
 **Dropea activó v2 en ES.** El usuario creó API key + webhook secret nuevos para la cuenta ES
 (ivanlalic@gmail.com) y pegó el desglose del dashboard del pedido `#IB20938` para validar costes.
 
-- **Costes ES (GLS, servicio `1|2`):** ENVIO = **5.88 €**, COD_FEE = **1.20 €**. Validado:
-  `29.90 − 6.60 (2×3.30) − 1.00 (fulfillment) − 5.88 − 1.20 = 15.22 €` = beneficio del dashboard ✓.
-  `order_costs` ES: `fulfillment_outbound=1`, `fulfillment_quantity_cost=0`, `fulfillment_return=1`
-  (plano, distinto de PT). Añadido a `MARKET_COSTS` en `src/lib/dropea/v2/status.ts`.
+- **Costes ES (GLS, servicio `1|2`):** ENVIO = **6.20 €**, COD_FEE = **1.20 €**. El envío real del
+  dashboard varía por zona (5.88 Madrid vs 6.20 Sevilla) y la API v2 no lo expone → se usa el
+  importe mayor (6.20) para no subestimar costes. `order_costs` ES: `fulfillment_outbound=1`,
+  `fulfillment_quantity_cost=0`, `fulfillment_return=1` (plano, distinto de PT). Añadido a
+  `MARKET_COSTS` en `src/lib/dropea/v2/status.ts`.
 - **Cuenta ES = 5 shops** (`/me`): Smud (15271), Vittaora Portugal (6792), TodoModa (3866),
   IBericaStore (733) e IBericaStore (480). El sync **NO filtra por shop** — trae todos los pedidos
   de la cuenta (el usuario crea shops nuevos bajo la misma cuenta y quiere verlos todos).
