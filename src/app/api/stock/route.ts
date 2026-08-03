@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUser, createServiceClient } from "@/lib/insforge/server";
 import { decrypt } from "@/lib/encryption";
 import { fetchProductPagesBatch } from "@/lib/dropea/client";
-import { fetchAllProductsV2 } from "@/lib/dropea/v2/client";
+import { fetchProductsBatchV2 } from "@/lib/dropea/v2/client";
 import { getDefaultStore, requireStore } from "@/lib/store-utils";
 
 async function fetchAllSnapshots(
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
 
   // v2: full catalog in a single pass, one row per product (stock = sum of variants)
   if (store.market) {
-    return syncCatalogV2(insforge, store, apiKey, body.syncId);
+    return syncCatalogV2(insforge, store, apiKey, body.syncId, body.startPage ?? 1, body.done ?? 0);
   }
 
   const BATCH = 10;
@@ -194,9 +194,11 @@ async function syncCatalogV2(
   insforge: Awaited<ReturnType<typeof createServiceClient>>,
   store: { id: string; market: string | null },
   apiKey: string,
-  existingSyncId?: string
+  existingSyncId?: string,
+  startPage: number = 1,
+  alreadyDone: number = 0
 ) {
-  // Create the sync record
+  // Create the sync record on the first batch
   let syncId: string;
   if (!existingSyncId) {
     const { data: syncRow, error: syncErr } = await insforge.database
@@ -212,7 +214,13 @@ async function syncCatalogV2(
     syncId = existingSyncId;
   }
 
-  const products = await fetchAllProductsV2(apiKey, store.market!);
+  const BATCH_PAGES = 4;
+  const { products, total, nextPage, hasMore } = await fetchProductsBatchV2(
+    apiKey,
+    store.market!,
+    startPage,
+    BATCH_PAGES
+  );
 
   const rows: { sync_id: string; store_id: string; dropea_id: string; sku: string | null; name: string; image: string | null; stock: number }[] =
     products.map((p) => ({
@@ -225,28 +233,28 @@ async function syncCatalogV2(
       stock: (p.variants ?? []).reduce((acc, v) => acc + v.stock, 0),
     }));
 
-  const batchSize = 500;
-  for (let i = 0; i < rows.length; i += batchSize) {
-    const { error } = await insforge.database
-      .from("stock_snapshots")
-      .insert(rows.slice(i, i + batchSize));
+  if (rows.length > 0) {
+    const { error } = await insforge.database.from("stock_snapshots").insert(rows);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const done = rows.length;
-  await insforge.database.from("stock_syncs").update({ total: done }).eq("id", syncId);
+  const done = alreadyDone + rows.length;
 
-  // Trim to keep only the 2 most recent syncs
-  const { data: allSyncs } = await insforge.database
-    .from("stock_syncs")
-    .select("id")
-    .eq("store_id", store.id)
-    .order("synced_at", { ascending: false });
+  // Last batch: update sync total and trim to keep only last 2 syncs
+  if (!hasMore) {
+    await insforge.database.from("stock_syncs").update({ total: done }).eq("id", syncId);
 
-  if (allSyncs && allSyncs.length > 3) {
-    const toDelete = allSyncs.slice(3).map((s: { id: string }) => s.id);
-    await insforge.database.from("stock_syncs").delete().in("id", toDelete);
+    const { data: allSyncs } = await insforge.database
+      .from("stock_syncs")
+      .select("id")
+      .eq("store_id", store.id)
+      .order("synced_at", { ascending: false });
+
+    if (allSyncs && allSyncs.length > 3) {
+      const toDelete = allSyncs.slice(3).map((s: { id: string }) => s.id);
+      await insforge.database.from("stock_syncs").delete().in("id", toDelete);
+    }
   }
 
-  return NextResponse.json({ syncId, nextPage: 1, done, total: done, hasMore: false, errors: 0, isIncomplete: false });
+  return NextResponse.json({ syncId, nextPage, done, total, hasMore, errors: 0, isIncomplete: false });
 }

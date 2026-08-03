@@ -196,7 +196,7 @@ export async function testConnectionV2(apiKey: string, market: string) {
   };
 }
 
-async function fetchProductsPage(
+export async function fetchProductsPage(
   apiKey: string,
   market: string,
   page: number
@@ -252,4 +252,32 @@ export async function fetchAllProductsV2(
   }
 
   return all;
+}
+
+export async function fetchProductsBatchV2(
+  apiKey: string,
+  market: string,
+  startPage: number,
+  batchPages: number
+): Promise<{ products: DropeaProductV2[]; total: number; nextPage: number; hasMore: boolean }> {
+  const products: DropeaProductV2[] = [];
+  let total = 0;
+  let page = startPage;
+  let hasMore = false;
+
+  for (let i = 0; i < batchPages; i++) {
+    const json = await fetchProductsPage(apiKey, market, page);
+    const items = json?.data?.items || [];
+    const pagination = json?.data?.pagination;
+    total = pagination?.total ?? 0;
+
+    products.push(...items);
+    hasMore = pagination?.has_next_page ?? items.length >= ITEMS_PER_PAGE;
+    if (!hasMore) break;
+
+    await new Promise((r) => setTimeout(r, REQUEST_INTERVAL_MS));
+    page++;
+  }
+
+  return { products, total, nextPage: page, hasMore };
 }
