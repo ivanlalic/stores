@@ -401,6 +401,17 @@ cuando v2 llegue a España.
   409 `ConflictFailure IN_PROGRESS` hasta con URLs de prueba (httpbin), mientras la key PT registra
   bien (201). Parece una operación async atascada en el backend de Dropea para esa key →
   reintentar más tarde / consultar soporte. El sync v2 funciona sin webhooks.
+- ✅ **Webhook ES validado end-to-end (2026-08-03):** enviado `#IB20938` firmado (HMAC con
+  `DROPEA_V2_WEBHOOK_SECRET_ES`) a `https://stores-steel.vercel.app/api/dropea/webhook` →
+  `200 {"ok":true,"added":1}`. Pedido guardado en `pedidos` de IBericaStore con `store_id`
+  resuelto por `dropea_shop_id=733` (fallback por `market=ES`). Quedó `PENDING` → venta/neto 0
+  (correcto por `shouldZeroRevenueV2`); pasará a neto real al cambiar a `CHARGED`. El receiver
+  funciona en producción con la key PT de Dropea entregando los 3 topics (incluye ES).
+- ✅ **Neto ES validado con pedido real entregado/cobrado:** `#IB20822` (id 1326931, `FINISH|DELIVERED`)
+  → venta 24.90 − wholesale 4.00 − fulfillment 1.00 − envío 5.88 − COD 1.20 = **neto 12.82** ✓
+  (confirmado por el usuario contra el dashboard). También se muestran netos coherentes para
+  `#IB20562` (17.62), `#IB20554` (20.42), `#IB20544` (17.22), etc. Los pedidos pagados ES usan
+  `status=FINISH` + `sub_status=PAID` (no `CHARGED`).
 - **Nutrex (ES, `cd4e2aa3-…`)** sigue en v1 sin API key v2 → pendiente de migrar cuando el usuario
   cree key ES para esa tienda (o si comparte cuenta, reutilizar `DROPEA_V2_API_KEY_ES`).
 
