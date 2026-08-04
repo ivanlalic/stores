@@ -11,6 +11,9 @@ import {
 } from "@/lib/dropea/status";
 import {
   fetchAllOrdersV2,
+  fetchInFlightOrdersV2,
+  IN_FLIGHT_STATUSES,
+  IN_FLIGHT_LIGHT_STATUSES,
   getDateRangeV2,
   getDateRangeDaysV2,
   type DropeaOrderV2,
@@ -128,9 +131,25 @@ export async function POST(request: NextRequest) {
 
           send(`Sincronización v2 (${market}, creados: ${startDate} - ${endDate})...`);
 
-          const orders = await fetchAllOrdersV2(apiKey, market, startDate, endDate, send);
+          const windowOrders = await fetchAllOrdersV2(apiKey, market, startDate, endDate, send);
 
-          send(`${orders.length} pedidos obtenidos. Procesando...`);
+          // Refresco por estado: re-sincroniza pedidos en vuelo aunque estén fuera de la
+          // ventana de created_at, para no dejar congelados como "pendientes" los que ya
+          // se resolvieron en Dropea. Los estados ligeros se refrescan siempre; el barrido
+          // pesado ERROR se hace solo en el sync completo (hay miles de REJECTED históricos).
+          send("Actualizando pedidos en vuelo (estados abiertos)...");
+          const inFlightStatuses = is48h ? IN_FLIGHT_LIGHT_STATUSES : IN_FLIGHT_STATUSES;
+          const inFlight = await fetchInFlightOrdersV2(apiKey, market, send, inFlightStatuses);
+
+          const seen = new Set<string>();
+          const orders = windowOrders.concat(inFlight).filter((o) => {
+            const k = String(o.id);
+            if (seen.has(k)) return false;
+            seen.add(k);
+            return true;
+          });
+
+          send(`${orders.length} pedidos obtenidos (${windowOrders.length} por fecha + ${inFlight.length} en vuelo). Procesando...`);
 
           const mappedOrders = orders.map((o: DropeaOrderV2) =>
             mapOrderV2(o, user.id, store.id, market)

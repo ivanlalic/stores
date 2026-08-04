@@ -119,12 +119,34 @@ export function getDateRangeDaysV2(daysBack: number) {
   };
 }
 
+// Estados que pueden seguir avanzando hacia un desenlace (entrega/rechazo/cancelación).
+// Los pedidos en estos estados necesitan refresco de status aunque estén fuera de la
+// ventana de `created_at` del sync: la API v2 no tiene filtro `updated_at`, y sin esto
+// los ERROR/DELIVERY_EXCEPTION se quedan "congelados" como pendientes (bug #verificado).
+//
+// LIGEROS: pocos pedidos, se refrescan en cada sync (rápido y completo).
+// ERROR: barrido pesado (históricos REJECTED) → solo en el sync completo.
+export const IN_FLIGHT_LIGHT_STATUSES = [
+  "PENDING",
+  "CONFIRMED",
+  "PROCESSING",
+  "SHIPPING",
+] as const;
+
+export const IN_FLIGHT_ERROR_STATUSES = ["ERROR"] as const;
+
+export const IN_FLIGHT_STATUSES = [
+  ...IN_FLIGHT_LIGHT_STATUSES,
+  ...IN_FLIGHT_ERROR_STATUSES,
+] as const;
+
 async function fetchOrdersPage(
   apiKey: string,
   market: string,
   page: number,
   startDate: string,
-  endDate: string
+  endDate: string,
+  status?: string
 ): Promise<OrdersPageResponse> {
   const base = `https://${market.toLowerCase()}.public-api.dropea.com`;
   const params = new URLSearchParams({
@@ -133,10 +155,17 @@ async function fetchOrdersPage(
     page: String(page),
     sort_by: "created_at",
     sort_order: "desc",
-    date_type: "created_at",
-    date_from: startDate,
-    date_to: endDate,
   });
+
+  if (status) {
+    // Refresco por estado: devuelve TODOS los pedidos de ese estado, sin importar la
+    // fecha de creación (permite re-sincronizar pedidos viejos que aún no se resuelven).
+    params.set("status", status);
+  } else {
+    params.set("date_type", "created_at");
+    params.set("date_from", startDate);
+    params.set("date_to", endDate);
+  }
 
   const res = await fetch(`${base}/dropshipper/orders?${params}`, {
     headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
@@ -145,7 +174,7 @@ async function fetchOrdersPage(
   if (res.status === 429) {
     const retryAfter = parseInt(res.headers.get("retry-after") || "60", 10);
     await new Promise((r) => setTimeout(r, retryAfter * 1000));
-    return fetchOrdersPage(apiKey, market, page, startDate, endDate);
+    return fetchOrdersPage(apiKey, market, page, startDate, endDate, status);
   }
 
   if (!res.ok) {
@@ -184,6 +213,40 @@ export async function fetchAllOrdersV2(
     page++;
   }
 
+  return all;
+}
+
+// Re-sincroniza los pedidos en estado "en vuelo" (que aún pueden avanzar) SIN límite
+// de fecha. Complementa a fetchAllOrdersV2 (ventana por created_at): refresca el estado
+// de pedidos viejos que la ventana ya no alcanza. Filtro `status` de la API es de un
+// solo valor → hay que paginar por cada estado.
+export async function fetchInFlightOrdersV2(
+  apiKey: string,
+  market: string,
+  onProgress?: (msg: string) => void,
+  statuses: readonly string[] = IN_FLIGHT_STATUSES
+): Promise<DropeaOrderV2[]> {
+  const all: DropeaOrderV2[] = [];
+  for (const status of statuses) {
+    let page = 1;
+    let total = 0;
+    while (true) {
+      onProgress?.(`Refrescando ${status} (página ${page})...`);
+      const json = await fetchOrdersPage(apiKey, market, page, "", "", status);
+      const items = json?.data?.items || [];
+      const pagination = json?.data?.pagination;
+      total = pagination?.total ?? 0;
+
+      all.push(...items);
+      onProgress?.(`${status}: ${all.length} recogidos (${total} en este estado)`);
+
+      const hasNext = pagination?.has_next_page ?? items.length >= ITEMS_PER_PAGE;
+      if (!hasNext) break;
+
+      await new Promise((r) => setTimeout(r, REQUEST_INTERVAL_MS));
+      page++;
+    }
+  }
   return all;
 }
 

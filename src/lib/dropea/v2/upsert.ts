@@ -1,4 +1,27 @@
-import { createServiceClient } from "@/lib/insforge/server";
+import type { createServiceClient } from "@/lib/insforge/server";
+
+// Columnas de negocio que comparamos para decidir si hace falta escribir la fila.
+// `synced_at` se excluye a propósito (siempre cambia y no afecta al desenlace).
+const FIELDS = [
+  "status",
+  "es_enviado",
+  "es_entregado",
+  "es_rechazado",
+  "es_cancelado",
+  "venta",
+  "neto",
+  "orden",
+  "fecha",
+  "nombre",
+  "telefono",
+  "pedido",
+] as const;
+
+// Normaliza el valor a string para que booleans y números/seats sean comparables
+// (PostgREST puede devolver numeric como string: 29.9 → "29.9").
+function signature(o: Record<string, unknown>): string {
+  return FIELDS.map((f) => String(o[f] ?? "")).join("\u0001");
+}
 
 export async function upsertOrders(
   insforge: ReturnType<typeof createServiceClient>,
@@ -16,25 +39,38 @@ export async function upsertOrders(
     const dropeaIds = batch.map((o) => o.dropea_id);
     const { data: existing } = await insforge.database
       .from("pedidos")
-      .select("dropea_id")
+      .select("dropea_id,status,es_enviado,es_entregado,es_rechazado,es_cancelado,venta,neto,orden,fecha,nombre,telefono,pedido")
       .eq("store_id", store.id)
       .in("dropea_id", dropeaIds);
 
-    const existingSet = new Set(existing?.map((e) => e.dropea_id) || []);
+    const existingBy = new Map<string, string>(
+      (existing || []).map((e) => [String(e.dropea_id), signature(e)])
+    );
+
+    const toWrite: Record<string, unknown>[] = [];
     for (const order of batch) {
-      if (existingSet.has(order.dropea_id)) {
-        updated++;
-      } else {
+      const key = String(order.dropea_id);
+      const prev = existingBy.get(key);
+      if (prev === undefined) {
         added++;
+        toWrite.push(order);
+      } else if (prev === signature(order)) {
+        // Sin cambios → saltamos la escritura (sync de miles de pedidos en vuelo).
+        continue;
+      } else {
+        updated++;
+        toWrite.push(order);
       }
     }
 
-    const { error } = await insforge.database
-      .from("pedidos")
-      .upsert(batch, { onConflict: "store_id,dropea_id" });
+    if (toWrite.length > 0) {
+      const { error } = await insforge.database
+        .from("pedidos")
+        .upsert(toWrite, { onConflict: "store_id,dropea_id" });
 
-    if (error) {
-      send(`Error procesando batch: ${error.message}`);
+      if (error) {
+        send(`Error procesando batch: ${error.message}`);
+      }
     }
 
     send(`Procesados ${Math.min(i + batchSize, mappedOrders.length)}/${mappedOrders.length}...`);
