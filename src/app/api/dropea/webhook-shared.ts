@@ -82,6 +82,30 @@ export async function handleWebhook(request: NextRequest) {
 
   const mapped = mapOrderV2(envelope.resource, store.user_id, store.id, store.market);
 
+  // Guard de eventos reordenados: Dropea puede reenviar eventos old en orden
+  // arbitrario. Solo aceptamos el evento si su updated_at es >= al guardado,
+  // asi un evento encolado/antiguo nunca revierte una transicion mas reciente.
+  const incomingUpdatedAt = mapped.dropea_updated_at as string | null;
+  if (incomingUpdatedAt != null && mapped.dropea_id != null) {
+    const { data: existing } = await insforge.database
+      .from("pedidos")
+      .select("dropea_updated_at")
+      .eq("store_id", store.id)
+      .eq("dropea_id", String(mapped.dropea_id))
+      .limit(1);
+
+    const stored = existing?.[0]?.dropea_updated_at as string | null;
+    if (stored != null && new Date(incomingUpdatedAt).getTime() < new Date(stored).getTime()) {
+      return NextResponse.json({
+        ok: true,
+        skipped: "updated_at obsoleto",
+        dropea_id: mapped.dropea_id,
+        incoming: incomingUpdatedAt,
+        stored,
+      });
+    }
+  }
+
   const { added, updated } = await upsertOrders(insforge, store, [mapped], () => {});
 
   return NextResponse.json({ ok: true, added, updated });
