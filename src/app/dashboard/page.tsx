@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { SyncButton } from "@/components/sync-button";
+import { SyncV3Button } from "@/components/sync-v3-button";
 import { VentasCard, PnlCard, TasaEntregaCard, GastosCard, CpaCard } from "@/components/kpi-cards";
 import { EquilibrioCard } from "@/components/breakeven-cards";
 import { ChartStrip } from "@/components/sales-chart";
@@ -155,7 +156,10 @@ function DashboardContent() {
         )}
 
         <div className="flex-1" />
-        <SyncButton onComplete={fetchData} storeId={storeId || undefined} />
+        <div className="flex items-center gap-1.5">
+          <SyncButton onComplete={fetchData} storeId={storeId || undefined} />
+          <SyncV3Button onComplete={fetchData} storeId={storeId || undefined} />
+        </div>
       </div>
 
       {loading ? (
