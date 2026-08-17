@@ -49,7 +49,7 @@ function DashboardContent() {
   const [month, setMonth] = useState(getCurrentMonth);
   const [rows, setRows] = useState<DailyRow[]>([]);
   const [beMetrics, setBeMetrics] = useState<BreakevenMetrics | null>(null);
-  const [beConfig, setBeConfig] = useState<{ costo_rechazo: number; dias_rolling: number; ads_label_1: string; ads_label_2: string }>({ costo_rechazo: 13.76, dias_rolling: 30, ads_label_1: "Meta Ads", ads_label_2: "TikTok Ads" });
+  const [beConfig, setBeConfig] = useState<{ costo_rechazo: number; dias_rolling: number; ads_label_1: string; ads_label_2: string; ads_channels?: { name: string; fee_pct: number }[] }>({ costo_rechazo: 13.76, dias_rolling: 30, ads_label_1: "Meta Ads", ads_label_2: "TikTok Ads" });
   const [storeName, setStoreName] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -84,11 +84,8 @@ function DashboardContent() {
   const [adsModal, setAdsModal] = useState<{
     open: boolean;
     fecha: string;
-    metaAds: number;
-    tiktokAds: number;
-    metaFee: number;
-    tiktokFee: number;
-  }>({ open: false, fecha: "", metaAds: 0, tiktokAds: 0, metaFee: 0, tiktokFee: 0 });
+    channels?: { name: string; base: number; fee_pct: number; total: number }[];
+  }>({ open: false, fecha: "" });
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -111,8 +108,8 @@ function DashboardContent() {
     fetchData();
   }, [fetchData]);
 
-  function handleRowClick(fecha: string, metaAds: number, tiktokAds: number, metaFee: number, tiktokFee: number) {
-    setAdsModal({ open: true, fecha, metaAds, tiktokAds, metaFee, tiktokFee });
+  function handleRowClick(fecha: string, channels?: { name: string; base: number; fee_pct: number; total: number }[]) {
+    setAdsModal({ open: true, fecha, channels });
   }
 
   return (
@@ -219,6 +216,7 @@ function DashboardContent() {
             onRowClick={handleRowClick}
             label1={beConfig.ads_label_1}
             label2={beConfig.ads_label_2}
+            adsChannels={beConfig.ads_channels}
           />
         </>
       )}
@@ -227,10 +225,8 @@ function DashboardContent() {
         open={adsModal.open}
         onOpenChange={(open) => setAdsModal((m) => ({ ...m, open }))}
         fecha={adsModal.fecha}
-        initialMetaAds={adsModal.metaAds}
-        initialTiktokAds={adsModal.tiktokAds}
-        initialMetaFeePct={adsModal.metaFee}
-        initialTiktokFeePct={adsModal.tiktokFee}
+        channels={beConfig.ads_channels}
+        initialChannels={adsModal.channels}
         onSave={fetchData}
         storeId={storeId || undefined}
         label1={beConfig.ads_label_1}

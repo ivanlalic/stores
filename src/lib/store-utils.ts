@@ -1,4 +1,5 @@
 import { createServiceClient } from "@/lib/insforge/server";
+import type { AdChannelConfig } from "@/lib/ads";
 
 type InsforgeClient = ReturnType<typeof createServiceClient>;
 
@@ -21,6 +22,7 @@ export interface StoreRow {
   dropi_pwd_encrypted: string | null;
   ads_label_1: string | null;
   ads_label_2: string | null;
+  ads_channels: AdChannelConfig[] | null;
   created_at: string;
   updated_at: string;
 }

@@ -27,6 +27,7 @@ interface StoreData {
   has_dropea_credentials: boolean;
   has_dropi_credentials: boolean;
   is_owner: boolean;
+  ads_channels: { name: string; fee_pct: number }[] | null;
 }
 
 interface StoreFormState {
@@ -42,6 +43,7 @@ interface StoreFormState {
   diasExcluir: string;
   dropiEmail: string;
   dropiPwd: string;
+  adsChannels: { name: string; fee_pct: number }[];
   saving: boolean;
   message: string;
 }
@@ -60,6 +62,7 @@ function useStoreForm(store: StoreData): [StoreFormState, (patch: Partial<StoreF
     diasExcluir: String(store.dias_excluir ?? 4),
     dropiEmail: "",
     dropiPwd: "",
+    adsChannels: store.ads_channels?.length ? store.ads_channels.map((c) => ({ name: c.name, fee_pct: c.fee_pct })) : [],
     saving: false,
     message: "",
   });
@@ -136,6 +139,7 @@ function DropeaStoreCard({
         costo_rechazo: f.costoRechazo === "" ? 13.76 : parseFloat(f.costoRechazo),
         dias_rolling: parseInt(f.diasRolling) || 30,
         dias_excluir: parseInt(f.diasExcluir) || 4,
+        ads_channels: f.adsChannels.filter((c) => c.name.trim()).map((c) => ({ name: c.name.trim(), fee_pct: c.fee_pct })),
       };
       if (f.newApiKey) body.dropea_api_key = f.newApiKey;
       if (f.newWebhookSecret) body.dropea_webhook_secret = f.newWebhookSecret;
@@ -270,6 +274,63 @@ function DropeaStoreCard({
             value={f.dropeaPassword}
             onChange={(e) => setF({ dropeaPassword: e.target.value })}
           />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Canales de Ads</Label>
+          <p className="text-xs text-muted-foreground">
+            Define los canales publicitarios (Meta UpRoas, Meta SM, TikTok, etc.), su % de comisión agencia predeterminado y el orden en que se muestran. Si se usan, el modal de ads y la tabla los muestran como campos separados.
+          </p>
+          <div className="space-y-2">
+            {f.adsChannels.map((c, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <Input
+                  className="flex-1"
+                  placeholder="Nombre del canal"
+                  value={c.name}
+                  onChange={(e) => {
+                    const next = [...f.adsChannels];
+                    next[i] = { ...next[i], name: e.target.value };
+                    setF({ adsChannels: next });
+                  }}
+                />
+                <Input
+                  className="w-24"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="100"
+                  placeholder="%"
+                  value={c.fee_pct}
+                  onChange={(e) => {
+                    const next = [...f.adsChannels];
+                    next[i] = { ...next[i], fee_pct: parseFloat(e.target.value) || 0 };
+                    setF({ adsChannels: next });
+                  }}
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+                  onClick={() => setF({ adsChannels: f.adsChannels.filter((_, idx) => idx !== i) })}
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </div>
+            ))}
+            {f.adsChannels.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                Sin canales personalizados. Se usa el formato clásico de 2 campos.
+              </p>
+            )}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setF({ adsChannels: [...f.adsChannels, { name: "", fee_pct: 0 }] })}
+          >
+            <Plus className="size-3.5 mr-1" /> Añadir canal
+          </Button>
         </div>
 
         <div className="space-y-2">

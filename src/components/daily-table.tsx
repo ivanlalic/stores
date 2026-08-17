@@ -18,12 +18,14 @@ import {
 import { Card } from "@/components/ui/card";
 import { Info } from "lucide-react";
 import type { DailyRow } from "@/lib/queries/dashboard";
+import type { AdChannel, AdChannelConfig } from "@/lib/ads";
 
 interface DailyTableProps {
   rows: DailyRow[];
-  onRowClick: (fecha: string, metaAds: number, tiktokAds: number, metaFee: number, tiktokFee: number) => void;
+  onRowClick: (fecha: string, channels: AdChannel[]) => void;
   label1?: string;
   label2?: string;
+  adsChannels?: AdChannelConfig[];
 }
 
 function formatDate(fecha: string) {
@@ -68,7 +70,7 @@ const columnInfo: Record<string, string> = {
 // Columns hidden on mobile (< sm)
 const mobileHidden = new Set(["Ped.", "Ent.", "Pend.", "Rech.", "Canc.", "%Ent", "Bruto", "Ads", "Comis.", "Gest.", "Gastos", "%G", "CPA Env.", "CPA Real"]);
 
-export function DailyTable({ rows, onRowClick, label1 = "Meta Ads", label2 = "TikTok Ads" }: DailyTableProps) {
+export function DailyTable({ rows, onRowClick, label1 = "Meta Ads", label2 = "TikTok Ads", adsChannels }: DailyTableProps) {
   const [showAll, setShowAll] = useState<boolean>(() =>
     typeof window !== "undefined" && window.localStorage.getItem("dailyTable:showAll") === "1"
   );
@@ -76,6 +78,15 @@ export function DailyTable({ rows, onRowClick, label1 = "Meta Ads", label2 = "Ti
     typeof window !== "undefined" &&
       window.localStorage.getItem("dailyTable:showAdsBreakdown") === "1"
   );
+
+  // Canales conocidos de la tienda (config) o derivados de las filas.
+  const channelNames: string[] = adsChannels && adsChannels.length > 0
+    ? adsChannels.map((c) => c.name)
+    : [label1, label2];
+
+  function channelBaseOf(row: DailyRow, name: string): number {
+    return row.channels.find((c) => c.name === name)?.base || 0;
+  }
 
   useEffect(() => {
     window.localStorage.setItem("dailyTable:showAll", showAll ? "1" : "0");
@@ -89,7 +100,8 @@ export function DailyTable({ rows, onRowClick, label1 = "Meta Ads", label2 = "Ti
   const visibleRows = showAll ? displayRows : displayRows.slice(0, 5);
 
   function hid(col: string) {
-    if (col === label1 || col === label2 || col === "Ads Tot.") return "hidden sm:table-cell";
+    if (channelNames.includes(col) || col === "Ads Tot.") return "hidden sm:table-cell";
+    if (col === label1 || col === label2) return "hidden sm:table-cell";
     return mobileHidden.has(col) ? "hidden sm:table-cell" : "";
   }
 
@@ -123,7 +135,7 @@ export function DailyTable({ rows, onRowClick, label1 = "Meta Ads", label2 = "Ti
   }
 
   const dynamicCols = showAdsBreakdown
-    ? ["Ventas", "Bruto", label1, label2, "Ads Tot.", "Comis.", "Gest.", "Gastos", "%G"]
+    ? ["Ventas", "Bruto", ...channelNames, "Ads Tot.", "Comis.", "Gest.", "Gastos", "%G"]
     : ["Ventas", "Bruto", "Ads", "Comis.", "Gest.", "Gastos", "%G"];
 
   const columnGroups = [
@@ -135,14 +147,13 @@ export function DailyTable({ rows, onRowClick, label1 = "Meta Ads", label2 = "Ti
 
   const totals = rows.reduce(
     (t, r) => {
-      const meta_commission = r.meta_agency_fee_pct > 0 
-        ? r.meta_ads * (r.meta_agency_fee_pct / 100) / (1 + r.meta_agency_fee_pct / 100) 
-        : 0;
-      const tiktok_commission = r.tiktok_agency_fee_pct > 0 
-        ? r.tiktok_ads * (r.tiktok_agency_fee_pct / 100) / (1 + r.tiktok_agency_fee_pct / 100) 
-        : 0;
-      const metaBase = r.meta_ads - meta_commission;
-      const tiktokBase = r.tiktok_ads - tiktok_commission;
+      const channelTotals: Record<string, { base: number; total: number }> = { ...t.channels };
+      r.channels.forEach((c) => {
+        const cur = channelTotals[c.name] || { base: 0, total: 0 };
+        cur.base += c.base;
+        cur.total += c.total;
+        channelTotals[c.name] = cur;
+      });
 
       return {
         pedidos: t.pedidos + r.pedidos,
@@ -159,8 +170,9 @@ export function DailyTable({ rows, onRowClick, label1 = "Meta Ads", label2 = "Ti
         gastos: t.gastos + r.gastos,
         pnl_teorico: t.pnl_teorico + r.pnl_teorico,
         pnl_real: t.pnl_real + r.pnl_real,
-        metaBase: t.metaBase + metaBase,
-        tiktokBase: t.tiktokBase + tiktokBase,
+        metaBase: t.metaBase + (r.channels[0]?.base || 0),
+        tiktokBase: t.tiktokBase + (r.channels[1]?.base || 0),
+        channels: channelTotals,
       };
     },
     {
@@ -168,6 +180,7 @@ export function DailyTable({ rows, onRowClick, label1 = "Meta Ads", label2 = "Ti
       cancelados: 0, pendientes: 0, ventas: 0, bruto: 0,
       total_ads: 0, total_commission: 0, gestion: 0, gastos: 0, pnl_teorico: 0, pnl_real: 0,
       metaBase: 0, tiktokBase: 0,
+      channels: {} as Record<string, { base: number; total: number }>,
     }
   );
 
@@ -235,22 +248,13 @@ export function DailyTable({ rows, onRowClick, label1 = "Meta Ads", label2 = "Ti
                 const isWeekend = weekday === "sáb" || weekday === "dom" || weekday === "sáb." || weekday === "dom.";
                 const pctGastos = row.ventas > 0 ? row.gastos / row.ventas : 0;
 
-                const meta_commission = row.meta_agency_fee_pct > 0 
-                  ? row.meta_ads * (row.meta_agency_fee_pct / 100) / (1 + row.meta_agency_fee_pct / 100) 
-                  : 0;
-                const tiktok_commission = row.tiktok_agency_fee_pct > 0 
-                  ? row.tiktok_ads * (row.tiktok_agency_fee_pct / 100) / (1 + row.tiktok_agency_fee_pct / 100) 
-                  : 0;
-                const metaBase = row.meta_ads - meta_commission;
-                const tiktokBase = row.tiktok_ads - tiktok_commission;
-
                 return (
                   <TableRow
                     key={row.fecha}
                     className={`cursor-pointer transition-colors hover:bg-primary/5 ${
                       i % 2 === 0 ? "bg-background" : "bg-muted/20"
                     } ${isWeekend ? "bg-muted/30" : ""}`}
-                    onClick={() => onRowClick(row.fecha, row.meta_ads, row.tiktok_ads, row.meta_agency_fee_pct, row.tiktok_agency_fee_pct)}
+                    onClick={() => onRowClick(row.fecha, row.channels)}
                   >
                     {/* Dia — always visible */}
                     <TableCell className="font-medium sticky left-0 bg-inherit z-10">
@@ -285,8 +289,9 @@ export function DailyTable({ rows, onRowClick, label1 = "Meta Ads", label2 = "Ti
                       <ValueCell col="Ads" value={eur(row.total_ads - row.total_commission)} />
                     ) : (
                       <>
-                        <ValueCell col={label1} value={eur(metaBase)} />
-                        <ValueCell col={label2} value={eur(tiktokBase)} />
+                        {channelNames.map((nm) => (
+                          <ValueCell key={nm} col={nm} value={eur(channelBaseOf(row, nm))} />
+                        ))}
                         <ValueCell col="Ads Tot." value={eur(row.total_ads - row.total_commission)} />
                       </>
                     )}
@@ -335,8 +340,9 @@ export function DailyTable({ rows, onRowClick, label1 = "Meta Ads", label2 = "Ti
                   <TableCell className={`text-right tabular-nums ${hid("Ads")}`}>{eur(totals.total_ads - totals.total_commission)}</TableCell>
                 ) : (
                   <>
-                    <TableCell className={`text-right tabular-nums ${hid(label1)}`}>{eur(totals.metaBase)}</TableCell>
-                    <TableCell className={`text-right tabular-nums ${hid(label2)}`}>{eur(totals.tiktokBase)}</TableCell>
+                    {channelNames.map((nm) => (
+                      <TableCell key={nm} className={`text-right tabular-nums ${hid(nm)}`}>{eur(totals.channels[nm]?.base || 0)}</TableCell>
+                    ))}
                     <TableCell className={`text-right tabular-nums ${hid("Ads Tot.")}`}>{eur(totals.total_ads - totals.total_commission)}</TableCell>
                   </>
                 )}
@@ -355,7 +361,7 @@ export function DailyTable({ rows, onRowClick, label1 = "Meta Ads", label2 = "Ti
               {/* Expand / collapse */}
               {rows.length > 5 && (
                 <TableRow className="hover:bg-transparent border-0">
-                  <TableCell colSpan={showAdsBreakdown ? 22 : 20} className="text-center py-1.5">
+                  <TableCell colSpan={showAdsBreakdown ? 20 + channelNames.length : 20} className="text-center py-1.5">
                     <button
                       onClick={() => setShowAll((s) => !s)}
                       className="text-xs text-muted-foreground hover:text-foreground transition-colors"

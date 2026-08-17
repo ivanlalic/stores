@@ -1,4 +1,6 @@
 import { createServiceClient } from "@/lib/insforge/server";
+import type { AdChannel, AdChannelConfig } from "@/lib/ads";
+import { sumAds, buildChannelsFromLegacy } from "@/lib/ads";
 
 type InsforgeClient = ReturnType<typeof createServiceClient>;
 
@@ -26,6 +28,7 @@ export interface DailyRow {
   pct_margin: number;
   cpa_enviado: number;
   cpa_real: number;
+  channels: AdChannel[];
 }
 
 export interface MonthlyRow {
@@ -58,7 +61,9 @@ export async function getDailyDashboard(
   insforge: InsforgeClient,
   storeId: string,
   month: string,
-  feeGestionEur: number
+  feeGestionEur: number,
+  adsChannels: AdChannelConfig[] = [],
+  legacyLabels: [string, string] = ["Meta Ads", "TikTok Ads"]
 ): Promise<DailyRow[]> {
   const startDate = `${month}-01`;
   const [year, m] = month.split("-").map(Number);
@@ -84,21 +89,33 @@ export async function getDailyDashboard(
     from += PAGE_SIZE;
   }
 
-  const { data: ads } = await insforge.database
+    const { data: ads } = await insforge.database
     .from("ads_diario")
     .select("*")
     .eq("store_id", storeId)
     .gte("fecha", startDate)
     .lte("fecha", endDate);
 
-  const adsMap = new Map<string, { meta_ads: number; tiktok_ads: number; meta_agency_fee_pct: number; tiktok_agency_fee_pct: number }>();
+  const adsMap = new Map<string, AdChannel[]>();
   (ads || []).forEach((a) => {
-    adsMap.set(a.fecha, {
-      meta_ads: Number(a.meta_ads) || 0,
-      tiktok_ads: Number(a.tiktok_ads) || 0,
-      meta_agency_fee_pct: Number(a.meta_agency_fee_pct) || 0,
-      tiktok_agency_fee_pct: Number(a.tiktok_agency_fee_pct) || 0,
-    });
+    let channels: AdChannel[] = [];
+    if (Array.isArray(a.channels) && a.channels.length > 0) {
+      channels = (a.channels as Array<Record<string, unknown>>).map((c) => ({
+        name: String(c.name || ""),
+        base: Number(c.base) || 0,
+        fee_pct: Number(c.fee_pct) || 0,
+        total: Number(c.total) || 0,
+      }));
+    } else {
+      channels = buildChannelsFromLegacy(
+        Number(a.meta_ads) || 0,
+        Number(a.tiktok_ads) || 0,
+        Number(a.meta_agency_fee_pct) || 0,
+        Number(a.tiktok_agency_fee_pct) || 0,
+        [adsChannels[0]?.name || legacyLabels[0], adsChannels[1]?.name || legacyLabels[1]]
+      );
+    }
+    adsMap.set(a.fecha, channels);
   });
 
   const dayMap = new Map<string, typeof pedidos>();
@@ -113,9 +130,9 @@ export async function getDailyDashboard(
   for (let d = 1; d <= new Date(year, m, 0).getDate(); d++) {
     const fecha = `${year}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     const dayPedidos = dayMap.get(fecha) || [];
-    const dayAds = adsMap.get(fecha) || { meta_ads: 0, tiktok_ads: 0, meta_agency_fee_pct: 0, tiktok_agency_fee_pct: 0 };
+    const channels = adsMap.get(fecha) || [];
 
-    if (dayPedidos.length === 0 && dayAds.meta_ads === 0 && dayAds.tiktok_ads === 0) {
+    if (dayPedidos.length === 0 && channels.length === 0) {
       // Add 2h offset (Spain/Portugal max UTC+2) so server UTC never skips their "today"
       const spainToday = new Date(Date.now() + 2 * 3600000).toISOString().split("T")[0];
       if (fecha > spainToday) continue;
@@ -143,14 +160,11 @@ export async function getDailyDashboard(
       .filter((p) => p.es_rechazado)
       .reduce((sum, p) => sum + Number(p.neto), 0);
 
-    const meta_ads = dayAds.meta_ads;
-    const tiktok_ads = dayAds.tiktok_ads;
-    const meta_agency_fee_pct = dayAds.meta_agency_fee_pct;
-    const tiktok_agency_fee_pct = dayAds.tiktok_agency_fee_pct;
-    const meta_commission = meta_agency_fee_pct > 0 ? meta_ads * (meta_agency_fee_pct / 100) / (1 + meta_agency_fee_pct / 100) : 0;
-    const tiktok_commission = tiktok_agency_fee_pct > 0 ? tiktok_ads * (tiktok_agency_fee_pct / 100) / (1 + tiktok_agency_fee_pct / 100) : 0;
-    const total_commission = meta_commission + tiktok_commission;
-    const total_ads = meta_ads + tiktok_ads;
+    const meta_ads = channels[0]?.total || 0;
+    const tiktok_ads = channels[1]?.total || 0;
+    const meta_agency_fee_pct = channels[0]?.fee_pct || 0;
+    const tiktok_agency_fee_pct = channels[1]?.fee_pct || 0;
+    const { total_ads, total_commission } = sumAds(channels);
     const gestion = enviados * feeGestionEur;
     const gastos = total_ads + gestion;
     const pnl_teorico = bruto - gastos;
@@ -184,6 +198,7 @@ export async function getDailyDashboard(
       pct_margin,
       cpa_enviado: Math.round(cpa_enviado * 100) / 100,
       cpa_real: Math.round(cpa_real * 100) / 100,
+      channels,
     });
   }
 
@@ -206,7 +221,9 @@ export async function getBreakevenMetrics(
   insforge: InsforgeClient,
   storeId: string,
   currentMonthRows: DailyRow[],
-  config: { fee_gestion_eur: number; costo_rechazo: number; dias_rolling: number; dias_excluir: number }
+  config: { fee_gestion_eur: number; costo_rechazo: number; dias_rolling: number; dias_excluir: number },
+  adsChannels: AdChannelConfig[] = [],
+  legacyLabels: [string, string] = ["Meta Ads", "TikTok Ads"]
 ): Promise<BreakevenMetrics | null> {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -229,7 +246,7 @@ export async function getBreakevenMetrics(
       const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
       const prevMonthEnd = new Date(prevDate.getFullYear(), prevDate.getMonth() + 1, 0);
       if (prevMonthEnd.toISOString().split("T")[0] >= cutoffStr) {
-        const prevRows = await getDailyDashboard(insforge, storeId, prevMonth, config.fee_gestion_eur);
+        const prevRows = await getDailyDashboard(insforge, storeId, prevMonth, config.fee_gestion_eur, adsChannels, legacyLabels);
         allRows = [...prevRows, ...allRows];
       }
     }
@@ -408,13 +425,15 @@ async function fetchAllByStore(
 export async function getMonthlyDashboard(
   insforge: InsforgeClient,
   storeId: string,
-  feeGestionEur: number
+  feeGestionEur: number,
+  adsChannels: AdChannelConfig[] = [],
+  legacyLabels: [string, string] = ["Meta Ads", "TikTok Ads"]
 ): Promise<MonthlyRow[]> {
   const pedidos = await fetchAllByStore(insforge, "pedidos", storeId, "fecha");
   const ads = await fetchAllByStore(insforge, "ads_diario", storeId);
 
   const monthPedidos = new Map<string, typeof pedidos>();
-  const monthAds = new Map<string, { meta: number; tiktok: number }>();
+  const monthAds = new Map<string, { total: number }>();
 
   (pedidos || []).forEach((p) => {
     const mes = p.fecha.substring(0, 7);
@@ -424,9 +443,26 @@ export async function getMonthlyDashboard(
 
   (ads || []).forEach((a) => {
     const mes = a.fecha.substring(0, 7);
-    const current = monthAds.get(mes) || { meta: 0, tiktok: 0 };
-    current.meta += Number(a.meta_ads) || 0;
-    current.tiktok += Number(a.tiktok_ads) || 0;
+    let channels: AdChannel[] = [];
+    if (Array.isArray(a.channels) && a.channels.length > 0) {
+      channels = (a.channels as Array<Record<string, unknown>>).map((c) => ({
+        name: String(c.name || ""),
+        base: Number(c.base) || 0,
+        fee_pct: Number(c.fee_pct) || 0,
+        total: Number(c.total) || 0,
+      }));
+    } else {
+      channels = buildChannelsFromLegacy(
+        Number(a.meta_ads) || 0,
+        Number(a.tiktok_ads) || 0,
+        Number(a.meta_agency_fee_pct) || 0,
+        Number(a.tiktok_agency_fee_pct) || 0,
+        [adsChannels[0]?.name || legacyLabels[0], adsChannels[1]?.name || legacyLabels[1]]
+      );
+    }
+    const { total_ads } = sumAds(channels);
+    const current = monthAds.get(mes) || { total: 0 };
+    current.total += total_ads;
     monthAds.set(mes, current);
   });
 
@@ -437,7 +473,7 @@ export async function getMonthlyDashboard(
 
   for (const mes of sortedMonths) {
     const mp = monthPedidos.get(mes) || [];
-    const ma = monthAds.get(mes) || { meta: 0, tiktok: 0 };
+    const ma = monthAds.get(mes) || { total: 0 };
 
     const enviados = mp.filter((p) => p.es_enviado).length;
     const entregados = mp.filter((p) => p.es_entregado).length;
@@ -460,7 +496,7 @@ export async function getMonthlyDashboard(
       .filter((p) => p.es_rechazado)
       .reduce((sum, p) => sum + Number(p.neto), 0);
 
-    const total_ads = ma.meta + ma.tiktok;
+    const total_ads = ma.total || 0;
     const gestion = enviados * feeGestionEur;
     const gastos = total_ads + gestion;
     const pnl_real = netoEntregados + netoRechazados - gastos;

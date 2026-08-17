@@ -34,10 +34,13 @@ export async function GET(request: NextRequest) {
     dias_excluir: Number(store.dias_excluir) || 4,
     ads_label_1: store.ads_label_1 || "Meta Ads",
     ads_label_2: store.ads_label_2 || "TikTok Ads",
+    ads_channels: Array.isArray(store.ads_channels) && store.ads_channels.length > 0
+      ? store.ads_channels
+      : [],
   };
 
   if (type === "monthly") {
-    const rows = await getMonthlyDashboard(insforge, store.id, breakevenConfig.fee_gestion_eur);
+    const rows = await getMonthlyDashboard(insforge, store.id, breakevenConfig.fee_gestion_eur, breakevenConfig.ads_channels, [breakevenConfig.ads_label_1, breakevenConfig.ads_label_2]);
     return NextResponse.json({ rows, breakevenConfig, storeName: store.name });
   }
 
@@ -49,7 +52,7 @@ export async function GET(request: NextRequest) {
   const currentMonth =
     month ||
     `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
-  const rows = await getDailyDashboard(insforge, store.id, currentMonth, breakevenConfig.fee_gestion_eur);
-  const breakevenMetrics = await getBreakevenMetrics(insforge, store.id, rows, breakevenConfig);
+  const rows = await getDailyDashboard(insforge, store.id, currentMonth, breakevenConfig.fee_gestion_eur, breakevenConfig.ads_channels, [breakevenConfig.ads_label_1, breakevenConfig.ads_label_2]);
+  const breakevenMetrics = await getBreakevenMetrics(insforge, store.id, rows, breakevenConfig, breakevenConfig.ads_channels, [breakevenConfig.ads_label_1, breakevenConfig.ads_label_2]);
   return NextResponse.json({ rows, month: currentMonth, breakevenConfig, breakevenMetrics, storeName: store.name });
 }

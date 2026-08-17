@@ -25,6 +25,9 @@ export async function GET(
         dias_rolling: store.dias_rolling,
         dias_excluir: store.dias_excluir,
         market: store.market,
+        ads_label_1: store.ads_label_1,
+        ads_label_2: store.ads_label_2,
+        ads_channels: store.ads_channels,
         has_api_key: !!store.dropea_api_key_encrypted,
         has_webhook_secret: !!store.dropea_webhook_secret_encrypted,
         has_dropea_credentials: !!(store.dropea_email_encrypted && store.dropea_pwd_encrypted),
@@ -67,6 +70,14 @@ export async function PUT(
   if (body.costo_rechazo !== undefined) updates.costo_rechazo = body.costo_rechazo;
   if (body.dias_rolling !== undefined) updates.dias_rolling = body.dias_rolling;
   if (body.dias_excluir !== undefined) updates.dias_excluir = body.dias_excluir;
+  if (Array.isArray(body.ads_channels)) {
+    updates.ads_channels = body.ads_channels
+      .filter((c: { name?: string } | null) => c && String(c.name || "").trim())
+      .map((c: { name?: string; fee_pct?: number }) => ({
+        name: String(c.name).trim(),
+        fee_pct: Number(c.fee_pct) || 0,
+      }));
+  }
 
   const { error } = await insforge.database
     .from("stores")

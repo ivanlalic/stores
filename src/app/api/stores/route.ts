@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUser, createServiceClient } from "@/lib/insforge/server";
 import { encrypt } from "@/lib/encryption";
 
+const STORE_COLUMNS = "id, name, type, fee_gestion_eur, costo_rechazo, dias_rolling, dias_excluir, market, ads_label_1, ads_label_2, ads_channels, created_at";
+
 export async function GET() {
   const user = await getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -11,7 +13,7 @@ export async function GET() {
   // Owned stores
   const { data: owned, error: ownedError } = await insforge.database
     .from("stores")
-    .select("id, name, type, fee_gestion_eur, costo_rechazo, dias_rolling, dias_excluir, market, created_at")
+    .select(STORE_COLUMNS)
     .eq("user_id", user.id)
     .order("created_at", { ascending: true });
 
@@ -28,7 +30,7 @@ export async function GET() {
   const { data: shared } = memberStoreIds.length
     ? await insforge.database
         .from("stores")
-        .select("id, name, type, fee_gestion_eur, costo_rechazo, dias_rolling, dias_excluir, market, created_at")
+        .select(STORE_COLUMNS)
         .in("id", memberStoreIds)
         .neq("user_id", user.id)
         .order("created_at", { ascending: true })
