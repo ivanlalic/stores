@@ -1,15 +1,19 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { Suspense, useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { SyncButton } from "@/components/sync-button";
-import { KpiCards, KpiCardsSecondary } from "@/components/kpi-cards";
-import { BreakevenCards } from "@/components/breakeven-cards";
-import { SalesChart } from "@/components/sales-chart";
+import { SyncV3Button } from "@/components/sync-v3-button";
+import { VentasCard, PnlCard, TasaEntregaCard, GastosCard, CpaCard } from "@/components/kpi-cards";
+import { EquilibrioCard } from "@/components/breakeven-cards";
+import { ChartStrip } from "@/components/sales-chart";
+import { LoadingSpinner } from "@/components/loading-spinner";
 import { DailyTable } from "@/components/daily-table";
 import { AdsInputModal } from "@/components/ads-input-modal";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronLeft, ChevronRight, MousePointerClick } from "lucide-react";
+import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { DailyRow, BreakevenMetrics } from "@/lib/queries/dashboard";
 
 function getCurrentMonth() {
@@ -38,75 +42,125 @@ function nextMonth(month: string) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-export default function DashboardPage() {
+function DashboardContent() {
+  const searchParams = useSearchParams();
+  const storeId = searchParams.get("store") || "";
+
   const [month, setMonth] = useState(getCurrentMonth);
   const [rows, setRows] = useState<DailyRow[]>([]);
   const [beMetrics, setBeMetrics] = useState<BreakevenMetrics | null>(null);
+  const [beConfig, setBeConfig] = useState<{ costo_rechazo: number; dias_rolling: number; ads_label_1: string; ads_label_2: string; ads_channels?: { name: string; fee_pct: number }[] }>({ costo_rechazo: 13.76, dias_rolling: 30, ads_label_1: "Meta Ads", ads_label_2: "TikTok Ads" });
+  const [storeName, setStoreName] = useState("");
   const [loading, setLoading] = useState(true);
+
+  const [wallet, setWallet] = useState<{
+    balance: number;
+    fondos_disponibles: number;
+    total_pendientes: number;
+    costo_rechazo: number;
+    retirable: number;
+  } | null>(null);
+  const [walletLoading, setWalletLoading] = useState(false);
+
+  const fetchWallet = useCallback(async () => {
+    setWalletLoading(true);
+    try {
+      const storeParam = storeId ? `?store_id=${storeId}` : "";
+      const res = await fetch(`/api/dropea/wallet${storeParam}`);
+      if (!res.ok) return;
+      const d = await res.json();
+      setWallet(d);
+    } catch {
+      // no-op
+    } finally {
+      setWalletLoading(false);
+    }
+  }, [storeId]);
+
+  useEffect(() => {
+    fetchWallet();
+  }, [fetchWallet]);
 
   const [adsModal, setAdsModal] = useState<{
     open: boolean;
     fecha: string;
-    metaAds: number;
-    tiktokAds: number;
-  }>({ open: false, fecha: "", metaAds: 0, tiktokAds: 0 });
+    channels?: { name: string; base: number; fee_pct: number; total: number }[];
+  }>({ open: false, fecha: "" });
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/dashboard?type=daily&month=${month}`);
+      const storeParam = storeId ? `&store_id=${storeId}` : "";
+      const res = await fetch(`/api/dashboard?type=daily&month=${month}${storeParam}`);
       const data = await res.json();
       setRows(data.rows || []);
       setBeMetrics(data.breakevenMetrics || null);
+      if (data.breakevenConfig) setBeConfig(data.breakevenConfig);
+      if (data.storeName) setStoreName(data.storeName);
     } catch {
       // handle error
     } finally {
       setLoading(false);
     }
-  }, [month]);
+  }, [month, storeId]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  function handleRowClick(fecha: string, metaAds: number, tiktokAds: number) {
-    setAdsModal({ open: true, fecha, metaAds, tiktokAds });
+  function handleRowClick(fecha: string, channels?: { name: string; base: number; fee_pct: number; total: number }[]) {
+    setAdsModal({ open: true, fecha, channels });
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-3 sm:space-y-4">
       {/* Header bar */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1 sm:gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            className="size-8"
-            onClick={() => setMonth(prevMonth(month))}
-          >
-            <ChevronLeft className="size-4" />
-          </Button>
-          <h2 className="text-base sm:text-xl font-semibold min-w-0 sm:min-w-[170px] text-center tracking-tight">
-            {monthLabel(month)}
-          </h2>
-          <Button
-            variant="outline"
-            size="icon"
-            className="size-8"
-            onClick={() => setMonth(nextMonth(month))}
-            disabled={month >= getCurrentMonth()}
-          >
-            <ChevronRight className="size-4" />
-          </Button>
+      <div className="flex items-center gap-2 relative">
+        <SidebarTrigger className="size-8 shrink-0" />
+        <Button
+          variant="outline"
+          size="icon"
+          className="size-8"
+          onClick={() => setMonth(prevMonth(month))}
+        >
+          <ChevronLeft className="size-4" />
+        </Button>
+        <h2 className="text-base sm:text-lg font-semibold min-w-[100px] sm:min-w-[130px] text-center tracking-tight">
+          {monthLabel(month)}
+        </h2>
+        <Button
+          variant="outline"
+          size="icon"
+          className="size-8"
+          onClick={() => setMonth(nextMonth(month))}
+          disabled={month >= getCurrentMonth()}
+        >
+          <ChevronRight className="size-4" />
+        </Button>
+
+        {/* Center: Active Store Badge */}
+        {storeName && (
+          <div className="absolute left-1/2 -translate-x-1/2 hidden md:flex items-center gap-2 px-3 py-1 bg-accent/40 rounded-full border border-border/80 shadow-sm backdrop-blur-sm">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="font-bold text-xs tracking-tight text-foreground">{storeName}</span>
+            <span className="text-[9px] font-semibold text-muted-foreground uppercase bg-background px-1.5 py-0.5 rounded border border-border/60">
+              Dropea
+            </span>
+          </div>
+        )}
+
+        <div className="flex-1" />
+        <div className="flex items-center gap-1.5">
+          <SyncButton onComplete={fetchData} storeId={storeId || undefined} />
+          <SyncV3Button onComplete={fetchData} storeId={storeId || undefined} />
         </div>
-        <SyncButton onComplete={fetchData} />
       </div>
 
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
-          <div className="size-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-          <p className="text-sm">Cargando datos...</p>
-        </div>
+        <LoadingSpinner />
       ) : rows.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-2">
           <p className="text-sm">No hay datos para este mes.</p>
@@ -114,34 +168,56 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          {/* KPI Cards - primary metrics */}
-          <KpiCards rows={rows} />
+          {/* All KPI cards — 5+2, single row on 2xl ultrawide */}
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+            <VentasCard rows={rows} />
+            <PnlCard rows={rows} costoRechazo={beConfig.costo_rechazo} />
+            <TasaEntregaCard rows={rows} />
+            <EquilibrioCard metrics={beMetrics} diasRolling={beConfig.dias_rolling} />
+            <GastosCard rows={rows} />
+            <CpaCard rows={rows} />
+            {wallet !== null && (
+              <Card>
+                <CardHeader className="pb-1 pt-3 px-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-xs text-muted-foreground">Wallet</CardTitle>
+                    <button
+                      onClick={fetchWallet}
+                      disabled={walletLoading}
+                      className="text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <RefreshCw className={`size-3 ${walletLoading ? "animate-spin" : ""}`} />
+                    </button>
+                  </div>
+                </CardHeader>
+                <CardContent className="px-3 pb-3">
+                  <p className="text-2xl font-bold">
+                    €{wallet.fondos_disponibles.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                  <p className={`text-xs font-medium ${wallet.retirable >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                    Retirable: €{wallet.retirable.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                  {wallet.total_pendientes > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {wallet.total_pendientes} pend. × €{wallet.costo_rechazo}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
 
-          {/* Break-even cards */}
-          <BreakevenCards metrics={beMetrics} />
+          {/* Chart strip — thin full-width trend, decoupled from grid */}
+          <ChartStrip rows={rows} />
 
-          {/* Chart */}
-          <SalesChart rows={rows} />
-
-          {/* Secondary KPIs + Table */}
-          <Tabs defaultValue="detalle" className="space-y-4">
-            <TabsList>
-              <TabsTrigger value="detalle">Detalle Diario</TabsTrigger>
-              <TabsTrigger value="costos">Costos & CPA</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="detalle" className="space-y-4">
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <MousePointerClick className="size-3.5" />
-                <span>Click en una fila para editar los Ads de ese día</span>
-              </div>
-              <DailyTable rows={rows} onRowClick={handleRowClick} />
-            </TabsContent>
-
-            <TabsContent value="costos" className="space-y-4">
-              <KpiCardsSecondary rows={rows} />
-            </TabsContent>
-          </Tabs>
+          {/* Table */}
+          <DailyTable
+            rows={rows}
+            onRowClick={handleRowClick}
+            label1={beConfig.ads_label_1}
+            label2={beConfig.ads_label_2}
+            adsChannels={beConfig.ads_channels}
+          />
         </>
       )}
 
@@ -149,10 +225,21 @@ export default function DashboardPage() {
         open={adsModal.open}
         onOpenChange={(open) => setAdsModal((m) => ({ ...m, open }))}
         fecha={adsModal.fecha}
-        initialMetaAds={adsModal.metaAds}
-        initialTiktokAds={adsModal.tiktokAds}
+        channels={beConfig.ads_channels}
+        initialChannels={adsModal.channels}
         onSave={fetchData}
+        storeId={storeId || undefined}
+        label1={beConfig.ads_label_1}
+        label2={beConfig.ads_label_2}
       />
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={null}>
+      <DashboardContent />
+    </Suspense>
   );
 }

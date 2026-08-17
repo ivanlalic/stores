@@ -6,206 +6,809 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SyncButton } from "@/components/sync-button";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/insforge/client";
+import { clearAuthCookies } from "@/lib/utils";
+import { Plus, Trash2, Copy, Check } from "lucide-react";
 
-export default function SettingsPage() {
-  const router = useRouter();
-  const [storeName, setStoreName] = useState("Mi Tienda");
-  const [newApiKey, setNewApiKey] = useState("");
-  const [feeGestion, setFeeGestion] = useState("0");
-  const [hasApiKey, setHasApiKey] = useState(false);
-  const [costoRechazo, setCostoRechazo] = useState("13");
-  const [diasRolling, setDiasRolling] = useState("30");
-  const [diasExcluir, setDiasExcluir] = useState("4");
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
+interface StoreData {
+  id: string;
+  name: string;
+  type: "dropea" | "dropi";
+  fee_gestion_eur: number;
+  costo_rechazo: number;
+  dias_rolling: number;
+  dias_excluir: number;
+  market: string | null;
+  has_api_key: boolean;
+  has_webhook_secret: boolean;
+  has_dropea_credentials: boolean;
+  has_dropi_credentials: boolean;
+  is_owner: boolean;
+  ads_channels: { name: string; fee_pct: number }[] | null;
+}
+
+interface StoreFormState {
+  name: string;
+  newApiKey: string;
+  newWebhookSecret: string;
+  market: string;
+  dropeaEmail: string;
+  dropeaPassword: string;
+  feeGestion: string;
+  costoRechazo: string;
+  diasRolling: string;
+  diasExcluir: string;
+  dropiEmail: string;
+  dropiPwd: string;
+  adsChannels: { name: string; fee_pct: number }[];
+  saving: boolean;
+  message: string;
+}
+
+function useStoreForm(store: StoreData): [StoreFormState, (patch: Partial<StoreFormState>) => void] {
+  const [state, setState] = useState<StoreFormState>({
+    name: store.name,
+    newApiKey: "",
+    newWebhookSecret: "",
+    market: store.market || "",
+    dropeaEmail: "",
+    dropeaPassword: "",
+    feeGestion: String(store.fee_gestion_eur ?? 0),
+    costoRechazo: String(store.costo_rechazo ?? 13.76),
+    diasRolling: String(store.dias_rolling ?? 30),
+    diasExcluir: String(store.dias_excluir ?? 4),
+    dropiEmail: "",
+    dropiPwd: "",
+    adsChannels: store.ads_channels?.length ? store.ads_channels.map((c) => ({ name: c.name, fee_pct: c.fee_pct })) : [],
+    saving: false,
+    message: "",
+  });
+  return [state, (patch) => setState((s) => ({ ...s, ...patch }))];
+}
+
+function DropeaStoreCard({
+  store,
+  onSaved,
+  onDeleted,
+}: {
+  store: StoreData;
+  onSaved: () => void;
+  onDeleted: () => void;
+}) {
+  const [f, setF] = useStoreForm(store);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const [inviteUrl, setInviteUrl] = useState("");
 
   useEffect(() => {
-    async function load() {
-      const res = await fetch("/api/config");
-      const data = await res.json();
-      if (data.config) {
-        setFeeGestion(String(data.config.fee_gestion_eur || 0));
-        setHasApiKey(data.config.has_api_key);
-        setStoreName(data.config.store_name || "Mi Tienda");
-        setCostoRechazo(String(data.config.costo_rechazo ?? 13));
-        setDiasRolling(String(data.config.dias_rolling ?? 30));
-        setDiasExcluir(String(data.config.dias_excluir ?? 4));
-      }
+    if (!confirmDelete) {
+      setDeleteError("");
     }
-    load();
-  }, []);
+  }, [confirmDelete]);
+  const [generatingInvite, setGeneratingInvite] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  async function handleGenerateInvite() {
+    setGeneratingInvite(true);
+    try {
+      const res = await fetch(`/api/stores/${store.id}/invite`, { method: "POST" });
+      if (!res.ok) throw new Error();
+      const d = await res.json();
+      setInviteUrl(d.inviteUrl);
+    } catch {
+      // silent
+    } finally {
+      setGeneratingInvite(false);
+    }
+  }
+
+  async function handleCopy() {
+    await navigator.clipboard.writeText(inviteUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  if (!store.is_owner) {
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">{store.name}</CardTitle>
+            <Badge variant="secondary">Dropea</Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            Tienda compartida — solo el propietario puede editar la configuración.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   async function handleSave() {
-    setSaving(true);
-    setMessage("");
+    setF({ saving: true, message: "" });
     try {
       const body: Record<string, unknown> = {
-        fee_gestion_eur: parseFloat(feeGestion) || 0,
-        store_name: storeName.trim() || "Mi Tienda",
-        costo_rechazo: parseFloat(costoRechazo) || 13,
-        dias_rolling: parseInt(diasRolling) || 30,
-        dias_excluir: parseInt(diasExcluir) || 4,
+        name: f.name.trim() || store.name,
+        fee_gestion_eur: parseFloat(f.feeGestion) || 0,
+        costo_rechazo: f.costoRechazo === "" ? 13.76 : parseFloat(f.costoRechazo),
+        dias_rolling: parseInt(f.diasRolling) || 30,
+        dias_excluir: parseInt(f.diasExcluir) || 4,
+        ads_channels: f.adsChannels.filter((c) => c.name.trim()).map((c) => ({ name: c.name.trim(), fee_pct: c.fee_pct })),
       };
-      if (newApiKey) {
-        body.dropea_api_key = newApiKey;
-      }
-      const res = await fetch("/api/config", {
+      if (f.newApiKey) body.dropea_api_key = f.newApiKey;
+      if (f.newWebhookSecret) body.dropea_webhook_secret = f.newWebhookSecret;
+      if (f.market) body.market = f.market;
+      if (f.dropeaEmail) body.dropea_email = f.dropeaEmail;
+      if (f.dropeaPassword) body.dropea_pwd = f.dropeaPassword;
+      const res = await fetch(`/api/stores/${store.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error("Error guardando");
-      setMessage("Configuracion guardada");
-      if (newApiKey) {
-        setHasApiKey(true);
-        setNewApiKey("");
+      setF({ message: "Guardado", newApiKey: "", newWebhookSecret: "", dropeaEmail: "", dropeaPassword: "" });
+      onSaved();
+    } catch {
+      setF({ message: "Error al guardar" });
+    } finally {
+      setF({ saving: false });
+    }
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      const res = await fetch(`/api/stores/${store.id}`, { method: "DELETE" });
+      if (res.ok) {
+        setConfirmDelete(false);
+        onDeleted();
+      } else {
+        const data = await res.json();
+        setDeleteError(data.error || "No se pudo eliminar la tienda. Asegúrate de que no haya dependencias.");
       }
     } catch {
-      setMessage("Error al guardar");
+      setDeleteError("Error de conexión al eliminar la tienda.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base">{store.name}</CardTitle>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary">Dropea</Badge>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7 text-muted-foreground hover:text-destructive"
+              onClick={() => setConfirmDelete(true)}
+            >
+              <Trash2 className="size-3.5" />
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label>Nombre de la tienda</Label>
+          <Input value={f.name} onChange={(e) => setF({ name: e.target.value })} />
+          <p className="text-xs text-muted-foreground">Se muestra en el menú lateral.</p>
+        </div>
+
+        <div className="space-y-2">
+          <Label>API Key Dropea</Label>
+          {store.has_api_key && (
+            <p className="text-xs text-muted-foreground">Configurada. Deja vacío para no cambiar.</p>
+          )}
+          <Input
+            type="password"
+            placeholder={store.has_api_key ? "******* (sin cambios)" : "AIza..."}
+            value={f.newApiKey}
+            onChange={(e) => setF({ newApiKey: e.target.value })}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Mercado Dropea</Label>
+          <select
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            value={f.market}
+            onChange={(e) => setF({ market: e.target.value })}
+          >
+            <option value="">Sin definir (API v1)</option>
+            <option value="ES">España (ES)</option>
+            <option value="PT">Portugal (PT)</option>
+            <option value="IT">Italia (IT)</option>
+          </select>
+          <p className="text-xs text-muted-foreground">
+            Activa la sincronización por API v2 para ese mercado. Requiere la API key v2 correspondiente.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Webhook secret Dropea</Label>
+          {store.has_webhook_secret && (
+            <p className="text-xs text-muted-foreground">Configurado. Deja vacío para no cambiar.</p>
+          )}
+          <Input
+            type="password"
+            placeholder={store.has_webhook_secret ? "******* (sin cambios)" : "HMAC secret"}
+            value={f.newWebhookSecret}
+            onChange={(e) => setF({ newWebhookSecret: e.target.value })}
+          />
+          <p className="text-xs text-muted-foreground">
+            Secreto HMAC para firmar webhooks v2. Se muestra una vez al crear la API key en Dropea.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Email Dropea (wallet)</Label>
+          {store.has_dropea_credentials && (
+            <p className="text-xs text-muted-foreground">Configurado. Deja vacío para no cambiar.</p>
+          )}
+          <Input
+            type="email"
+            autoComplete="off"
+            placeholder="correo@dropea.com"
+            value={f.dropeaEmail}
+            onChange={(e) => setF({ dropeaEmail: e.target.value })}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Contraseña Dropea (wallet)</Label>
+          <Input
+            type="password"
+            autoComplete="new-password"
+            placeholder={store.has_dropea_credentials ? "******* (sin cambios)" : "Contraseña de app.dropea.com"}
+            value={f.dropeaPassword}
+            onChange={(e) => setF({ dropeaPassword: e.target.value })}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Canales de Ads</Label>
+          <p className="text-xs text-muted-foreground">
+            Define los canales publicitarios (Meta UpRoas, Meta SM, TikTok, etc.), su % de comisión agencia predeterminado y el orden en que se muestran. Si se usan, el modal de ads y la tabla los muestran como campos separados.
+          </p>
+          <div className="space-y-2">
+            {f.adsChannels.map((c, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <Input
+                  className="flex-1"
+                  placeholder="Nombre del canal"
+                  value={c.name}
+                  onChange={(e) => {
+                    const next = [...f.adsChannels];
+                    next[i] = { ...next[i], name: e.target.value };
+                    setF({ adsChannels: next });
+                  }}
+                />
+                <Input
+                  className="w-24"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="100"
+                  placeholder="%"
+                  value={c.fee_pct}
+                  onChange={(e) => {
+                    const next = [...f.adsChannels];
+                    next[i] = { ...next[i], fee_pct: parseFloat(e.target.value) || 0 };
+                    setF({ adsChannels: next });
+                  }}
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+                  onClick={() => setF({ adsChannels: f.adsChannels.filter((_, idx) => idx !== i) })}
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </div>
+            ))}
+            {f.adsChannels.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                Sin canales personalizados. Se usa el formato clásico de 2 campos.
+              </p>
+            )}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setF({ adsChannels: [...f.adsChannels, { name: "", fee_pct: 0 }] })}
+          >
+            <Plus className="size-3.5 mr-1" /> Añadir canal
+          </Button>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Fee de gestión (€ / pedido enviado)</Label>
+          <Input
+            type="number" step="0.01" min="0"
+            value={f.feeGestion}
+            onChange={(e) => setF({ feeGestion: e.target.value })}
+          />
+          <p className="text-xs text-muted-foreground">Cobro fijo de gestor externo por pedido enviado. 0 si no aplica.</p>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Costo por rechazo (€)</Label>
+          <Input
+            type="number" step="0.01" min="0"
+            value={f.costoRechazo}
+            onChange={(e) => setF({ costoRechazo: e.target.value })}
+          />
+          <p className="text-xs text-muted-foreground">
+            Lo que cobra Dropea por cada pedido rechazado/devuelto. Por defecto €13.76.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Días rolling para promedios</Label>
+          <Input
+            type="number" step="1" min="7" max="90"
+            value={f.diasRolling}
+            onChange={(e) => setF({ diasRolling: e.target.value })}
+          />
+          <p className="text-xs text-muted-foreground">
+            Ventana de días para calcular bruto/enviado y tasa de rechazo promedio (break-even). Por defecto 30.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Días a excluir del rechazo</Label>
+          <Input
+            type="number" step="1" min="0" max="14"
+            value={f.diasExcluir}
+            onChange={(e) => setF({ diasExcluir: e.target.value })}
+          />
+          <p className="text-xs text-muted-foreground">
+            Los últimos N días se excluyen del cálculo de tasa de rechazo. Por defecto 4.
+          </p>
+        </div>
+
+        {f.message && (
+          <p className={`text-sm ${f.message.includes("Error") ? "text-destructive" : "text-green-600"}`}>
+            {f.message}
+          </p>
+        )}
+        <Button onClick={handleSave} disabled={f.saving} className="w-full">
+          {f.saving ? "Guardando..." : `Guardar ${store.name}`}
+        </Button>
+
+        <div className="border-t pt-4 space-y-2">
+          <p className="text-sm font-medium">Compartir tienda</p>
+          <p className="text-xs text-muted-foreground">Genera un enlace de invitación para dar acceso de editor.</p>
+          {!inviteUrl ? (
+            <Button variant="outline" size="sm" onClick={handleGenerateInvite} disabled={generatingInvite} className="w-full">
+              {generatingInvite ? "Generando..." : "Generar enlace de invitación"}
+            </Button>
+          ) : (
+            <div className="flex gap-2">
+              <Input readOnly value={inviteUrl} className="text-xs" />
+              <Button variant="outline" size="icon" onClick={handleCopy}>
+                {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+              </Button>
+            </div>
+          )}
+        </div>
+      </CardContent>
+
+      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Eliminar tienda</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            ¿Eliminar <strong>{store.name}</strong>? Esta acción no se puede deshacer. Los pedidos sincronizados se perderán.
+          </p>
+          {deleteError && (
+            <p className="text-xs text-destructive bg-destructive/10 p-2 rounded border border-destructive/20 mt-2">
+              {deleteError}
+            </p>
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setConfirmDelete(false)} disabled={deleting}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting ? "Eliminando..." : "Eliminar"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}
+
+function DropiStoreCard({
+  store,
+  onSaved,
+  onDeleted,
+}: {
+  store: StoreData;
+  onSaved: () => void;
+  onDeleted: () => void;
+}) {
+  const [f, setF] = useStoreForm(store);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  useEffect(() => {
+    if (!confirmDelete) {
+      setDeleteError("");
+    }
+  }, [confirmDelete]);
+
+  if (!store.is_owner) {
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">{store.name}</CardTitle>
+            <Badge variant="secondary">Dropi</Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            Tienda compartida — solo el propietario puede editar la configuración.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  async function handleSave() {
+    if (!f.dropiEmail.trim() || !f.dropiPwd.trim()) {
+      setF({ message: "Ingresa email Y contraseña para actualizar credenciales" });
+      return;
+    }
+    setF({ saving: true, message: "" });
+    try {
+      const body: Record<string, unknown> = { name: f.name.trim() || store.name };
+      if (f.dropiEmail) body.dropi_email = f.dropiEmail.trim();
+      if (f.dropiPwd) body.dropi_pwd = f.dropiPwd.trim();
+      const res = await fetch(`/api/stores/${store.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error("Error guardando");
+      setF({ message: "Credenciales guardadas", dropiEmail: "", dropiPwd: "" });
+      onSaved();
+    } catch {
+      setF({ message: "Error al guardar" });
+    } finally {
+      setF({ saving: false });
+    }
+  }
+
+  async function handleSaveName() {
+    if (!f.name.trim()) return;
+    setF({ saving: true, message: "" });
+    try {
+      const res = await fetch(`/api/stores/${store.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: f.name.trim() }),
+      });
+      if (!res.ok) throw new Error();
+      setF({ message: "Nombre guardado" });
+      onSaved();
+    } catch {
+      setF({ message: "Error al guardar" });
+    } finally {
+      setF({ saving: false });
+    }
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      const res = await fetch(`/api/stores/${store.id}`, { method: "DELETE" });
+      if (res.ok) {
+        setConfirmDelete(false);
+        onDeleted();
+      } else {
+        const data = await res.json();
+        setDeleteError(data.error || "No se pudo eliminar la tienda. Asegúrate de que no haya dependencias.");
+      }
+    } catch {
+      setDeleteError("Error de conexión al eliminar la tienda.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  const webhookUrl = `https://stores-steel.vercel.app/api/dropi/webhook`;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base">{store.name}</CardTitle>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary">Dropi</Badge>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7 text-muted-foreground hover:text-destructive"
+              onClick={() => setConfirmDelete(true)}
+            >
+              <Trash2 className="size-3.5" />
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label>Nombre de la tienda</Label>
+          <div className="flex gap-2">
+            <Input value={f.name} onChange={(e) => setF({ name: e.target.value })} />
+            <Button variant="outline" onClick={handleSaveName} disabled={f.saving}>Guardar</Button>
+          </div>
+          <p className="text-xs text-muted-foreground">Se muestra en el menú lateral.</p>
+        </div>
+
+        <p className="text-xs text-muted-foreground">
+          {store.has_dropi_credentials
+            ? "Credenciales configuradas. Ingresa email + contraseña nuevos para actualizarlas."
+            : "Ingresa las credenciales de dropipro.com para sincronizar automáticamente."}
+        </p>
+
+        <div className="space-y-2">
+          <Label>Email Dropi</Label>
+          <Input
+            type="text"
+            autoComplete="off"
+            placeholder="email@ejemplo.com"
+            value={f.dropiEmail}
+            onChange={(e) => setF({ dropiEmail: e.target.value })}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Contraseña Dropi</Label>
+          <Input
+            type="password"
+            autoComplete="new-password"
+            placeholder="Contraseña de dropipro.com"
+            value={f.dropiPwd}
+            onChange={(e) => setF({ dropiPwd: e.target.value })}
+          />
+        </div>
+
+        {f.message && (
+          <p className={`text-sm ${f.message.includes("Error") || f.message.includes("Ingresa") ? "text-destructive" : "text-green-600"}`}>
+            {f.message}
+          </p>
+        )}
+        <Button onClick={handleSave} disabled={f.saving} className="w-full">
+          {f.saving ? "Guardando..." : `Guardar credenciales ${store.name}`}
+        </Button>
+
+        <p className="text-xs text-muted-foreground">
+          Webhook:{" "}
+          <code className="bg-muted px-1 rounded text-xs">{webhookUrl}</code>
+        </p>
+      </CardContent>
+
+      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Eliminar tienda</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            ¿Eliminar <strong>{store.name}</strong>? Esta acción no se puede deshacer.
+          </p>
+          {deleteError && (
+            <p className="text-xs text-destructive bg-destructive/10 p-2 rounded border border-destructive/20 mt-2">
+              {deleteError}
+            </p>
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setConfirmDelete(false)} disabled={deleting}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting ? "Eliminando..." : "Eliminar"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}
+
+function AddStoreModal({ open, onOpenChange, onCreated }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onCreated: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [type, setType] = useState<"dropea" | "dropi">("dropea");
+  const [apiKey, setApiKey] = useState("");
+  const [dropiEmail, setDropiEmail] = useState("");
+  const [dropiPwd, setDropiPwd] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleCreate() {
+    if (!name.trim()) { setError("El nombre es obligatorio"); return; }
+    setSaving(true);
+    setError("");
+    try {
+      const body: Record<string, unknown> = { name: name.trim(), type };
+      if (type === "dropea" && apiKey) body.dropea_api_key = apiKey;
+      if (type === "dropi" && dropiEmail) body.dropi_email = dropiEmail;
+      if (type === "dropi" && dropiPwd) body.dropi_pwd = dropiPwd;
+
+      const res = await fetch("/api/stores", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error || "Error");
+      }
+      setName(""); setApiKey(""); setDropiEmail(""); setDropiPwd("");
+      onCreated();
+      onOpenChange(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error al crear");
     } finally {
       setSaving(false);
     }
   }
 
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Agregar tienda</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Nombre</Label>
+            <Input placeholder="Mi Nueva Tienda" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label>Plataforma</Label>
+            <div className="flex gap-2">
+              <Button
+                variant={type === "dropea" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setType("dropea")}
+              >Dropea</Button>
+              <Button
+                variant={type === "dropi" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setType("dropi")}
+              >Dropi</Button>
+            </div>
+          </div>
+          {type === "dropea" && (
+            <div className="space-y-2">
+              <Label>API Key (opcional)</Label>
+              <Input type="password" placeholder="AIza..." value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
+            </div>
+          )}
+          {type === "dropi" && (
+            <>
+              <div className="space-y-2">
+                <Label>Email Dropi</Label>
+                <Input type="text" autoComplete="off" value={dropiEmail} onChange={(e) => setDropiEmail(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Contraseña Dropi</Label>
+                <Input type="password" autoComplete="new-password" value={dropiPwd} onChange={(e) => setDropiPwd(e.target.value)} />
+              </div>
+            </>
+          )}
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+            <Button onClick={handleCreate} disabled={saving}>
+              {saving ? "Creando..." : "Crear tienda"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export default function SettingsPage() {
+  const router = useRouter();
+  const [stores, setStores] = useState<StoreData[]>([]);
+  const [addOpen, setAddOpen] = useState(false);
+
+  async function loadStores() {
+    const res = await fetch("/api/stores");
+    const data = await res.json();
+    setStores(data.stores || []);
+  }
+
+  useEffect(() => {
+    loadStores();
+  }, []);
+
   async function handleLogout() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    const insforge = createClient();
+    await insforge.auth.signOut();
+    clearAuthCookies();
     router.push("/login");
   }
 
   return (
-    <div className="max-w-lg mx-auto space-y-6">
-      <h2 className="text-lg font-semibold">Configuracion</h2>
+    <div className="max-w-lg mx-auto space-y-6" id="settings">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Mis tiendas</h2>
+        <Button variant="outline" size="sm" onClick={() => setAddOpen(true)}>
+          <Plus className="size-4 mr-1" />
+          Agregar tienda
+        </Button>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Tu tienda</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Nombre de la tienda</Label>
-            <Input
-              placeholder="Ej: IBericaStore"
-              value={storeName}
-              onChange={(e) => setStoreName(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Se muestra en la barra de navegacion.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      {stores.map((store) =>
+        store.type === "dropea" ? (
+          <DropeaStoreCard
+            key={store.id}
+            store={store}
+            onSaved={loadStores}
+            onDeleted={loadStores}
+          />
+        ) : (
+          <DropiStoreCard
+            key={store.id}
+            store={store}
+            onSaved={loadStores}
+            onDeleted={loadStores}
+          />
+        )
+      )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">API de Dropea</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>API Key</Label>
-            {hasApiKey && (
-              <p className="text-xs text-muted-foreground">
-                API key configurada. Ingresa una nueva para reemplazarla.
-              </p>
-            )}
-            <Input
-              type="password"
-              placeholder={hasApiKey ? "******* (dejar vacio para no cambiar)" : "AIza..."}
-              value={newApiKey}
-              onChange={(e) => setNewApiKey(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Fee de gestion (EUR por pedido enviado)</Label>
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              value={feeGestion}
-              onChange={(e) => setFeeGestion(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Monto fijo en EUR cobrado por gestor externo por pedido enviado. 0 si no aplica.
-            </p>
-          </div>
-          {message && (
-            <p className={`text-sm ${message.includes("Error") ? "text-destructive" : "text-green-600"}`}>
-              {message}
-            </p>
-          )}
-          <Button onClick={handleSave} disabled={saving} className="w-full">
-            {saving ? "Guardando..." : "Guardar"}
-          </Button>
-        </CardContent>
-      </Card>
+      {stores.length === 0 && (
+        <p className="text-sm text-muted-foreground text-center py-8">
+          No hay tiendas configuradas.
+        </p>
+      )}
 
+      {/* Sync */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Break-Even</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Costo por rechazo (EUR)</Label>
-            <Input
-              type="number"
-              step="0.5"
-              min="0"
-              value={costoRechazo}
-              onChange={(e) => setCostoRechazo(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Costo fijo por cada pedido rechazado. Por defecto €13.
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label>Días rolling para promedios</Label>
-            <Input
-              type="number"
-              step="1"
-              min="7"
-              max="90"
-              value={diasRolling}
-              onChange={(e) => setDiasRolling(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Ventana de días para calcular bruto/enviado y tasa de rechazo. Por defecto 30.
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label>Días a excluir (rechazo)</Label>
-            <Input
-              type="number"
-              step="1"
-              min="0"
-              max="14"
-              value={diasExcluir}
-              onChange={(e) => setDiasExcluir(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Últimos N días a excluir del cálculo de tasa de rechazo (pendientes en tránsito). Por defecto 4.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Sincronizacion</CardTitle>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Sincronización</CardTitle>
         </CardHeader>
         <CardContent>
           <SyncButton />
         </CardContent>
       </Card>
 
+      {/* Logout */}
       <Card>
         <CardContent className="pt-6">
           <Button variant="outline" onClick={handleLogout} className="w-full">
-            Cerrar sesion
+            Cerrar sesión
           </Button>
         </CardContent>
       </Card>
+
+      <AddStoreModal
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        onCreated={loadStores}
+      />
     </div>
   );
 }

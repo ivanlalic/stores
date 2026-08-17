@@ -1,6 +1,6 @@
-import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { Suspense } from "react";
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
-import { Separator } from "@/components/ui/separator";
 
 export default function DashboardLayout({
   children,
@@ -9,14 +9,11 @@ export default function DashboardLayout({
 }) {
   return (
     <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 !h-4" />
-          <h1 className="text-sm font-medium text-muted-foreground">Dropea Dashboard</h1>
-        </header>
-        <main className="flex-1 p-3 sm:p-6">{children}</main>
+      <Suspense fallback={null}>
+        <AppSidebar />
+      </Suspense>
+      <SidebarInset className="min-w-0">
+        <div className="flex-1 p-3 sm:p-4">{children}</div>
       </SidebarInset>
     </SidebarProvider>
   );

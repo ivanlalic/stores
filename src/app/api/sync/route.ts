@@ -1,8 +1,7 @@
 import { NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { createServiceClient } from "@/lib/supabase/server";
+import { getUser, createServiceClient } from "@/lib/insforge/server";
 import { decrypt } from "@/lib/encryption";
-import { fetchAllOrders, getDateRange, getDateRange48h, type DropeaOrder } from "@/lib/dropea/client";
+import { fetchAllOrders, getDateRange, getDateRangeUpdatedAt, type DropeaOrder } from "@/lib/dropea/client";
 import {
   isEnviado,
   isEntregado,
@@ -10,8 +9,20 @@ import {
   isCancelado,
   shouldZeroRevenue,
 } from "@/lib/dropea/status";
+import {
+  fetchAllOrdersV2,
+  fetchInFlightOrdersV2,
+  IN_FLIGHT_STATUSES,
+  IN_FLIGHT_LIGHT_STATUSES,
+  getDateRangeV2,
+  getDateRangeDaysV2,
+  type DropeaOrderV2,
+} from "@/lib/dropea/v2/client";
+import { mapOrderV2 } from "@/lib/dropea/v2/status";
+import { upsertOrders } from "@/lib/dropea/v2/upsert";
+import { getDefaultStore, requireStore, type StoreRow } from "@/lib/store-utils";
 
-function mapOrder(order: DropeaOrder, userId: string) {
+function mapOrder(order: DropeaOrder, userId: string, storeId: string) {
   const customer = order.customer;
   const nombre =
     customer?.full_name ||
@@ -33,11 +44,14 @@ function mapOrder(order: DropeaOrder, userId: string) {
   const status = order.status || "";
   const zeroRevenue = shouldZeroRevenue(status);
 
-  // Parse date from "2025-11-27 20:03:21" format
-  const fecha = order.created_at ? order.created_at.split(" ")[0] : null;
+  const fecha = order.created_at
+    ? new Date(order.created_at.replace(" ", "T") + "Z")
+        .toLocaleDateString("en-CA", { timeZone: "Europe/Madrid" })
+    : null;
 
   return {
     user_id: userId,
+    store_id: storeId,
     dropea_id: order.id,
     orden: order.external_order_id || null,
     fecha,
@@ -66,11 +80,7 @@ export async function POST(request: NextRequest) {
       try {
         send("Autenticando...");
 
-        const supabase = await createClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
+        const user = await getUser();
         if (!user) {
           send("Error: No autenticado");
           controller.close();
@@ -79,73 +89,105 @@ export async function POST(request: NextRequest) {
 
         send("Obteniendo configuracion...");
 
-        const { data: config } = await supabase
-          .from("users_config")
-          .select("dropea_api_key_encrypted")
-          .eq("id", user.id)
-          .single();
+        const insforge = createServiceClient();
+        const storeParam = request.nextUrl.searchParams.get("store_id");
 
-        if (!config?.dropea_api_key_encrypted) {
+        let store: StoreRow;
+        if (storeParam) {
+          try {
+            store = await requireStore(insforge, storeParam, user.id);
+          } catch {
+            send("Error: Tienda no encontrada");
+            controller.close();
+            return;
+          }
+        } else {
+          const defaultStore = await getDefaultStore(insforge, user.id, "dropea");
+          if (!defaultStore) {
+            send("Error: No hay tienda configurada");
+            controller.close();
+            return;
+          }
+          store = defaultStore;
+        }
+
+        if (!store?.dropea_api_key_encrypted) {
           send("Error: No hay API key configurada");
           controller.close();
           return;
         }
 
-        const apiKey = decrypt(config.dropea_api_key_encrypted);
+        const apiKey = decrypt(store.dropea_api_key_encrypted);
 
-        const mode = request.nextUrl.searchParams.get("mode");
-        const is48h = mode === "48h";
-        const { startDate, endDate } = is48h ? getDateRange48h() : getDateRange(2);
+        const market = store.market;
+        if (market) {
+          const mode = request.nextUrl.searchParams.get("mode");
+          const is48h = mode === "48h";
+          const months = parseInt(request.nextUrl.searchParams.get("months") || "2", 10);
 
-        send(`${is48h ? "Sync rápido (48h)" : "Sync completo"}: ${startDate} - ${endDate}...`);
+          const range = is48h ? getDateRangeDaysV2(15) : getDateRangeV2(months);
+          const startDate = range.startDate;
+          const endDate = range.endDate;
 
-        const orders = await fetchAllOrders(apiKey, startDate, endDate, send);
+          send(`Sincronización v2 (${market}, creados: ${startDate} - ${endDate})...`);
 
-        send(`${orders.length} pedidos obtenidos. Procesando...`);
+          const windowOrders = await fetchAllOrdersV2(apiKey, market, startDate, endDate, send);
 
-        // Map orders to DB format
-        const mappedOrders = orders.map((o) => mapOrder(o, user.id));
+          // Refresco por estado: re-sincroniza pedidos en vuelo aunque estén fuera de la
+          // ventana de created_at, para no dejar congelados como "pendientes" los que ya
+          // se resolvieron en Dropea. Los estados ligeros se refrescan siempre; el barrido
+          // pesado ERROR se hace solo en el sync completo (hay miles de REJECTED históricos).
+          send("Actualizando pedidos en vuelo (estados abiertos)...");
+          const inFlightStatuses = is48h ? IN_FLIGHT_LIGHT_STATUSES : IN_FLIGHT_STATUSES;
+          const inFlight = await fetchInFlightOrdersV2(apiKey, market, send, inFlightStatuses);
 
-        // Upsert in batches of 100
-        const serviceClient = await createServiceClient();
-        const batchSize = 100;
-        let added = 0;
-        let updated = 0;
-
-        for (let i = 0; i < mappedOrders.length; i += batchSize) {
-          const batch = mappedOrders.slice(i, i + batchSize);
-
-          // Check which exist
-          const dropeaIds = batch.map((o) => o.dropea_id);
-          const { data: existing } = await serviceClient
-            .from("pedidos")
-            .select("dropea_id")
-            .eq("user_id", user.id)
-            .in("dropea_id", dropeaIds);
-
-          const existingSet = new Set(existing?.map((e) => e.dropea_id) || []);
-
-          for (const order of batch) {
-            if (existingSet.has(order.dropea_id)) {
-              updated++;
-            } else {
-              added++;
-            }
-          }
-
-          const { error } = await serviceClient.from("pedidos").upsert(batch, {
-            onConflict: "user_id,dropea_id",
+          const seen = new Set<string>();
+          const orders = windowOrders.concat(inFlight).filter((o) => {
+            const k = String(o.id);
+            if (seen.has(k)) return false;
+            seen.add(k);
+            return true;
           });
 
-          if (error) {
-            send(`Error procesando batch: ${error.message}`);
+          send(`${orders.length} pedidos obtenidos (${windowOrders.length} por fecha + ${inFlight.length} en vuelo). Procesando...`);
+
+          const mappedOrders = orders.map((o: DropeaOrderV2) =>
+            mapOrderV2(o, user.id, store.id, market)
+          );
+
+          const { added, updated } = await upsertOrders(insforge, store, mappedOrders, send);
+
+          send(`Sincronizacion v2 completa! Nuevos: ${added} | Actualizados: ${updated}`);
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, added, updated })}\n\n`));
+        } else {
+          const mode = request.nextUrl.searchParams.get("mode");
+          const is48h = mode === "48h";
+
+          let startDate = request.nextUrl.searchParams.get("startDate") || "";
+          let endDate = request.nextUrl.searchParams.get("endDate") || "";
+
+          if (!startDate || !endDate) {
+            const months = parseInt(request.nextUrl.searchParams.get("months") || "2", 10);
+            const range = is48h ? getDateRangeUpdatedAt(15) : getDateRange(months);
+            startDate = range.startDate;
+            endDate = range.endDate;
           }
 
-          send(`Procesados ${Math.min(i + batchSize, mappedOrders.length)}/${mappedOrders.length}...`);
-        }
+          const dateField = (request.nextUrl.searchParams.get("dateField") || (is48h ? "UPDATED_AT" : "CREATED_AT")) as "CREATED_AT" | "UPDATED_AT";
 
-        send(`Sincronizacion completa! Nuevos: ${added} | Actualizados: ${updated}`);
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, added, updated })}\n\n`));
+          send(`Sincronización (${dateField}): ${startDate} - ${endDate}...`);
+
+          const orders = await fetchAllOrders(apiKey, startDate, endDate, send, dateField);
+
+          send(`${orders.length} pedidos obtenidos. Procesando...`);
+
+          const mappedOrders = orders.map((o) => mapOrder(o, user.id, store.id));
+
+          const { added, updated } = await upsertOrders(insforge, store, mappedOrders, send);
+
+          send(`Sincronizacion completa! Nuevos: ${added} | Actualizados: ${updated}`);
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, added, updated })}\n\n`));
+        }
       } catch (err) {
         send(`Error: ${err instanceof Error ? err.message : "Error desconocido"}`);
       } finally {

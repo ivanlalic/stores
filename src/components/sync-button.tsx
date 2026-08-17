@@ -1,35 +1,47 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Zap, X, CheckCircle2, AlertCircle } from "lucide-react";
+import { RefreshCw, Zap, CheckCircle2, AlertCircle, X } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface SyncButtonProps {
   onComplete?: () => void;
   className?: string;
-  /** Show both 48h quick sync and full sync buttons */
   showQuickSync?: boolean;
+  storeId?: string;
 }
 
-export function SyncButton({ onComplete, className, showQuickSync = true }: SyncButtonProps) {
+type ToastState =
+  | { status: "idle" }
+  | { status: "syncing"; message: string }
+  | { status: "done"; added: number; updated: number }
+  | { status: "error"; message: string };
+
+export function SyncButton({ onComplete, className, showQuickSync = true, storeId }: SyncButtonProps) {
   const [syncing, setSyncing] = useState(false);
   const [syncMode, setSyncMode] = useState<"48h" | "full" | null>(null);
-  const [messages, setMessages] = useState<string[]>([]);
-  const [showLog, setShowLog] = useState(false);
-  const logRef = useRef<HTMLDivElement>(null);
+  const [toast, setToast] = useState<ToastState>({ status: "idle" });
+
+  useEffect(() => {
+    if (toast.status === "done") {
+      const t = setTimeout(() => setToast({ status: "idle" }), 4000);
+      return () => clearTimeout(t);
+    }
+  }, [toast.status]);
 
   async function handleSync(mode: "48h" | "full") {
     setSyncing(true);
     setSyncMode(mode);
-    setMessages([]);
-    setShowLog(true);
+    setToast({ status: "syncing", message: "Conectando..." });
 
     try {
-      const url = mode === "48h" ? "/api/sync?mode=48h" : "/api/sync";
+      const storeParam = storeId ? `&store_id=${storeId}` : "";
+      const url = mode === "48h" ? `/api/sync?mode=48h${storeParam}` : `/api/sync?${storeParam.slice(1)}`;
       const response = await fetch(url, { method: "POST" });
 
       if (!response.body) {
-        setMessages((m) => [...m, "Error: No se pudo conectar"]);
+        setToast({ status: "error", message: "No se pudo conectar" });
         return;
       }
 
@@ -46,112 +58,114 @@ export function SyncButton({ onComplete, className, showQuickSync = true }: Sync
         buffer = lines.pop() || "";
 
         for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              if (data.message) {
-                setMessages((m) => [...m, data.message]);
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.message) {
+              if (data.message.startsWith("Error")) {
+                setToast({ status: "error", message: data.message });
+              } else {
+                setToast({ status: "syncing", message: data.message });
               }
-              if (data.done) {
-                onComplete?.();
-              }
-            } catch {
-              // skip malformed JSON
             }
+            if (data.done) {
+              setToast({ status: "done", added: data.added ?? 0, updated: data.updated ?? 0 });
+              onComplete?.();
+            }
+          } catch {
+            // skip malformed
           }
-        }
-
-        if (logRef.current) {
-          logRef.current.scrollTop = logRef.current.scrollHeight;
         }
       }
     } catch (err) {
-      setMessages((m) => [
-        ...m,
-        `Error: ${err instanceof Error ? err.message : "Error desconocido"}`,
-      ]);
+      setToast({
+        status: "error",
+        message: err instanceof Error ? err.message : "Error desconocido",
+      });
     } finally {
       setSyncing(false);
       setSyncMode(null);
     }
   }
 
-  const hasErrors = messages.some((m) => m.startsWith("Error"));
-
   return (
-    <div className={className}>
-      <div className="flex items-center gap-1.5">
-        {showQuickSync && (
-          <Button
-            onClick={() => handleSync("48h")}
-            disabled={syncing}
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-          >
-            <Zap className={`size-3.5 ${syncing && syncMode === "48h" ? "animate-pulse" : ""}`} />
-            {syncing && syncMode === "48h" ? "Sync 48h..." : "Sync 48h"}
-          </Button>
-        )}
-        <Button
-          onClick={() => handleSync("full")}
-          disabled={syncing}
-          variant="outline"
-          size="sm"
-          className="gap-1.5"
-        >
-          <RefreshCw className={`size-3.5 ${syncing && syncMode === "full" ? "animate-spin" : ""}`} />
-          {syncing && syncMode === "full" ? "Sync completo..." : "Sync completo"}
-        </Button>
+    <>
+      <div className={className}>
+        <div className="flex items-center gap-1.5">
+          {showQuickSync && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Button
+                    onClick={() => handleSync("48h")}
+                    disabled={syncing}
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                  >
+                    <Zap className={`size-3.5 ${syncing && syncMode === "48h" ? "animate-pulse" : ""}`} />
+                    <span className="hidden sm:inline">{syncing && syncMode === "48h" ? "Actualizando..." : "Actualizar"}</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[200px] text-center leading-snug">
+                  Trae pedidos actualizados en los últimos 15 días. Captura nuevos estados: rechazos, entregas, incidencias.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger>
+                <Button
+                  onClick={() => handleSync("full")}
+                  disabled={syncing}
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                >
+                  <RefreshCw className={`size-3.5 ${syncing && syncMode === "full" ? "animate-spin" : ""}`} />
+                  <span className="hidden sm:inline">{syncing && syncMode === "full" ? "Cargando..." : "Carga completa"}</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[200px] text-center leading-snug">
+                Descarga todos los pedidos de los últimos 2 meses por fecha de creación. Usar para sincronización inicial o recuperar datos históricos.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
       </div>
 
-      {showLog && messages.length > 0 && (
-        <div className="mt-3 rounded-lg border bg-card shadow-sm overflow-hidden">
-          {/* Log header */}
-          <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/50">
-            <div className="flex items-center gap-1.5 text-xs font-medium">
-              {syncing ? (
-                <RefreshCw className="size-3 animate-spin text-primary" />
-              ) : hasErrors ? (
-                <AlertCircle className="size-3 text-destructive" />
-              ) : (
-                <CheckCircle2 className="size-3 text-emerald-600" />
-              )}
-              <span>
-                {syncing
-                  ? "Sincronizando..."
-                  : hasErrors
-                  ? "Completado con errores"
-                  : "Sincronización completa"}
+      {/* Toast overlay — fixed bottom-right, non-intrusive */}
+      {toast.status !== "idle" && (
+        <div className="fixed bottom-4 right-4 z-50 flex items-start gap-2 rounded-lg border bg-card shadow-lg px-3 py-2.5 text-xs max-w-[300px] animate-in slide-in-from-bottom-2 fade-in duration-200">
+          {toast.status === "syncing" && (
+            <>
+              <RefreshCw className="size-3.5 text-primary animate-spin mt-0.5 shrink-0" />
+              <span className="text-muted-foreground truncate">{toast.message}</span>
+            </>
+          )}
+          {toast.status === "done" && (
+            <>
+              <CheckCircle2 className="size-3.5 text-emerald-600 mt-0.5 shrink-0" />
+              <span className="text-foreground">
+                {toast.added} nuevos · {toast.updated} actualizados
               </span>
-            </div>
-            {!syncing && (
-              <button
-                onClick={() => setShowLog(false)}
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <X className="size-3.5" />
+              <button onClick={() => setToast({ status: "idle" })} className="ml-auto text-muted-foreground hover:text-foreground shrink-0">
+                <X className="size-3" />
               </button>
-            )}
-          </div>
-          {/* Log body */}
-          <div
-            ref={logRef}
-            className="max-h-40 overflow-y-auto px-3 py-2 text-xs font-mono space-y-0.5"
-          >
-            {messages.map((msg, i) => (
-              <div
-                key={i}
-                className={
-                  msg.startsWith("Error") ? "text-destructive" : "text-muted-foreground"
-                }
-              >
-                {msg}
-              </div>
-            ))}
-          </div>
+            </>
+          )}
+          {toast.status === "error" && (
+            <>
+              <AlertCircle className="size-3.5 text-destructive mt-0.5 shrink-0" />
+              <span className="text-destructive truncate">{toast.message}</span>
+              <button onClick={() => setToast({ status: "idle" })} className="ml-auto text-muted-foreground hover:text-foreground shrink-0">
+                <X className="size-3" />
+              </button>
+            </>
+          )}
         </div>
       )}
-    </div>
+    </>
   );
 }

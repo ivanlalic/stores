@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   Table,
   TableBody,
@@ -17,10 +18,14 @@ import {
 import { Card } from "@/components/ui/card";
 import { Info } from "lucide-react";
 import type { DailyRow } from "@/lib/queries/dashboard";
+import type { AdChannel, AdChannelConfig } from "@/lib/ads";
 
 interface DailyTableProps {
   rows: DailyRow[];
-  onRowClick: (fecha: string, metaAds: number, tiktokAds: number) => void;
+  onRowClick: (fecha: string, channels: AdChannel[]) => void;
+  label1?: string;
+  label2?: string;
+  adsChannels?: AdChannelConfig[];
 }
 
 function formatDate(fecha: string) {
@@ -49,89 +54,150 @@ const columnInfo: Record<string, string> = {
   "%Ent": "Tasa de entrega: Entregados / Enviados",
   "Ventas": "Ventas: suma del precio de venta de los pedidos enviados",
   "Bruto": "Bruto: suma del neto (venta - costo producto) de los enviados",
-  "Ads": "Ads: gasto en Meta Ads + TikTok Ads",
+  "Ads": "Ads: gasto base en Meta Ads + TikTok Ads (sin comisión agencia)",
+  "Ads Tot.": "Ads Tot.: gasto base total consolidado en publicidad (sin comisiones)",
   "Gest.": "Gestión: costo de envío por pedido × cantidad de enviados",
-  "Gastos": "Gastos: Ads + Gestión",
+  "Gastos": "Gastos: Ads base + Comisión agencia + Gestión",
   "P&L Teo.": "P&L Teórico: Bruto - Gastos (asume que todos se entregan)",
   "P&L Real": "P&L Real: Neto entregados + Neto rechazados - Gastos",
   "%Vtas": "Margen: P&L Real / Ventas",
   "CPA Env.": "CPA Enviado: Ads / Enviados",
   "CPA Real": "CPA Real: Ads / Entregados",
+  "Comis.": "Comisión agencia: parte del gasto de Ads que corresponde a la comisión de la agencia publicitaria",
+  "%G": "Gastos ÷ Ventas — qué porcentaje de la facturación se va en gastos",
 };
 
-const columnGroups = [
-  { label: "Pedidos", cols: ["Dia", "Ped.", "Env.", "Ent.", "Pend.", "Rech.", "Canc.", "%Ent"] },
-  { label: "Finanzas", cols: ["Ventas", "Bruto", "Ads", "Gest.", "Gastos"] },
-  { label: "Resultado", cols: ["P&L Teo.", "P&L Real", "%Vtas"] },
-  { label: "CPA", cols: ["CPA Env.", "CPA Real"] },
-];
+// Columns hidden on mobile (< sm)
+const mobileHidden = new Set(["Ped.", "Ent.", "Pend.", "Rech.", "Canc.", "%Ent", "Bruto", "Ads", "Comis.", "Gest.", "Gastos", "%G", "CPA Env.", "CPA Real"]);
 
-function InfoHeader({ label }: { label: string }) {
-  const info = columnInfo[label];
-  if (!info) return <span>{label}</span>;
-
-  return (
-    <Tooltip>
-      <TooltipTrigger className="inline-flex items-center gap-0.5 cursor-help whitespace-nowrap">
-        {label}
-        <Info className="size-3 opacity-30" />
-      </TooltipTrigger>
-      <TooltipContent side="top" className="max-w-xs">
-        {info}
-      </TooltipContent>
-    </Tooltip>
+export function DailyTable({ rows, onRowClick, label1 = "Meta Ads", label2 = "TikTok Ads", adsChannels }: DailyTableProps) {
+  const [showAll, setShowAll] = useState<boolean>(() =>
+    typeof window !== "undefined" && window.localStorage.getItem("dailyTable:showAll") === "1"
   );
-}
-
-function ValueCell({ value, negative, positive, bold }: { value: string; negative?: boolean; positive?: boolean; bold?: boolean }) {
-  return (
-    <TableCell
-      className={`text-right tabular-nums ${bold ? "font-semibold" : ""} ${
-        negative ? "text-red-600 font-medium" : positive ? "text-emerald-600 font-medium" : ""
-      }`}
-    >
-      {value}
-    </TableCell>
+  const [showAdsBreakdown, setShowAdsBreakdown] = useState<boolean>(() =>
+    typeof window !== "undefined" &&
+      window.localStorage.getItem("dailyTable:showAdsBreakdown") === "1"
   );
-}
 
-export function DailyTable({ rows, onRowClick }: DailyTableProps) {
+  // Canales conocidos de la tienda (config) o derivados de las filas.
+  const channelNames: string[] = adsChannels && adsChannels.length > 0
+    ? adsChannels.map((c) => c.name)
+    : [label1, label2];
+
+  function channelBaseOf(row: DailyRow, name: string): number {
+    return row.channels.find((c) => c.name === name)?.base || 0;
+  }
+
+  useEffect(() => {
+    window.localStorage.setItem("dailyTable:showAll", showAll ? "1" : "0");
+  }, [showAll]);
+
+  useEffect(() => {
+    window.localStorage.setItem("dailyTable:showAdsBreakdown", showAdsBreakdown ? "1" : "0");
+  }, [showAdsBreakdown]);
+
+  const displayRows = [...rows].reverse();
+  const visibleRows = showAll ? displayRows : displayRows.slice(0, 5);
+
+  function hid(col: string) {
+    if (channelNames.includes(col) || col === "Ads Tot.") return "hidden sm:table-cell";
+    if (col === label1 || col === label2) return "hidden sm:table-cell";
+    return mobileHidden.has(col) ? "hidden sm:table-cell" : "";
+  }
+
+  function InfoHeader({ label }: { label: string }) {
+    const info = columnInfo[label] || `Gasto base en el canal publicitario ${label}`;
+    if (!info) return <span>{label}</span>;
+
+    return (
+      <Tooltip>
+        <TooltipTrigger className="inline-flex items-center gap-0.5 cursor-help whitespace-nowrap">
+          {label}
+          <Info className="size-3 opacity-30" />
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs">
+          {info}
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  function ValueCell({ value, negative, positive, bold, col }: { value: string; negative?: boolean; positive?: boolean; bold?: boolean; col: string }) {
+    return (
+      <TableCell
+        className={`text-right tabular-nums ${hid(col)} ${bold ? "font-semibold" : ""} ${
+          negative ? "text-red-600 font-medium" : positive ? "text-emerald-600 font-medium" : ""
+        }`}
+      >
+        {value}
+      </TableCell>
+    );
+  }
+
+  const dynamicCols = showAdsBreakdown
+    ? ["Ventas", "Bruto", ...channelNames, "Ads Tot.", "Comis.", "Gest.", "Gastos", "%G"]
+    : ["Ventas", "Bruto", "Ads", "Comis.", "Gest.", "Gastos", "%G"];
+
+  const columnGroups = [
+    { label: "Pedidos", cols: ["Dia", "Ped.", "Env.", "Ent.", "Pend.", "Rech.", "Canc.", "%Ent"] },
+    { label: "Finanzas", cols: dynamicCols },
+    { label: "Resultado", cols: ["P&L Teo.", "P&L Real", "%Vtas"] },
+    { label: "CPA", cols: ["CPA Env.", "CPA Real"] },
+  ];
+
   const totals = rows.reduce(
-    (t, r) => ({
-      pedidos: t.pedidos + r.pedidos,
-      enviados: t.enviados + r.enviados,
-      entregados: t.entregados + r.entregados,
-      rechazados: t.rechazados + r.rechazados,
-      cancelados: t.cancelados + r.cancelados,
-      pendientes: t.pendientes + r.pendientes,
-      ventas: t.ventas + r.ventas,
-      bruto: t.bruto + r.bruto,
-      total_ads: t.total_ads + r.total_ads,
-      gestion: t.gestion + r.gestion,
-      gastos: t.gastos + r.gastos,
-      pnl_teorico: t.pnl_teorico + r.pnl_teorico,
-      pnl_real: t.pnl_real + r.pnl_real,
-    }),
+    (t, r) => {
+      const channelTotals: Record<string, { base: number; total: number }> = { ...t.channels };
+      r.channels.forEach((c) => {
+        const cur = channelTotals[c.name] || { base: 0, total: 0 };
+        cur.base += c.base;
+        cur.total += c.total;
+        channelTotals[c.name] = cur;
+      });
+
+      return {
+        pedidos: t.pedidos + r.pedidos,
+        enviados: t.enviados + r.enviados,
+        entregados: t.entregados + r.entregados,
+        rechazados: t.rechazados + r.rechazados,
+        cancelados: t.cancelados + r.cancelados,
+        pendientes: t.pendientes + r.pendientes,
+        ventas: t.ventas + r.ventas,
+        bruto: t.bruto + r.bruto,
+        total_ads: t.total_ads + r.total_ads,
+        total_commission: t.total_commission + r.total_commission,
+        gestion: t.gestion + r.gestion,
+        gastos: t.gastos + r.gastos,
+        pnl_teorico: t.pnl_teorico + r.pnl_teorico,
+        pnl_real: t.pnl_real + r.pnl_real,
+        metaBase: t.metaBase + (r.channels[0]?.base || 0),
+        tiktokBase: t.tiktokBase + (r.channels[1]?.base || 0),
+        channels: channelTotals,
+      };
+    },
     {
       pedidos: 0, enviados: 0, entregados: 0, rechazados: 0,
       cancelados: 0, pendientes: 0, ventas: 0, bruto: 0,
-      total_ads: 0, gestion: 0, gastos: 0, pnl_teorico: 0, pnl_real: 0,
+      total_ads: 0, total_commission: 0, gestion: 0, gastos: 0, pnl_teorico: 0, pnl_real: 0,
+      metaBase: 0, tiktokBase: 0,
+      channels: {} as Record<string, { base: number; total: number }>,
     }
   );
 
   const totalTasaEntrega = totals.enviados > 0 ? totals.entregados / totals.enviados : 0;
   const totalPctMargin = totals.ventas > 0 ? totals.pnl_real / totals.ventas : 0;
+  const totalPctGastos = totals.ventas > 0 ? totals.gastos / totals.ventas : 0;
   const totalCpaEnviado = totals.enviados > 0 ? totals.total_ads / totals.enviados : 0;
   const totalCpaReal = totals.entregados > 0 ? totals.total_ads / totals.entregados : 0;
 
   return (
     <TooltipProvider>
       <Card className="p-0 overflow-hidden">
-        <div className="max-h-[70vh] overflow-auto">
-          <Table>
+        <div className="overflow-x-auto">
+          <Table className="[&_td]:py-1 [&_td]:px-2 [&_th]:px-2 text-xs">
             <TableHeader className="sticky top-0 z-20">
-              {/* Group header row */}
-              <TableRow className="border-b-0 bg-muted">
+              {/* Group header row — desktop only */}
+              <TableRow className="border-b-0 bg-muted hidden sm:table-row">
                 {columnGroups.map((group) => (
                   <TableHead
                     key={group.label}
@@ -148,87 +214,163 @@ export function DailyTable({ rows, onRowClick }: DailyTableProps) {
                   group.cols.map((h, hi) => (
                     <TableHead
                       key={h}
-                      className={`${h === "Dia" ? "w-20 sticky left-0 bg-muted/80 z-30" : "text-right"} ${
+                      className={`${h === "Dia" ? "w-16 sm:w-20 sticky left-0 bg-muted/80 z-30" : "text-right"} ${
                         hi === 0 && gi > 0 ? "border-l border-border/40" : ""
-                      } py-2.5 bg-muted/80`}
+                      } py-2.5 bg-muted/80 ${hid(h)}`}
                     >
-                      <InfoHeader label={h} />
+                      {h === "Ads" ? (
+                        <button
+                          onClick={() => setShowAdsBreakdown(true)}
+                          className="inline-flex items-center gap-1 hover:text-foreground cursor-pointer font-semibold"
+                        >
+                          Ads
+                          <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/20 hover:bg-primary/20 transition-colors font-medium text-xs">+ Desglosar</span>
+                        </button>
+                      ) : h === "Ads Tot." ? (
+                        <button
+                          onClick={() => setShowAdsBreakdown(false)}
+                          className="inline-flex items-center gap-1 hover:text-foreground cursor-pointer font-semibold"
+                        >
+                          Ads Tot.
+                          <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/20 hover:bg-primary/20 transition-colors font-medium text-xs">- Colapsar</span>
+                        </button>
+                      ) : (
+                        <InfoHeader label={h} />
+                      )}
                     </TableHead>
                   ))
                 )}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((row, i) => {
+              {visibleRows.map((row, i) => {
                 const { day, weekday } = formatDate(row.fecha);
                 const isWeekend = weekday === "sáb" || weekday === "dom" || weekday === "sáb." || weekday === "dom.";
+                const pctGastos = row.ventas > 0 ? row.gastos / row.ventas : 0;
+
                 return (
                   <TableRow
                     key={row.fecha}
-                    className={`text-sm cursor-pointer transition-colors hover:bg-primary/5 ${
+                    className={`cursor-pointer transition-colors hover:bg-primary/5 ${
                       i % 2 === 0 ? "bg-background" : "bg-muted/20"
                     } ${isWeekend ? "bg-muted/30" : ""}`}
-                    onClick={() => onRowClick(row.fecha, row.meta_ads, row.tiktok_ads)}
+                    onClick={() => onRowClick(row.fecha, row.channels)}
                   >
-                    {/* Date */}
+                    {/* Dia — always visible */}
                     <TableCell className="font-medium sticky left-0 bg-inherit z-10">
                       <div className="flex flex-col">
                         <span>{day}</span>
                         <span className="text-xs text-muted-foreground capitalize">{weekday}</span>
                       </div>
                     </TableCell>
-                    {/* Orders group */}
-                    <TableCell className="text-right tabular-nums">{row.pedidos}</TableCell>
+                    {/* Ped. — hidden mobile */}
+                    <TableCell className={`text-right tabular-nums ${hid("Ped.")}`}>{row.pedidos}</TableCell>
+                    {/* Env. — visible */}
                     <TableCell className="text-right tabular-nums">{row.enviados}</TableCell>
-                    <TableCell className="text-right tabular-nums font-medium">{row.entregados}</TableCell>
-                    <TableCell className={`text-right tabular-nums ${row.pendientes > 0 ? "text-amber-600" : ""}`}>{row.pendientes}</TableCell>
-                    <TableCell className={`text-right tabular-nums ${row.rechazados > 0 ? "text-red-500" : ""}`}>{row.rechazados}</TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">{row.cancelados}</TableCell>
-                    <TableCell className={`text-right tabular-nums border-r border-border/40 ${
+                    {/* Ent. — hidden mobile */}
+                    <TableCell className={`text-right tabular-nums font-medium ${hid("Ent.")}`}>{row.entregados}</TableCell>
+                    {/* Pend. — hidden mobile */}
+                    <TableCell className={`text-right tabular-nums ${hid("Pend.")} ${row.pendientes > 0 ? "text-amber-600" : ""}`}>{row.pendientes}</TableCell>
+                    {/* Rech. — hidden mobile */}
+                    <TableCell className={`text-right tabular-nums ${hid("Rech.")} ${row.rechazados > 0 ? "text-red-500" : ""}`}>{row.rechazados}</TableCell>
+                    {/* Canc. — hidden mobile */}
+                    <TableCell className={`text-right tabular-nums text-muted-foreground ${hid("Canc.")}`}>{row.cancelados}</TableCell>
+                    {/* %Ent — hidden mobile */}
+                    <TableCell className={`text-right tabular-nums border-r border-border/40 ${hid("%Ent")} ${
                       row.tasa_entrega > 0 && row.tasa_entrega < 0.6 ? "text-red-500 font-medium" : row.tasa_entrega >= 0.8 ? "text-emerald-600 font-medium" : ""
                     }`}>{pct(row.tasa_entrega)}</TableCell>
-                    {/* Finance group */}
-                    <ValueCell value={eur(row.ventas)} />
-                    <ValueCell value={eur(row.bruto)} />
-                    <ValueCell value={eur(row.total_ads)} />
-                    <ValueCell value={eur(row.gestion)} />
-                    <TableCell className="text-right tabular-nums border-r border-border/40">{eur(row.gastos)}</TableCell>
-                    {/* Result group */}
-                    <ValueCell value={eur(row.pnl_teorico)} negative={row.pnl_teorico < 0} positive={row.pnl_teorico > 0} />
-                    <ValueCell value={eur(row.pnl_real)} negative={row.pnl_real < 0} positive={row.pnl_real > 0} bold />
+                    {/* Ventas — visible */}
+                    <ValueCell col="Ventas" value={eur(row.ventas)} />
+                    {/* Bruto — hidden mobile */}
+                    <ValueCell col="Bruto" value={eur(row.bruto)} />
+                    
+                    {/* Ads Columns */}
+                    {!showAdsBreakdown ? (
+                      <ValueCell col="Ads" value={eur(row.total_ads - row.total_commission)} />
+                    ) : (
+                      <>
+                        {channelNames.map((nm) => (
+                          <ValueCell key={nm} col={nm} value={eur(channelBaseOf(row, nm))} />
+                        ))}
+                        <ValueCell col="Ads Tot." value={eur(row.total_ads - row.total_commission)} />
+                      </>
+                    )}
+
+                    {/* Comis. — hidden mobile */}
+                    <ValueCell col="Comis." value={row.total_commission > 0 ? eur(row.total_commission) : "—"} />
+                    {/* Gest. — hidden mobile */}
+                    <ValueCell col="Gest." value={eur(row.gestion)} />
+                    {/* Gastos — hidden mobile */}
+                    <TableCell className={`text-right tabular-nums ${hid("Gastos")}`}>{eur(row.gastos)}</TableCell>
+                    {/* %G — hidden mobile */}
+                    <TableCell className={`text-right tabular-nums text-muted-foreground border-r border-border/40 ${hid("%G")}`}>{pct(pctGastos)}</TableCell>
+                    {/* P&L Teo. — visible */}
+                    <ValueCell col="P&L Teo." value={eur(row.pnl_teorico)} negative={row.pnl_teorico < 0} positive={row.pnl_teorico > 0} />
+                    {/* P&L Real — visible */}
+                    <ValueCell col="P&L Real" value={eur(row.pnl_real)} negative={row.pnl_real < 0} positive={row.pnl_real > 0} bold />
+                    {/* %Vtas — visible */}
                     <TableCell className={`text-right tabular-nums border-r border-border/40 ${
                       row.pct_margin < 0 ? "text-red-500" : row.pct_margin > 0.2 ? "text-emerald-600" : ""
                     }`}>{pct(row.pct_margin)}</TableCell>
-                    {/* CPA group */}
-                    <TableCell className="text-right tabular-nums">{eur(row.cpa_enviado)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{eur(row.cpa_real)}</TableCell>
+                    {/* CPA Env. — hidden mobile */}
+                    <TableCell className={`text-right tabular-nums ${hid("CPA Env.")}`}>{eur(row.cpa_enviado)}</TableCell>
+                    {/* CPA Real — hidden mobile */}
+                    <TableCell className={`text-right tabular-nums ${hid("CPA Real")}`}>{eur(row.cpa_real)}</TableCell>
                   </TableRow>
                 );
               })}
 
               {/* Totals row */}
-              <TableRow className="font-semibold bg-primary/5 text-sm border-t-2 border-primary/20 hover:bg-primary/5">
+              <TableRow className="font-semibold bg-primary/5 border-t-2 border-primary/20 hover:bg-primary/5">
                 <TableCell className="sticky left-0 bg-primary/5 z-10">
                   <span className="text-primary font-bold">TOTAL</span>
                 </TableCell>
-                <TableCell className="text-right tabular-nums">{totals.pedidos}</TableCell>
+                <TableCell className={`text-right tabular-nums ${hid("Ped.")}`}>{totals.pedidos}</TableCell>
                 <TableCell className="text-right tabular-nums">{totals.enviados}</TableCell>
-                <TableCell className="text-right tabular-nums">{totals.entregados}</TableCell>
-                <TableCell className="text-right tabular-nums">{totals.pendientes}</TableCell>
-                <TableCell className="text-right tabular-nums">{totals.rechazados}</TableCell>
-                <TableCell className="text-right tabular-nums">{totals.cancelados}</TableCell>
-                <TableCell className="text-right tabular-nums border-r border-border/40">{pct(totalTasaEntrega)}</TableCell>
+                <TableCell className={`text-right tabular-nums ${hid("Ent.")}`}>{totals.entregados}</TableCell>
+                <TableCell className={`text-right tabular-nums ${hid("Pend.")}`}>{totals.pendientes}</TableCell>
+                <TableCell className={`text-right tabular-nums ${hid("Rech.")}`}>{totals.rechazados}</TableCell>
+                <TableCell className={`text-right tabular-nums ${hid("Canc.")}`}>{totals.cancelados}</TableCell>
+                <TableCell className={`text-right tabular-nums border-r border-border/40 ${hid("%Ent")}`}>{pct(totalTasaEntrega)}</TableCell>
                 <TableCell className="text-right tabular-nums">{eur(totals.ventas)}</TableCell>
-                <TableCell className="text-right tabular-nums">{eur(totals.bruto)}</TableCell>
-                <TableCell className="text-right tabular-nums">{eur(totals.total_ads)}</TableCell>
-                <TableCell className="text-right tabular-nums">{eur(totals.gestion)}</TableCell>
-                <TableCell className="text-right tabular-nums border-r border-border/40">{eur(totals.gastos)}</TableCell>
-                <ValueCell value={eur(totals.pnl_teorico)} negative={totals.pnl_teorico < 0} positive={totals.pnl_teorico > 0} bold />
-                <ValueCell value={eur(totals.pnl_real)} negative={totals.pnl_real < 0} positive={totals.pnl_real > 0} bold />
+                <TableCell className={`text-right tabular-nums ${hid("Bruto")}`}>{eur(totals.bruto)}</TableCell>
+                
+                {/* Ads Columns Totals */}
+                {!showAdsBreakdown ? (
+                  <TableCell className={`text-right tabular-nums ${hid("Ads")}`}>{eur(totals.total_ads - totals.total_commission)}</TableCell>
+                ) : (
+                  <>
+                    {channelNames.map((nm) => (
+                      <TableCell key={nm} className={`text-right tabular-nums ${hid(nm)}`}>{eur(totals.channels[nm]?.base || 0)}</TableCell>
+                    ))}
+                    <TableCell className={`text-right tabular-nums ${hid("Ads Tot.")}`}>{eur(totals.total_ads - totals.total_commission)}</TableCell>
+                  </>
+                )}
+
+                <TableCell className={`text-right tabular-nums ${hid("Comis.")}`}>{totals.total_commission > 0 ? eur(totals.total_commission) : "—"}</TableCell>
+                <TableCell className={`text-right tabular-nums ${hid("Gest.")}`}>{eur(totals.gestion)}</TableCell>
+                <TableCell className={`text-right tabular-nums ${hid("Gastos")}`}>{eur(totals.gastos)}</TableCell>
+                <TableCell className={`text-right tabular-nums text-muted-foreground border-r border-border/40 ${hid("%G")}`}>{pct(totalPctGastos)}</TableCell>
+                <ValueCell col="P&L Teo." value={eur(totals.pnl_teorico)} negative={totals.pnl_teorico < 0} positive={totals.pnl_teorico > 0} bold />
+                <ValueCell col="P&L Real" value={eur(totals.pnl_real)} negative={totals.pnl_real < 0} positive={totals.pnl_real > 0} bold />
                 <TableCell className="text-right tabular-nums border-r border-border/40">{pct(totalPctMargin)}</TableCell>
-                <TableCell className="text-right tabular-nums">{eur(totalCpaEnviado)}</TableCell>
-                <TableCell className="text-right tabular-nums">{eur(totalCpaReal)}</TableCell>
+                <TableCell className={`text-right tabular-nums ${hid("CPA Env.")}`}>{eur(totalCpaEnviado)}</TableCell>
+                <TableCell className={`text-right tabular-nums ${hid("CPA Real")}`}>{eur(totalCpaReal)}</TableCell>
               </TableRow>
+
+              {/* Expand / collapse */}
+              {rows.length > 5 && (
+                <TableRow className="hover:bg-transparent border-0">
+                  <TableCell colSpan={showAdsBreakdown ? 20 + channelNames.length : 20} className="text-center py-1.5">
+                    <button
+                      onClick={() => setShowAll((s) => !s)}
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {showAll ? "▲ Ver menos" : `▼ Ver mes completo (${rows.length} días)`}
+                    </button>
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>
